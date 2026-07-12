@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Galamtor</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ═══════════════════════════════════════════════
+         TOP BAR — Tab Strip + Navigation + URL Bar
+         ═══════════════════════════════════════════════ -->
+    <header id="top-bar">
+      <div class="drag-region"></div>
+
+      <!-- Tab Strip with Drag & Drop -->
+      <div id="tab-strip">
+        <div id="tabs-container">
+          <!-- Tabs rendered by JS — each is draggable -->
+        </div>
+        <button id="btn-new-tab" class="icon-btn-sm" title="Жаңа қойынды (⌘T)">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+      </div>
+
+      <!-- Navigation Bar -->
+      <div id="nav-bar">
+        <div class="nav-controls">
+          <button id="btn-back" class="nav-btn" title="Артқа" disabled>
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button id="btn-forward" class="nav-btn" title="Алға" disabled>
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button id="btn-refresh" class="nav-btn" title="Қайта жүктеу (⌘R)">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
+        </div>
+
+        <!-- URL Bar with Galamtor Lens -->
+        <form id="url-form" class="url-bar-form">
+          <div class="url-bar" id="url-bar">
+            <svg class="url-lock-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <input type="text" id="url-input" placeholder="Іздеу немесе URL енгізу..." autocomplete="off" spellcheck="false">
+            <!-- Galamtor Lens Button -->
+            <button type="button" id="btn-lens" class="lens-btn" title="Galamtor Lens — суретпен іздеу">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </button>
+            <!-- Hidden file input for Lens -->
+            <input type="file" id="lens-file-input" accept="image/*" style="display:none">
+          </div>
+        </form>
+
+        <div class="nav-actions">
+          <button id="btn-pip-toggle" class="nav-btn" title="PIP музыка">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><rect x="12" y="10" width="8" height="6" rx="1" ry="1" fill="currentColor" opacity="0.3"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </button>
+          <button id="btn-home" class="nav-btn" title="Басты бет">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ═══════════════════════════════════════════════
+         CONTENT AREA — Sidebar Dock + Main View
+         ═══════════════════════════════════════════════ -->
+    <div id="content-area">
+
+      <!-- Arc-Style Sidebar Dock (Drop Zone for Pinning) -->
+      <aside id="sidebar">
+        <div class="sidebar-logo">G</div>
+        <div class="sidebar-divider"></div>
+
+        <!-- Default Pinned Icons -->
+        <nav id="dock-icons" class="dock-icons">
+          <button class="dock-btn" data-url="https://kaspi.kz" title="Kaspi.kz">
+            <span class="dock-badge kaspi-bg">K</span>
+          </button>
+          <button class="dock-btn" data-url="https://egov.kz" title="eGov.kz">
+            <span class="dock-badge egov-bg">E</span>
+          </button>
+          <button class="dock-btn" data-url="https://youtube.com" title="YouTube">
+            <span class="dock-badge youtube-bg">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="white"><path d="M23.498 6.163a3.003 3.003 0 0 0-2.11-2.107C19.522 3.5 12 3.5 12 3.5s-7.522 0-9.388.556a3.003 3.003 0 0 0-2.11 2.107C0 8.029 0 12 0 12s0 3.971.502 5.837a3.003 3.003 0 0 0 2.11 2.107C4.478 20.5 12 20.5 12 20.5s7.522 0 9.388-.556a3.003 3.003 0 0 0 2.11-2.107C24 15.971 24 12 24 12s0-3.971-.502-5.837zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+            </span>
+          </button>
+          <button class="dock-btn" data-url="https://kinopoisk.ru" title="Кинопоиск">
+            <span class="dock-badge kino-bg">К</span>
+          </button>
+        </nav>
+
+        <!-- Drop Zone Indicator (shown when dragging tab over sidebar) -->
+        <div id="sidebar-drop-zone" class="sidebar-drop-zone">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </div>
+
+        <div class="sidebar-spacer"></div>
+
+        <div class="dock-bottom">
+          <button id="btn-clear-cache" class="dock-btn" title="Кэш тазарту">
+            <span class="dock-badge tool-bg">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/><path d="M5 6l1 14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-14"/></svg>
+            </span>
+          </button>
+        </div>
+      </aside>
+
+      <!-- Main Content View -->
+      <main id="main-view">
+        <div id="loading-bar"></div>
+
+        <!-- Welcome / New Tab Screen -->
+        <div id="welcome-screen" class="active-view">
+          <div class="welcome-content">
+            <h1 class="welcome-logo">Galamtor</h1>
+
+            <!-- Search with Lens Drop Zone -->
+            <form id="welcome-search-form" class="welcome-search-form">
+              <div class="welcome-search-box" id="welcome-search-box">
+                <svg class="search-icon-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="welcome-search-input" placeholder="Ғаламтордан іздеу..." autocomplete="off" spellcheck="false">
+                <!-- Lens icon in welcome search -->
+                <button type="button" id="btn-lens-welcome" class="lens-btn-welcome" title="Суретпен іздеу (Galamtor Lens)">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </button>
+                <button type="submit" class="search-submit-btn">Іздеу</button>
+              </div>
+              <!-- Drag overlay for image lens -->
+              <div id="lens-drop-overlay" class="lens-drop-overlay">
+                <div class="lens-drop-content">
+                  <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  <span>Суретті осында сүйреңіз</span>
+                </div>
+              </div>
+            </form>
+
+            <!-- Shortcut Cards -->
+            <section class="shortcuts-grid">
+              <div class="shortcut-card" data-url="https://kaspi.kz">
+                <div class="sc-icon kaspi-bg">K</div>
+                <span class="sc-label">Kaspi.kz</span>
+                <span class="sc-desc">Төлемдер, аударымдар</span>
+              </div>
+              <div class="shortcut-card" data-url="https://youtube.com">
+                <div class="sc-icon youtube-bg">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M23.498 6.163a3.003 3.003 0 0 0-2.11-2.107C19.522 3.5 12 3.5 12 3.5s-7.522 0-9.388.556a3.003 3.003 0 0 0-2.11 2.107C0 8.029 0 12 0 12s0 3.971.502 5.837a3.003 3.003 0 0 0 2.11 2.107C4.478 20.5 12 20.5 12 20.5s7.522 0 9.388-.556a3.003 3.003 0 0 0 2.11-2.107C24 15.971 24 12 24 12s0-3.971-.502-5.837zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                </div>
+                <span class="sc-label">YouTube</span>
+                <span class="sc-desc">Бейнероликтер</span>
+              </div>
+              <div class="shortcut-card" data-url="https://kinopoisk.ru">
+                <div class="sc-icon kino-bg">К</div>
+                <span class="sc-label">Кинопоиск</span>
+                <span class="sc-desc">Фильмдер, сериалдар</span>
+              </div>
+              <div class="shortcut-card" data-url="https://egov.kz">
+                <div class="sc-icon egov-bg">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <span class="sc-label">eGov.kz</span>
+                <span class="sc-desc">Мемлекеттік қызметтер</span>
+              </div>
+            </section>
+          </div>
+          <footer class="welcome-footer"><span>Қазақстанда жасалған 🇰🇿</span></footer>
+        </div>
+
+        <!-- Webviews Container -->
+        <div id="webviews-container"></div>
+      </main>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         PIP MUSIC DOCK (Floating Mini Player)
+         ═══════════════════════════════════════════════ -->
+    <div id="pip-dock" class="pip-dock">
+      <div class="pip-header">
+        <span class="pip-title">🎵 Music</span>
+        <div class="pip-header-actions">
+          <button id="pip-expand" class="pip-ctrl-btn" title="Кеңейту">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          </button>
+          <button id="pip-close" class="pip-ctrl-btn" title="Жабу">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="pip-body">
+        <div class="pip-album-art">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <div class="pip-track-info">
+          <div class="pip-track-name">Ешқандай трек жоқ</div>
+          <div class="pip-track-artist">—</div>
+        </div>
+      </div>
+      <div class="pip-controls">
+        <button id="pip-prev" class="pip-play-btn" title="Алдыңғы">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+        </button>
+        <button id="pip-play" class="pip-play-btn pip-play-main" title="Ойнату">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </button>
+        <button id="pip-next" class="pip-play-btn" title="Келесі">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M16 6h2v12h-2zm-3.5 6L4 6v12z"/></svg>
+        </button>
+      </div>
+      <div class="pip-progress">
+        <div class="pip-progress-bar" id="pip-progress-bar"></div>
+      </div>
+    </div>
+
+    <!-- Right-click Context Menu for Sidebar -->
+    <div id="context-menu" class="context-menu">
+      <button class="context-menu-item" id="ctx-open">Ашу</button>
+      <button class="context-menu-item" id="ctx-new-tab">Жаңа қойындыда ашу</button>
+      <div class="context-menu-divider"></div>
+      <button class="context-menu-item danger" id="ctx-remove">Жою</button>
+    </div>
+
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
