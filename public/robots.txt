@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Disallow auth callback — no need to index
+Disallow: /auth.html
+
+# Sitemap location
+Sitemap: https://galamtor.web.app/sitemap.xml

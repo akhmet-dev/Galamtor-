@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8">
+  <title>Galamtor бұлттық жүйесі — Синхрондау</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="assets/icon.png">
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #07090e;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      text-align: center;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    .auth-card {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(0, 242, 254, 0.2);
+      border-radius: 24px;
+      padding: 40px 32px;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 242, 254, 0.1);
+    }
+    .brand-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 24px rgba(0, 242, 254, 0.3);
+    }
+    h2 {
+      background: linear-gradient(135deg, #ffffff 30%, #00f2fe 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 12px;
+      font-weight: 700;
+      font-size: 24px;
+    }
+    #status {
+      color: rgba(255,255,255,0.75);
+      font-size: 15px;
+      margin-top: 12px;
+    }
+    #logs {
+      margin: 24px auto 0;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 11px;
+      color: #8e9eab;
+      text-align: left;
+      width: 100%;
+      background: rgba(0,0,0,0.4);
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      max-height: 180px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .spinner {
+      display: inline-block;
+      width: 32px;
+      height: 32px;
+      border: 3px solid rgba(0,242,254,0.15);
+      border-top-color: #00f2fe;
+      border-radius: 50%;
+      animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      margin: 16px auto 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #spinner { display: none; }
+    .back-link {
+      display: inline-block;
+      margin-top: 24px;
+      color: rgba(255,255,255,0.5);
+      font-size: 13px;
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+    .back-link:hover {
+      color: #00f2fe;
+    }
+  </style>
+</head>
+<body>
+  <div class="auth-card">
+    <img src="assets/icon.png" alt="Galamtor" class="brand-icon" onerror="this.style.display='none'">
+    <h2>Galamtor Синхрондау хабы</h2>
+    <div id="spinner" class="spinner"></div>
+    <p id="status">Байланыс орнатылуда...</p>
+    <div id="retry-container" style="margin-top: 20px; min-height: 40px; display: flex; align-items: center; justify-content: center;"></div>
+    <div id="logs">[Logs Initialized]</div>
+    <a href="/" class="back-link">← Ресми сайтқа қайту</a>
+  </div>
+
+  <script>
+    function log(msg, level = 'info') {
+      const prefix = level === 'error' ? '❌' : level === 'warn' ? '⚠️' : '✅';
+      const line = `\n[${new Date().toLocaleTimeString()}] ${prefix} ${msg}`;
+      const logEl = document.getElementById('logs');
+      logEl.innerText += line;
+      logEl.scrollTop = logEl.scrollHeight;
+      console[level === 'error' ? 'error' : 'log'](`[auth-redirect] ${msg}`);
+    }
+
+    function setStatus(msg) {
+      document.getElementById('status').innerText = msg;
+    }
+
+    function showSpinner(show) {
+      document.getElementById('spinner').style.display = show ? 'inline-block' : 'none';
+    }
+
+    const firebaseConfig = {
+      apiKey:            "AIzaSyDkEReqxwG0_IR12_lNFioKSPEdipqcPZ8",
+      authDomain:        "galamtor-browser-974cc.web.app",
+      projectId:         "galamtor-browser-974cc",
+      storageBucket:     "galamtor-browser-974cc.firebasestorage.app",
+      messagingSenderId: "984286831243",
+      appId:             "1:984286831243:web:e694bfabf858f946eeaa8e"
+    };
+
+    log("Firebase SDK loading...");
+    firebase.initializeApp(firebaseConfig);
+    const auth     = firebase.auth();
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    log("Firebase initialized.");
+
+    let callbackSent = false;
+
+    function getRedirectResultWithRetry(retries = 3, delay = 1000) {
+      return auth.getRedirectResult()
+        .catch(async (error) => {
+          log(`getRedirectResult failed: ${error.code || 'unknown'} - ${error.message}`, 'warn');
+          const isNetworkError = error.code === 'auth/network-request-failed' || 
+                                 error.code === 'auth/timeout' ||
+                                 (error.message && error.message.toLowerCase().includes('network')) ||
+                                 (error.message && error.message.toLowerCase().includes('timeout'));
+                                 
+          if (isNetworkError && retries > 0) {
+            log(`Retrying getRedirectResult in ${delay}ms... (${retries} attempts left)`, 'warn');
+            await auth.signOut().catch(() => {});
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return getRedirectResultWithRetry(retries - 1, delay);
+          }
+          throw error;
+        });
+    }
+
+    function showRetryButton(retryFn) {
+      const container = document.getElementById('retry-container');
+      container.innerHTML = '';
+      
+      const btn = document.createElement('button');
+      btn.id = 'retry-btn';
+      btn.innerText = 'Қайта жіберу / Повторить попытку';
+      btn.style.cssText = `
+        background: linear-gradient(135deg, #00f2fe, #4facfe);
+        color: #07090e;
+        border: none;
+        padding: 10px 24px;
+        font-size: 13px;
+        font-weight: 600;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3);
+        outline: none;
+      `;
+      
+      btn.onclick = () => {
+        container.innerHTML = '';
+        retryFn();
+      };
+      
+      container.appendChild(btn);
+    }
+
+    log("Checking for pending redirect result first (unconditional)...");
+    setStatus("Google байланысы тексерілуде...");
+    showSpinner(true);
+
+    getRedirectResultWithRetry()
+      .then(async (result) => {
+        const hasRedirectUser = !!(result && result.user);
+        log(`getRedirectResult resolved. user present: ${hasRedirectUser}`);
+
+        if (hasRedirectUser) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+
+          const credential        = result.credential;
+          const googleIdToken     = credential ? credential.idToken     : null;
+          const googleAccessToken = credential ? credential.accessToken : null;
+
+          log(`Credential extracted. idToken: ${!!googleIdToken}, accessToken: ${!!googleAccessToken}`);
+
+          if (!googleIdToken && !googleAccessToken) {
+            log("result.credential held no usable token fields!", 'error');
+            setStatus("Сәйкестендіру мәліметтері алынбады. Қайталап көріңіз.");
+            showSpinner(false);
+            return;
+          }
+
+          if (callbackSent) {
+            log("Duplicate callback suppressed.", 'warn');
+            return;
+          }
+          callbackSent = true;
+
+          async function sendCredentialsToLoopback() {
+            setStatus("Жүйеге кіру сәтті! Galamtor-ға жіберілуде...");
+            showSpinner(true);
+            
+            try {
+              const response = await fetch('http://127.0.0.1:4242/callback', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  googleIdToken,
+                  googleAccessToken,
+                  email:       result.user.email,
+                  displayName: result.user.displayName,
+                  photoURL:    result.user.photoURL,
+                  uid:         result.user.uid
+                })
+              });
+
+              if (response.ok) {
+                log("POST to loopback server succeeded (HTTP 200).");
+                setStatus("✅ Galamtor синхрондалды! Бұл терезені жабуға болады.");
+                showSpinner(false);
+                setTimeout(() => window.close(), 2500);
+              } else {
+                const text = await response.text();
+                log(`Loopback server responded ${response.status}: ${text}`, 'error');
+                setStatus(`Қате: Сервер ${response.status} қайтарды.`);
+                showSpinner(false);
+                showRetryButton(sendCredentialsToLoopback);
+              }
+            } catch (fetchErr) {
+              log(`fetch() to loopback failed: ${fetchErr.message}`, 'error');
+              setStatus("Galamtor қосымшасы қол жетімді емес. Қайталап көріңіз.");
+              showSpinner(false);
+              showRetryButton(sendCredentialsToLoopback);
+            }
+          }
+
+          await sendCredentialsToLoopback();
+
+        } else {
+          const urlParams = new URLSearchParams(window.location.search);
+          let mode = urlParams.get('mode');
+          
+          if (!mode || mode.trim() === '') {
+            mode = 'login';
+          }
+          log(`No redirect result. Active mode path: "${mode}"`);
+
+          if (mode === 'login') {
+            log("mode=login detected — initiating signInWithRedirect...");
+            setStatus("Google жүйесіне бағытталуда...");
+
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+
+            await new Promise(resolve => setTimeout(resolve, 0));
+            await auth.signOut().catch(() => {});
+
+            auth.signInWithRedirect(provider)
+              .catch(err => {
+                log(`signInWithRedirect error: ${err.message}`, 'error');
+                setStatus("Синхрондау қатесі: " + err.message);
+                showSpinner(false);
+              });
+          } else {
+            log("Idle state.", 'warn');
+            setStatus("Жүйеге кіру күтілуде. Қолданбадағы батырманы басыңыз.");
+            showSpinner(false);
+          }
+        }
+      })
+      .catch(async (error) => {
+        log(`getRedirectResult ERROR [${error.code}]: ${error.message}`, 'error');
+        showSpinner(false);
+        await auth.signOut().catch(() => {});
+        if (error.code === 'auth/account-exists-with-different-credential') {
+          setStatus("Бұл email басқа жүйеге кіру әдісімен тіркелген.");
+        } else {
+          setStatus(`OAuth қатесі: ${error.message}`);
+        }
+      });
+  </script>
+</body>
+</html>

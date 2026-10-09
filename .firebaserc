@@ -1,0 +1,18 @@
+{
+  "projects": {
+    "default": "galamtor-browser-974cc"
+  },
+  "targets": {
+    "galamtor-browser-974cc": {
+      "hosting": {
+        "galamtor": [
+          "galamtor"
+        ],
+        "main": [
+          "galamtor-browser-974cc"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

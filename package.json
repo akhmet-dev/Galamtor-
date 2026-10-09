@@ -1,16 +1,92 @@
 {
   "name": "galamtor",
-  "version": "1.0.0",
+  "productName": "Galamtor",
+  "version": "1.0.1",
   "description": "Galamtor - Kazakhstani Browser",
   "main": "index.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-builder --mac --dir",
+    "pack": "electron-builder --mac",
+    "release": "electron-builder --publish always"
+  },
+  "dependencies": {
+    "electron-log": "^5.2.0",
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "electron": "^32.3.3",
+    "electron-builder": "^26.15.3",
     "electron-reload": "^2.0.0-alpha.1"
   },
   "allowScripts": {
     "electron@32.3.3": true
+  },
+  "build": {
+    "appId": "com.galamtor.app",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "akhmet-dev",
+        "repo": "Galamtor-"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "dmg": {
+      "title": "Galamtor Browser",
+      "window": {
+        "width": 600,
+        "height": 450
+      },
+      "iconSize": 120,
+      "iconTextSize": 12,
+      "background": "build/dmg-background.png",
+      "contents": [
+        {
+          "x": 160,
+          "y": 220,
+          "type": "file"
+        },
+        {
+          "x": 440,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
   }
 }

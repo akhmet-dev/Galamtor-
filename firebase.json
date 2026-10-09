@@ -1,0 +1,42 @@
+{
+  "hosting": [
+    {
+      "target": "galamtor",
+      "public": "public",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ]
+    },
+    {
+      "target": "main",
+      "public": "public",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "redirects": [
+        {
+          "source": "**",
+          "destination": "https://galamtor.web.app",
+          "type": 301
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "providers": {
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Galamtor",
+        "supportEmail": "s.akhmet198@gmail.com",
+        "authorizedRedirectUris": [
+          "https://galamtor.web.app",
+          "https://galamtor.firebaseapp.com",
+          "http://localhost"
+        ]
+      }
+    }
+  }
+}

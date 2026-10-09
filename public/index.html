@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ғаламтор — Қазақстанның Тұңғыш Ұлттық Веб-Браузері | Gemini AI</title>
+
+<!-- ── SEO Core ──────────────────────────────────────── -->
+<meta name="description" content="Ғаламтор — Қазақстанның тұңғыш ұлттық веб-браузері. Кіріктірілген Gemini 2.5 Flash AI, 100% AdBlock қорғаныш, ұлттық порталдарға жылдам кіру. macOS үшін тегін жүктеңіз.">
+<meta name="keywords" content="Ғаламтор, Galamtor, қазақ браузері, казахский браузер, ұлттық браузер, Gemini AI браузер, Қазақстан браузер, macOS браузер, AdBlock, eGov браузер">
+<meta name="author" content="Ғаламтор Team">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+<link rel="canonical" href="https://galamtor.web.app/">
+
+<!-- ── Open Graph (Facebook / WhatsApp / Telegram) ──── -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://galamtor.web.app/">
+<meta property="og:site_name" content="Ғаламтор">
+<meta property="og:title" content="Ғаламтор — Қазақстанның Тұңғыш Ұлттық Веб-Браузері">
+<meta property="og:description" content="Gemini 2.5 Flash AI кіріктірілген, 100% AdBlock қорғанышы бар Қазақстанның ұлттық браузері. macOS үшін тегін жүктеңіз.">
+<meta property="og:image" content="https://galamtor.web.app/assets/icon.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta property="og:locale" content="kk_KZ">
+<meta property="og:locale:alternate" content="ru_KZ">
+
+<!-- ── Twitter Card ──────────────────────────────────── -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ғаламтор — Қазақстанның Тұңғыш Ұлттық Веб-Браузері">
+<meta name="twitter:description" content="Gemini 2.5 Flash AI кіріктірілген ұлттық браузер. 100% AdBlock. Kaspi, eGov, Enbek порталдарына бір басуымен.">
+<meta name="twitter:image" content="https://galamtor.web.app/assets/icon.png">
+
+<!-- ── Favicons ──────────────────────────────────────── -->
+<link rel="icon" type="image/png" href="assets/icon.png">
+<link rel="apple-touch-icon" href="assets/icon.png">
+<meta name="theme-color" content="#f4efe3">
+<meta name="msapplication-TileColor" content="#17120e">
+
+<!-- ── Structured Data (Google Rich Results) ─────────── -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Ғаламтор",
+  "alternateName": ["Galamtor", "Galamtor Browser"],
+  "applicationCategory": "BrowserApplication",
+  "operatingSystem": "macOS",
+  "description": "Қазақстанның тұңғыш ұлттық веб-браузері. Gemini 2.5 Flash AI кіріктірілген, 100% AdBlock қорғаныш, Kaspi.kz, eGov.kz порталдарына жылдам кіру.",
+  "url": "https://galamtor.web.app/",
+  "downloadUrl": "https://github.com/akhmet-dev/Galamtor-/releases",
+  "softwareVersion": "1.0.0",
+  "releaseNotes": "Бірінші ресми нұсқа: Gemini 2.5 Flash AI, AdBlock Shield, Ғаламтор Lens, ұлттық хаб.",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "KZT"
+  },
+  "author": {
+    "@type": "Organization",
+    "name": "Ғаламтор Team",
+    "url": "https://galamtor.web.app/"
+  },
+  "inLanguage": "kk",
+  "keywords": "браузер, Қазақстан, AI, Gemini, AdBlock, ұлттық",
+  "screenshot": "https://galamtor.web.app/assets/icon.png",
+  "featureList": [
+    "Gemini 2.5 Flash AI кіріктірілген",
+    "100% AdBlock қорғаныш",
+    "Ғаламтор Lens — суретпен іздеу",
+    "Kaspi.kz, eGov.kz, Enbek.kz жылдам кіру",
+    "PIP музыкалық ойнатқыш"
+  ]
+}
+</script>
+
+<!-- ── Auth redirect (keep!) ─────────────────────────── -->
+<script>
+(function(){var p=new URLSearchParams(window.location.search);if(p.has('mode')||p.has('apiKey')||window.location.hash.includes('access_token')){window.location.replace('auth.html'+window.location.search+window.location.hash);}})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Lora (Cyrillic+Kazakh support) + PT Serif + JetBrains Mono -->
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;500;700&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════
+   ҒАЛАМТОР — VINTAGE NEWSPAPER / CYBER-GAZETTE v2
+   Niccolo Miranda Editorial Style · Қазақша · 2026
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Variables ─────────────────────────────────────── */
+:root{
+  --paper:#f4efe3;
+  --paper-dark:#ece5d4;
+  --paper-mid:#f0e9d8;
+  --paper-cream:#faf6ee;
+  --ink:#17120e;
+  --ink-mid:#382e20;
+  --ink-light:#6a5c48;
+  --ink-faint:#9a8c78;
+  --rule:#221a10;
+  --rule-light:#bfae90;
+  --accent-rust:#7d2e1e;
+  --accent-gold:#9a6e1a;
+  --accent-kz:#00aac8;
+  --ff-serif:"Lora","PT Serif",Georgia,"Times New Roman",serif;
+  --ff-body:"Source Sans 3","PT Serif",Georgia,serif;
+  --ff-mono:"JetBrains Mono","Courier New",monospace;
+  --max-w:1220px;
+}
+
+/* ── Reset ─────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--ff-body);
+  font-size:15px;
+  line-height:1.7;
+  overflow-x:hidden;
+}
+
+/* ══════════════════════════════════════════════════════
+   1. VINTAGE PAPER TEXTURE — SVG grain + CSS layers
+   ══════════════════════════════════════════════════════ */
+body::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:9000;
+  /* Grain texture via SVG turbulence */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='5' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='512' height='512' filter='url(%23grain)' opacity='0.07'/%3E%3C/svg%3E");
+  background-size:220px 220px;
+  background-repeat:repeat;
+  mix-blend-mode:multiply;
+  opacity:0.75;
+}
+/* Warm vignette */
+body::after{
+  content:'';
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:9001;
+  background:radial-gradient(ellipse at center, transparent 55%, rgba(120,88,40,0.13) 100%);
+}
+/* Halftone dots pattern (subtle) */
+.paper-grain{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:8999;
+  background-image:
+    radial-gradient(circle, rgba(100,78,40,0.09) 1px, transparent 1px);
+  background-size:6px 6px;
+  opacity:0.5;
+  mix-blend-mode:multiply;
+}
+
+/* ── Helpers ─────────────────────────────────────── */
+.rule-h{height:1px;background:var(--rule);margin:10px 0;}
+.rule-h.thin{background:var(--rule-light);margin:6px 0;}
+.rule-h.thick{height:3px;}
+.rule-v{width:1px;background:var(--rule);align-self:stretch;flex-shrink:0;}
+.col-label{
+  font-family:var(--ff-mono);
+  font-size:9px;
+  letter-spacing:.2em;
+  text-transform:uppercase;
+  color:var(--ink-light);
+  margin-bottom:4px;
+}
+.col-label.centered{text-align:center;}
+
+/* Scroll reveal */
+.rv{opacity:0;transform:translateY(26px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1);transition-delay:var(--d,0ms);}
+.rv.on{opacity:1;transform:none;}
+
+/* ══════════════════════════════════════════════════════
+   TICKER
+   ══════════════════════════════════════════════════════ */
+.ticker{
+  display:flex;align-items:center;
+  background:var(--ink);color:var(--paper);
+  overflow:hidden;height:28px;
+  font-family:var(--ff-mono);font-size:9.5px;letter-spacing:.06em;
+  border-bottom:1px solid var(--rule);
+}
+.ticker-lbl{
+  padding:0 14px;white-space:nowrap;
+  border-right:1px solid rgba(255,255,255,.18);
+  color:#dfc990;font-size:8.5px;letter-spacing:.18em;flex-shrink:0;
+}
+.ticker-track{flex:1;overflow:hidden;}
+.ticker-inner{white-space:nowrap;display:inline-block;animation:tick 42s linear infinite;padding-left:100%;}
+@keyframes tick{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+
+/* ══════════════════════════════════════════════════════
+   MASTHEAD
+   ══════════════════════════════════════════════════════ */
+.masthead{max-width:var(--max-w);margin:0 auto;padding:0 28px;}
+.mh-rule-thick{height:4px;background:var(--ink);margin:8px 0;}
+.mh-rule-thin{height:1px;background:var(--ink);margin:4px 0;}
+.mh-meta{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 0;gap:12px;
+}
+.mh-meta-side{
+  display:flex;align-items:center;gap:8px;
+  font-family:var(--ff-mono);font-size:9px;letter-spacing:.15em;color:var(--ink-light);
+}
+.mh-meta-sep{color:var(--rule-light);}
+.mh-emblem{color:var(--ink);}
+.mh-title-wrap{text-align:center;padding:6px 0;}
+.mh-title{
+  font-family:var(--ff-serif);font-weight:700;
+  font-size:clamp(52px,11vw,126px);
+  line-height:.86;letter-spacing:-.02em;
+  color:var(--ink);text-transform:uppercase;margin:8px 0;
+}
+.mh-subtitle{
+  font-family:var(--ff-mono);font-size:9px;letter-spacing:.24em;
+  color:var(--ink-light);text-transform:uppercase;margin-top:6px;
+}
+.sec-nav{display:flex;justify-content:center;padding:7px 0;}
+.sec-nav a{
+  font-family:var(--ff-mono);font-size:9px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ink-light);text-decoration:none;
+  padding:4px 16px;border-left:1px solid var(--rule-light);
+  transition:color .2s,background .2s;
+}
+.sec-nav a:first-child{border-left:none;}
+.sec-nav a:hover,.sec-nav a.act{color:var(--ink);background:rgba(23,18,14,.07);}
+
+/* ══════════════════════════════════════════════════════
+   FRONT PAGE — 3 columns
+   ══════════════════════════════════════════════════════ */
+.fp{max-width:var(--max-w);margin:0 auto;padding:0 28px 56px;}
+.fp-grid{
+  display:grid;
+  grid-template-columns:1fr 1px 1fr 1px 1fr;
+  gap:0 22px;margin-top:22px;align-items:start;
+}
+.fp-lead{padding-right:18px;}
+.fp-ctr{display:flex;flex-direction:column;align-items:center;}
+.fp-side{padding-left:18px;}
+
+/* Headlines */
+.hl-xl{
+  font-family:var(--ff-serif);font-weight:700;
+  font-size:clamp(32px,5.5vw,64px);
+  line-height:.86;letter-spacing:-.02em;
+  color:var(--ink);text-transform:uppercase;margin:8px 0;
+}
+.hl-deck{
+  font-family:var(--ff-serif);font-style:italic;font-weight:400;
+  font-size:15.5px;line-height:1.45;color:var(--ink-mid);margin:8px 0;
+}
+.hl-sm{
+  font-family:var(--ff-serif);font-weight:700;
+  font-size:14.5px;line-height:1.3;color:var(--ink);margin:6px 0;
+}
+.hl-lg{
+  font-family:var(--ff-serif);font-weight:700;
+  font-size:clamp(18px,3vw,32px);line-height:1.15;color:var(--ink);
+}
+.hl-lg.it{font-style:italic;}
+.byline{
+  display:flex;justify-content:space-between;
+  font-family:var(--ff-mono);font-size:8.5px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);margin:6px 0;
+}
+.body-t{
+  font-family:var(--ff-body);font-size:14px;line-height:1.74;
+  color:var(--ink-mid);margin:8px 0;text-align:justify;hyphens:auto;
+}
+.body-t.sm{font-size:13px;}
+.body-t.lg{font-size:15px;}
+.body-t em{font-style:italic;color:var(--ink);}
+
+/* Pull quote */
+.pq-wrap{padding:16px 12px;text-align:center;}
+.pq{
+  font-family:var(--ff-serif);font-style:italic;font-size:14px;
+  line-height:1.5;color:var(--ink);
+}
+.pq-mk{font-size:32px;line-height:0;vertical-align:-10px;color:var(--rule-light);font-family:var(--ff-serif);}
+.pq-src{font-family:var(--ff-mono);font-size:7.5px;letter-spacing:.14em;color:var(--ink-faint);margin-top:8px;}
+
+/* ══════════════════════════════════════════════════════
+   2. BROWSER UI MOCKUP — Galamtor Interface Preview
+   ══════════════════════════════════════════════════════ */
+.brws-wrap{
+  width:100%;margin:14px 0;
+  border:1.5px solid var(--rule);border-radius:6px;
+  overflow:hidden;
+  box-shadow:0 4px 20px rgba(23,18,14,.18);
+}
+/* Chrome (top bar) */
+.brws-chrome{
+  background:#2a2118;padding:6px 10px;
+  display:flex;align-items:center;gap:8px;
+}
+.brws-dots{display:flex;gap:4px;}
+.bd{width:8px;height:8px;border-radius:50%;}
+.bd-r{background:#ef5350;}.bd-y{background:#ffb300;}.bd-g{background:#43a047;}
+.brws-tab-bar{
+  flex:1;display:flex;align-items:center;gap:0;overflow:hidden;
+}
+.brws-tab{
+  font-family:var(--ff-mono);font-size:8px;letter-spacing:.04em;
+  padding:3px 10px;border-radius:4px 4px 0 0;
+  color:#9a8c78;white-space:nowrap;
+  border-right:1px solid rgba(255,255,255,.08);
+}
+.brws-tab.active{background:#f4efe3;color:#17120e;}
+.brws-tab-add{
+  width:20px;height:20px;display:flex;align-items:center;justify-content:center;
+  color:#9a8c78;font-size:14px;cursor:default;flex-shrink:0;
+}
+/* Nav bar */
+.brws-nav{
+  background:#f4efe3;border-bottom:1px solid #bfae90;
+  display:flex;align-items:center;gap:6px;padding:5px 8px;
+}
+.brws-nav-btn{
+  width:18px;height:18px;border-radius:3px;
+  background:rgba(23,18,14,.06);border:1px solid rgba(23,18,14,.12);
+  display:flex;align-items:center;justify-content:center;
+  color:#6a5c48;flex-shrink:0;
+}
+.brws-url{
+  flex:1;font-family:var(--ff-mono);font-size:8px;
+  padding:3px 8px;border:1px solid #bfae90;border-radius:4px;
+  background:#faf6ee;color:#17120e;text-align:left;
+  display:flex;align-items:center;gap:5px;
+}
+.brws-url-lock{color:#43a047;font-size:9px;}
+.brws-url-text{color:#17120e;letter-spacing:.03em;}
+/* Sidebar + content */
+.brws-body{
+  display:flex;
+  background:var(--paper-cream);
+  height:200px;
+  overflow:hidden;
+}
+.brws-sidebar{
+  width:40px;background:#ece5d4;
+  border-right:1px solid #bfae90;
+  display:flex;flex-direction:column;align-items:center;
+  padding:10px 0;gap:9px;flex-shrink:0;
+}
+.brws-sb-logo{
+  font-family:var(--ff-serif);font-weight:700;font-size:15px;
+  color:var(--ink);line-height:1;
+}
+.brws-sb-icon{
+  width:24px;height:24px;border-radius:6px;
+  background:rgba(23,18,14,.08);
+  display:flex;align-items:center;justify-content:center;
+}
+.brws-content{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:18px 16px;gap:12px;
+}
+.brws-clock{
+  font-family:var(--ff-serif);font-weight:700;font-size:30px;
+  color:var(--ink);line-height:1;letter-spacing:-.02em;
+}
+.brws-search{
+  width:100%;max-width:180px;
+  border:1.5px solid #bfae90;border-radius:6px;
+  background:#faf6ee;padding:5px 12px;
+  font-family:var(--ff-mono);font-size:8.5px;color:#9a8c78;
+  display:flex;align-items:center;gap:6px;
+}
+.brws-shortcuts{
+  display:flex;gap:10px;
+  flex-wrap:wrap;justify-content:center;
+}
+.brws-sc{
+  width:44px;height:40px;border-radius:8px;
+  background:rgba(23,18,14,.07);border:1px solid rgba(23,18,14,.1);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+}
+.brws-sc-icon{width:16px;height:16px;border-radius:4px;background:rgba(23,18,14,.2);}
+.brws-sc-lbl{font-family:var(--ff-mono);font-size:6px;color:var(--ink-light);letter-spacing:.06em;}
+/* Loading bar anim */
+.brws-load{
+  height:2.5px;background:linear-gradient(90deg,transparent,#00aac8 40%,transparent);
+  animation:load 2.2s ease-in-out infinite;
+  background-size:200% 100%;
+}
+@keyframes load{0%{background-position:-100% 0}100%{background-position:200% 0}}
+/* AI badge */
+.brws-ai-chip{
+  font-family:var(--ff-mono);font-size:8px;letter-spacing:.1em;
+  background:#17120e;color:#dfc990;
+  padding:3px 10px;border-radius:3px;
+  display:inline-block;
+}
+
+/* Stats */
+.col-stats{display:flex;align-items:center;justify-content:space-around;width:100%;padding:10px 0;border-top:1px solid var(--rule);}
+.sn{font-family:var(--ff-serif);font-weight:700;font-size:20px;color:var(--ink);line-height:1;text-align:center;}
+.sl{font-family:var(--ff-mono);font-size:7px;letter-spacing:.12em;color:var(--ink-faint);margin-top:2px;text-transform:uppercase;text-align:center;}
+.ss{color:var(--rule-light);font-size:18px;}
+
+/* ══════════════════════════════════════════════════════
+   3. STAMPS — Vintage rubber stamp with hover anim
+   ══════════════════════════════════════════════════════ */
+.stamp-inline{
+  display:inline-block;
+  border:2.5px solid var(--accent-rust);border-radius:3px;
+  padding:6px 12px;margin-top:16px;
+  transform:rotate(-2.5deg);
+  color:var(--accent-rust);text-align:center;
+  /* Worn ink effect */
+  filter:drop-shadow(0 0 0.5px rgba(125,46,30,.4));
+  transition:transform .3s cubic-bezier(.16,1,.3,1),filter .3s;
+  cursor:default;
+}
+.stamp-inline:hover{transform:rotate(0deg) scale(1.05);}
+.st-t{font-family:var(--ff-mono);font-size:8px;letter-spacing:.22em;text-transform:uppercase;}
+.st-m{font-family:var(--ff-serif);font-weight:700;font-size:22px;line-height:1.05;}
+.st-b{font-family:var(--ff-mono);font-size:8px;letter-spacing:.22em;text-transform:uppercase;border-top:1.5px solid var(--accent-rust);margin-top:3px;padding-top:2px;}
+
+/* Circular retro stamps */
+.stamp-circle{
+  display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+  width:100px;height:100px;border-radius:50%;
+  border:3px solid var(--accent-rust);
+  position:relative;color:var(--accent-rust);
+  text-align:center;
+  /* Double border effect */
+  box-shadow:inset 0 0 0 5px var(--paper),inset 0 0 0 7px var(--accent-rust);
+  /* Worn vintage effect */
+  filter:url(#stamp-worn) drop-shadow(0 0 1px rgba(125,46,30,.3));
+  transition:transform .4s cubic-bezier(.16,1,.3,1),filter .4s,box-shadow .3s;
+  cursor:default;
+  background:transparent;
+}
+.stamp-circle:hover{
+  transform:rotate(-5deg) scale(1.08);
+  box-shadow:inset 0 0 0 5px var(--paper),inset 0 0 0 7px var(--accent-rust),
+             0 6px 24px rgba(125,46,30,.25);
+}
+.stamp-circle:nth-child(2):hover{transform:rotate(4deg) scale(1.08);}
+.sc-arc-top{
+  position:absolute;top:6px;left:0;right:0;text-align:center;
+  font-family:var(--ff-mono);font-size:6.5px;letter-spacing:.16em;
+  text-transform:uppercase;
+}
+.sc-main{
+  font-family:var(--ff-serif);font-weight:700;font-size:13px;
+  line-height:1.15;letter-spacing:-.01em;text-align:center;
+  padding:0 12px;margin-top:2px;
+}
+.sc-sub{
+  font-family:var(--ff-mono);font-size:6.5px;letter-spacing:.12em;
+  text-transform:uppercase;margin-top:2px;
+}
+.sc-arc-bot{
+  position:absolute;bottom:6px;left:0;right:0;text-align:center;
+  font-family:var(--ff-mono);font-size:6.5px;letter-spacing:.16em;
+  text-transform:uppercase;
+}
+.sc-star{font-size:8px;}
+
+/* Stamps container */
+.stamps-row{
+  display:flex;gap:20px;align-items:center;justify-content:center;
+  flex-wrap:wrap;margin-top:8px;
+}
+
+/* CTA box */
+.cta-box{border:1.5px solid var(--rule);padding:16px;text-align:center;background:var(--ink);color:var(--paper);margin-top:14px;}
+.cta-ey{font-family:var(--ff-mono);font-size:8.5px;letter-spacing:.18em;color:#c4b89a;margin-bottom:6px;}
+.cta-tit{font-family:var(--ff-serif);font-weight:700;font-size:18px;line-height:1.2;margin-bottom:12px;}
+.cta-btn{
+  display:inline-flex;align-items:center;gap:7px;
+  font-family:var(--ff-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--ink);background:var(--paper-cream);text-decoration:none;
+  padding:9px 18px;border:1px solid var(--paper-cream);
+  transition:background .2s;
+}
+.cta-btn:hover{background:#e8d9b4;}
+.cta-note{font-family:var(--ff-mono);font-size:8px;color:#a09070;margin-top:8px;}
+
+/* Section divider */
+.sdiv{max-width:var(--max-w);margin:24px auto;padding:0 28px;display:flex;align-items:center;gap:16px;}
+.sdiv-rule{flex:1;height:1px;background:var(--rule);}
+.sdiv-orn{font-family:var(--ff-mono);font-size:9px;letter-spacing:.22em;color:var(--ink-light);white-space:nowrap;}
+
+/* ══════════════════════════════════════════════════════
+   FEATURES — 4 columns
+   ══════════════════════════════════════════════════════ */
+.feat-sec{max-width:var(--max-w);margin:0 auto;padding:0 28px 56px;}
+.feat-hdr{text-align:center;margin-bottom:24px;}
+.sec-hl{font-family:var(--ff-serif);font-weight:700;font-size:clamp(22px,4vw,40px);color:var(--ink);text-align:center;margin:8px 0;}
+.feat-cols{
+  display:grid;
+  grid-template-columns:1fr 1px 1fr 1px 1fr 1px 1fr;
+  gap:0 24px;
+  border-top:2px solid var(--rule);border-bottom:2px solid var(--rule);padding:28px 0;
+}
+.feat-col{padding:0 6px;}
+.col-rv{width:1px;background:var(--rule-light);align-self:stretch;}
+.feat-num{font-family:var(--ff-serif);font-weight:700;font-style:italic;font-size:30px;color:var(--ink);opacity:.14;line-height:1;margin-bottom:6px;}
+.feat-tit{font-family:var(--ff-serif);font-weight:700;font-size:16.5px;color:var(--ink);line-height:1.3;margin:6px 0;}
+.feat-tag{display:inline-block;font-family:var(--ff-mono);font-size:8px;letter-spacing:.16em;text-transform:uppercase;border:1px solid var(--rule);padding:2px 7px;margin-top:10px;color:var(--ink-light);}
+
+/* ══════════════════════════════════════════════════════
+   EDITION
+   ══════════════════════════════════════════════════════ */
+.ed-sec{max-width:var(--max-w);margin:0 auto;padding:0 28px 56px;}
+.ed-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:0 40px;border-top:2px solid var(--rule);padding-top:28px;}
+.ed-main{border-right:1px solid var(--rule);padding-right:40px;}
+.vb{border:1.5px solid var(--rule);padding:12px 16px;margin-top:20px;background:var(--paper-dark);}
+.vb-row{display:flex;align-items:baseline;font-family:var(--ff-mono);font-size:11px;padding:3px 0;border-bottom:1px dotted var(--rule-light);color:var(--ink);}
+.vb-row:last-child{border-bottom:none;}
+.vb-k{flex-shrink:0;color:var(--ink-light);min-width:88px;}
+.vb-d{flex:1;letter-spacing:.04em;color:var(--rule-light);font-size:9px;overflow:hidden;}
+.vb-v{flex-shrink:0;font-weight:700;}
+.cl-row{display:flex;align-items:flex-start;gap:8px;padding:5px 0;font-size:12.5px;color:var(--ink-mid);}
+.cl-b{font-family:var(--ff-mono);font-size:7.5px;letter-spacing:.1em;padding:1.5px 5px;text-transform:uppercase;flex-shrink:0;margin-top:1px;}
+.cl-b.nw{border:1px solid var(--accent-rust);color:var(--accent-rust);}
+.cl-b.fx{border:1px solid var(--accent-gold);color:var(--accent-gold);}
+.tq{font-family:var(--ff-serif);font-style:italic;font-size:14px;line-height:1.6;color:var(--ink-mid);padding-left:14px;border-left:2.5px solid var(--rule);margin:8px 0;}
+.tq-a{font-family:var(--ff-mono);font-size:8.5px;letter-spacing:.1em;color:var(--ink-faint);margin-top:6px;padding-left:14px;}
+
+/* ══════════════════════════════════════════════════════
+   MANIFESTO
+   ══════════════════════════════════════════════════════ */
+.man-sec{max-width:var(--max-w);margin:0 auto;padding:0 28px 56px;}
+.man-hdr{text-align:center;margin-bottom:24px;}
+.man-hl{font-family:var(--ff-serif);font-weight:700;font-size:clamp(32px,7vw,76px);line-height:1.14;color:var(--ink);margin:10px 0;}
+.man-hl em{font-style:italic;color:var(--accent-rust);display:block;margin-top:6px;}
+.man-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 36px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:24px 0;margin-bottom:32px;}
+.drop{float:left;font-family:var(--ff-serif);font-weight:700;font-size:60px;line-height:.7;margin:8px 8px 0 0;color:var(--ink);}
+.bigtype{text-align:center;padding:24px 0;display:flex;align-items:center;justify-content:center;gap:24px;border-top:3px solid var(--rule);border-bottom:3px solid var(--rule);flex-wrap:wrap;}
+.bt{font-family:var(--ff-serif);font-weight:700;font-size:clamp(22px,5vw,52px);color:var(--ink);text-transform:uppercase;line-height:1;}
+.bt.it{font-style:italic;color:var(--accent-rust);}
+.bt-sep{font-size:14px;color:var(--ink-faint);}
+
+/* ══════════════════════════════════════════════════════
+   DOWNLOAD
+   ══════════════════════════════════════════════════════ */
+.dl-sec{max-width:var(--max-w);margin:0 auto;padding:0 28px 68px;}
+.dl-inner{border:2px solid var(--rule);display:grid;grid-template-columns:1fr auto;overflow:hidden;}
+.dl-content{padding:40px;}
+.dl-hl{font-family:var(--ff-serif);font-weight:700;font-size:clamp(26px,5vw,50px);line-height:.96;color:var(--ink);margin:10px 0;}
+.dl-ver{font-family:var(--ff-mono);font-size:10px;letter-spacing:.14em;color:var(--ink-light);margin:8px 0;}
+.dl-acts{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px;}
+.dl-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:var(--ff-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  text-decoration:none;padding:12px 24px;
+  border:1.5px solid;transition:background .2s,color .2s;
+}
+.dl-btn.pri{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+.dl-btn.pri:hover{background:var(--ink-mid);}
+.dl-btn.sec{background:transparent;color:var(--ink);border-color:var(--rule-light);}
+.dl-btn.sec:hover{border-color:var(--rule);background:var(--paper-dark);}
+.dl-note{font-family:var(--ff-mono);font-size:8.5px;color:var(--ink-faint);margin-top:16px;}
+
+/* Certificate stamp */
+.cert{padding:24px 20px;display:flex;align-items:center;justify-content:center;background:var(--paper-dark);border-left:1px solid var(--rule);}
+.cert-out{border:3px double var(--rule);padding:3px;width:112px;}
+.cert-in{border:1px solid var(--rule);padding:14px 12px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.cert-top{font-family:var(--ff-mono);font-size:6px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-light);}
+.cert-sym{font-family:var(--ff-serif);font-weight:700;font-size:30px;color:var(--ink);line-height:1;margin:3px 0;}
+.cert-tit{font-family:var(--ff-serif);font-weight:700;font-size:10px;letter-spacing:.1em;color:var(--ink);border-top:1px solid var(--rule-light);border-bottom:1px solid var(--rule-light);padding:2px 0;width:100%;margin:2px 0;}
+.cert-ver{font-family:var(--ff-mono);font-size:12px;font-weight:700;color:var(--accent-rust);}
+.cert-yr{font-family:var(--ff-mono);font-size:7.5px;color:var(--ink-light);}
+.cert-bot{font-family:var(--ff-mono);font-size:6px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint);}
+
+/* ══════════════════════════════════════════════════════
+   FOOTER
+   ══════════════════════════════════════════════════════ */
+.ftr{border-top:4px solid var(--ink);background:var(--ink);color:var(--paper);}
+.ftr-inner{max-width:var(--max-w);margin:0 auto;padding:28px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;align-items:center;}
+.ftr-logo{font-family:var(--ff-serif);font-weight:700;font-size:22px;letter-spacing:.06em;}
+.ftr-tag{font-family:var(--ff-mono);font-size:8.5px;letter-spacing:.14em;color:#8a7a60;margin-top:4px;text-transform:uppercase;}
+.ftr-ctr{text-align:center;}
+.ftr-orn{font-size:18px;color:#5a4a30;margin-bottom:6px;}
+.ftr-copy{font-family:var(--ff-mono);font-size:8.5px;letter-spacing:.07em;color:#7a6a50;line-height:1.7;}
+.ftr-rt{text-align:right;display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap;}
+.ftr-lnk{font-family:var(--ff-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#9a8a6a;text-decoration:none;transition:color .2s;}
+.ftr-lnk:hover{color:#f4efe3;}
+.ftr-sep{color:#4a3a20;}
+.ftr-ed{max-width:var(--max-w);margin:0 auto;padding:10px 28px;font-family:var(--ff-mono);font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#5a4a30;text-align:center;border-top:1px solid rgba(255,255,255,.08);}
+
+/* ══════════════════════════════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════════════════════════════ */
+@media(max-width:900px){
+  .fp-grid{grid-template-columns:1fr;gap:28px 0;}
+  .fp-lead,.fp-side{padding:0;}
+  .fp-ctr .rule-v{display:none;}
+  .feat-cols{grid-template-columns:1fr 1fr;gap:24px;}
+  .col-rv{display:none;}
+  .ed-grid{grid-template-columns:1fr;gap:28px 0;}
+  .ed-main{border-right:none;padding-right:0;border-bottom:1px solid var(--rule);padding-bottom:28px;}
+  .man-cols{grid-template-columns:1fr;gap:16px;}
+  .dl-inner{grid-template-columns:1fr;}
+  .cert{border-left:none;border-top:1px solid var(--rule);}
+  .ftr-inner{grid-template-columns:1fr;text-align:center;}
+  .ftr-rt{justify-content:center;}
+}
+@media(max-width:600px){
+  .mh-title{font-size:44px;}
+  .feat-cols{grid-template-columns:1fr;}
+  .mh-meta{flex-wrap:wrap;justify-content:center;}
+  .bigtype{gap:12px;}
+  .dl-acts{flex-direction:column;}
+  .stamps-row{gap:14px;}
+  .stamp-circle{width:82px;height:82px;box-shadow:inset 0 0 0 4px var(--paper),inset 0 0 0 6px var(--accent-rust);}
+  .sc-main{font-size:11px;}
+}
+
+/* ══════════════════════════════════════════════════════
+   📱 MOBILE — Extra polish for small screens
+   ══════════════════════════════════════════════════════ */
+@media(max-width:480px){
+  body{font-size:14px;}
+  .mh-title{font-size:38px;letter-spacing:-.01em;}
+  .mh-subtitle{font-size:8px;letter-spacing:.14em;}
+  .ticker-lbl{display:none;}
+  .masthead{padding:0 16px;}
+  .fp,.feat-sec,.ed-sec,.man-sec,.dl-sec{padding-left:16px;padding-right:16px;}
+  .sdiv{padding:0 16px;}
+  .fp-grid{gap:20px 0;}
+  .hl-xl{font-size:28px;}
+  .hl-deck{font-size:14px;}
+  .sec-hl{font-size:20px;}
+  .man-hl{font-size:28px;}
+  .bigtype{padding:18px 0;}
+  .bt{font-size:18px;}
+  .feat-cols{border-top-width:1.5px;border-bottom-width:1.5px;padding:18px 0;}
+  .feat-num{font-size:24px;}
+  .feat-tit{font-size:15px;}
+  .stamp-circle{width:76px;height:76px;}
+  .stamps-row{gap:10px;}
+  .dl-inner{grid-template-columns:1fr;}
+  .dl-content{padding:24px 20px;}
+  .dl-hl{font-size:24px;}
+  .cert{display:none;}/* hide cert on very small screens */
+  .ftr-inner{padding:20px 16px;}
+  .ftr-logo{font-size:18px;}
+  .mh-meta-side span:first-child,.mh-meta-sep{font-size:8px;}
+  .sec-nav a{padding:4px 10px;font-size:8px;}
+  /* Browser mockup tweaks for mobile */
+  .brws-body{height:160px;}
+  .brws-clock{font-size:22px;}
+  .brws-search{max-width:150px;}
+  .brws-sc{width:38px;height:34px;}
+}
+
+/* ══════════════════════════════════════════════════════
+   ✨ PARALLAX — Scroll-driven depth effect
+   ══════════════════════════════════════════════════════ */
+
+/* Parallax containers — JS sets --py custom prop */
+.parallax-slow{
+  transform:translateY(var(--py-slow, 0px));
+  will-change:transform;
+  transition:transform .05s linear;
+}
+.parallax-mid{
+  transform:translateY(var(--py-mid, 0px));
+  will-change:transform;
+  transition:transform .05s linear;
+}
+.parallax-fast{
+  transform:translateY(var(--py-fast, 0px));
+  will-change:transform;
+  transition:transform .05s linear;
+}
+
+/* Masthead title subtle float */
+.mh-title{
+  transition:transform .1s linear;
+}
+
+/* Section entry sweep — enhances rv animation */
+.rv{
+  transition:
+    opacity .7s cubic-bezier(.16,1,.3,1),
+    transform .7s cubic-bezier(.16,1,.3,1);
+  transition-delay:var(--d,0ms);
+}
+
+/* Smooth scroll sections have depth hints */
+section{position:relative;}
+
+/* Ticker speed-up on scroll (toggled by JS class) */
+.ticker-inner.fast{animation-duration:18s;}
+
+/* Stamp wiggle keyframe — triggered on scroll into view */
+@keyframes stamp-in{
+  0%  {transform:rotate(-8deg) scale(0.7);opacity:0;}
+  60% {transform:rotate(3deg) scale(1.06);}
+  80% {transform:rotate(-2deg) scale(0.98);}
+  100%{transform:rotate(-2.5deg) scale(1);opacity:1;}
+}
+.stamp-circle.stamp-animated{
+  animation:stamp-in .6s cubic-bezier(.16,1,.3,1) forwards;
+  opacity:0;
+}
+.stamp-circle:nth-child(2).stamp-animated{
+  animation-delay:.15s;
+  animation-name:stamp-in-r;
+}
+@keyframes stamp-in-r{
+  0%  {transform:rotate(8deg) scale(0.7);opacity:0;}
+  60% {transform:rotate(-3deg) scale(1.06);}
+  80% {transform:rotate(2deg) scale(0.98);}
+  100%{transform:rotate(2deg) scale(1);opacity:1;}
+}
+</style>
+<!-- SVG filter for stamp worn effect -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <filter id="stamp-worn" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" seed="5" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+</svg>
+</head>
+<body>
+<div class="paper-grain"></div>
+
+<!-- TICKER -->
+<div class="ticker">
+  <span class="ticker-lbl">◈ ЖЕДЕЛХАТ</span>
+  <div class="ticker-track">
+    <div class="ticker-inner">
+      <span>Ғаламтор v1.0.0 — Бета нұсқасы шықты &nbsp;◆&nbsp; Қазақстанның тұңғыш ұлттық веб-браузері &nbsp;◆&nbsp; Gemini 2.5 Flash AI кіріктірілген &nbsp;◆&nbsp; AdBlock 100% қорғаныш &nbsp;◆&nbsp; macOS үшін тегін жүктеу &nbsp;◆&nbsp; Ғаламтор v1.0.0 — Бета нұсқасы шықты &nbsp;◆&nbsp; Қазақстанның тұңғыш ұлттық веб-браузері &nbsp;◆&nbsp; Gemini 2.5 Flash AI кіріктірілген &nbsp;◆&nbsp;</span>
+    </div>
+  </div>
+</div>
+
+<!-- MASTHEAD -->
+<header class="masthead">
+  <div class="mh-rule-thick"></div>
+  <div class="mh-meta">
+    <div class="mh-meta-side">
+      <span>ТОМ I, № 1</span>
+      <span class="mh-meta-sep">·</span>
+      <span>АСТАНА, ҚАЗАҚСТАН</span>
+    </div>
+    <div class="mh-emblem">
+      <svg viewBox="0 0 60 60" width="44" height="44" fill="none">
+        <circle cx="30" cy="30" r="27" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="30" cy="30" r="19" stroke="currentColor" stroke-width=".75"/>
+        <path d="M30 9L33 21L30 17L27 21Z" fill="currentColor"/>
+        <path d="M30 51L33 39L30 43L27 39Z" fill="currentColor"/>
+        <path d="M9 30L21 27L17 30L21 33Z" fill="currentColor"/>
+        <path d="M51 30L39 27L43 30L39 33Z" fill="currentColor"/>
+        <circle cx="30" cy="30" r="4.5" stroke="currentColor" stroke-width="1.2" fill="none"/>
+        <text x="30" y="34.5" text-anchor="middle" font-size="7" fill="currentColor" font-family="serif" font-weight="bold">Ғ</text>
+      </svg>
+    </div>
+    <div class="mh-meta-side">
+      <span>БАҒА: ТЕГІН</span>
+      <span class="mh-meta-sep">·</span>
+      <span id="iss-date">8 ҚЫРКҮЙЕК 2026</span>
+    </div>
+  </div>
+  <div class="mh-rule-thin"></div>
+  <div class="mh-title-wrap">
+    <h1 class="mh-title">ҒАЛАМТОР</h1>
+    <p class="mh-subtitle">ҚАЗАҚСТАННЫҢ ҰЛТТЫҚ ВЕБ-ШОЛҒЫШЫ &nbsp;·&nbsp; БАЙЛАНЫМ &nbsp;·&nbsp; ЖЫЛДАМДЫҚ &nbsp;·&nbsp; ҚОРҒАНЫШ</p>
+  </div>
+  <div class="mh-rule-thick"></div>
+  <nav class="sec-nav">
+    <a href="#hero" class="act">Басты</a>
+    <a href="#features">Мүмкіндіктер</a>
+    <a href="#edition">Нұсқа</a>
+    <a href="#manifesto">Манифест</a>
+    <a href="#download">Жүктеу</a>
+  </nav>
+  <div class="mh-rule-thin" style="margin-bottom:0"></div>
+</header>
+
+<!-- ═══════ FRONT PAGE ═══════ -->
+<section class="fp" id="hero">
+  <div class="fp-grid">
+
+    <!-- LEFT: Lead story -->
+    <article class="fp-lead rv" style="--d:0ms">
+      <div class="col-label">◈ БАС МАҚАЛА</div>
+      <div class="rule-h"></div>
+      <h2 class="hl-xl">ҒАЛАМТОР:<br>ҰЛТТЫҚ<br>ТҰҢҒЫШ</h2>
+      <h3 class="hl-deck">Қазақстанның жаңа дәуірі басталды — ұлттық веб-шолғышпен</h3>
+      <div class="rule-h"></div>
+      <div class="byline">
+        <span>ҒАЛАМТОР РЕДАКЦИЯСЫ</span>
+        <span>v1.0.0 · 2026</span>
+      </div>
+      <div class="rule-h thin"></div>
+      <p class="body-t">Ғаламтор — Қазақстан жерінде туып, қазақ тілінде сөйлеп, қазақ халқының жүрегінде орын алуға жасалған бірінші ұлттық веб-шолғыш. Жасанды интеллект, жеделдіктің жаңа деңгейі және тұтастай қорғаныш жүйесімен жасақталған.</p>
+      <p class="body-t">Ішіне орнатылған <em>Gemini 2.5 Flash</em> жасанды интеллекті, автоматты жүктеу мүмкіндігі, және Kaspi.kz, eGov.kz сияқты ұлттық порталдарға бір басуымен кіру — бұл шолғыш Қазақстан үшін жасалған.</p>
+      <div class="stamp-inline">
+        <div class="st-t">РЕСМИ</div>
+        <div class="st-m">v1.0.0</div>
+        <div class="st-b">BETA</div>
+      </div>
+    </article>
+
+    <div class="rule-v"></div>
+
+    <!-- CENTER: Browser UI Mockup -->
+    <div class="fp-ctr rv" style="--d:80ms">
+      <div style="height:14px;width:1px;background:var(--rule);"></div>
+      <div class="pq-wrap">
+        <blockquote class="pq">
+          <span class="pq-mk">&ldquo;</span>
+          Ғаламторды пайдалану — ұлттың болашағына сенім білдіру.
+          <span class="pq-mk">&rdquo;</span>
+        </blockquote>
+        <div class="pq-src">— ҒАЛАМТОР МАНИФЕСТІ, 2026</div>
+      </div>
+      <div style="height:12px;width:1px;background:var(--rule);"></div>
+
+      <!-- Real Browser UI Mockup -->
+      <div class="brws-wrap">
+        <div class="brws-load"></div>
+        <div class="brws-chrome">
+          <div class="brws-dots">
+            <span class="bd bd-r"></span>
+            <span class="bd bd-y"></span>
+            <span class="bd bd-g"></span>
+          </div>
+          <div class="brws-tab-bar">
+            <div class="brws-tab active">Ғаламтор — Басты бет</div>
+            <div class="brws-tab">Kaspi.kz</div>
+            <div class="brws-tab-add">+</div>
+          </div>
+        </div>
+        <div class="brws-nav">
+          <div class="brws-nav-btn">
+            <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="10 4 6 8 10 12"/></svg>
+          </div>
+          <div class="brws-nav-btn">
+            <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6 4 10 8 6 12"/></svg>
+          </div>
+          <div class="brws-url">
+            <span class="brws-url-lock">🔒</span>
+            <span class="brws-url-text">galamtor.kz — Жаңа қойынды</span>
+          </div>
+          <span class="brws-ai-chip">AI ●</span>
+        </div>
+        <div class="brws-body">
+          <div class="brws-sidebar">
+            <div class="brws-sb-logo">Ғ</div>
+            <div class="brws-sb-icon">
+              <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="#6a5c48" stroke-width="1.5"><path d="M2 4a1 1 0 011-1h10a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V4z"/><path d="M2 7h12"/></svg>
+            </div>
+            <div class="brws-sb-icon">
+              <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="#6a5c48" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+            </div>
+            <div class="brws-sb-icon">
+              <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="#00aac8" stroke-width="1.5"><path d="M8 1L9.5 6H14L10.5 9L12 14L8 11L4 14L5.5 9L2 6H6.5Z"/></svg>
+            </div>
+          </div>
+          <div class="brws-content">
+            <div class="brws-clock" id="brws-clock">12:00</div>
+            <div class="brws-search">
+              <svg viewBox="0 0 16 16" width="9" height="9" fill="none" stroke="#9a8c78" stroke-width="1.5"><circle cx="7" cy="7" r="4"/><path d="M11 11l2 2"/></svg>
+              <span style="font-size:7.5px;color:#9a8c78;font-family:var(--ff-mono)">Ғаламтордан іздеу...</span>
+            </div>
+            <div class="brws-shortcuts">
+              <div class="brws-sc">
+                <div class="brws-sc-icon" style="background:#e53935;"></div>
+                <div class="brws-sc-lbl">Kaspi</div>
+              </div>
+              <div class="brws-sc">
+                <div class="brws-sc-icon" style="background:#1565c0;"></div>
+                <div class="brws-sc-lbl">eGov</div>
+              </div>
+              <div class="brws-sc">
+                <div class="brws-sc-icon" style="background:#2e7d32;"></div>
+                <div class="brws-sc-lbl">Enbek</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-stats" style="width:100%">
+        <div><div class="sn">100%</div><div class="sl">AdBlock</div></div>
+        <div class="ss">·</div>
+        <div><div class="sn">2.5</div><div class="sl">Gemini</div></div>
+        <div class="ss">·</div>
+        <div><div class="sn">∞</div><div class="sl">Мүмкін.</div></div>
+      </div>
+    </div>
+
+    <div class="rule-v"></div>
+
+    <!-- RIGHT: Secondary stories -->
+    <div class="fp-side rv" style="--d:160ms">
+      <article>
+        <div class="col-label">◈ ЖАСАНДЫ ИНТЕЛЛЕКТ</div>
+        <div class="rule-h"></div>
+        <h4 class="hl-sm">Gemini 2.5 Flash — Браузердің ақыл-ойы</h4>
+        <p class="body-t sm">Кез-келген сайтты бір сөйлемге сыйғыза алатын AI. Бетті түйіндеу, аудару, код жазу — бәрі бір жерде.</p>
+      </article>
+      <div class="rule-h"></div>
+      <article>
+        <div class="col-label">◈ ҚОРҒАНЫШ</div>
+        <div class="rule-h"></div>
+        <h4 class="hl-sm">AdBlock Shield — Жарнамасыз таза желі</h4>
+        <p class="body-t sm">100% жарнама блоктаушысы. Трекерлерден және шпиондық скриптлерден толық қорғаныш.</p>
+      </article>
+      <div class="rule-h"></div>
+      <article>
+        <div class="col-label">◈ ҰЛТТЫҚ ХАБ</div>
+        <div class="rule-h"></div>
+        <h4 class="hl-sm">Kaspi · eGov · Enbek — Бір басуымен</h4>
+        <p class="body-t sm">Қазақстандықтар үшін 10+ ұлттық порталға жылдам тіркесу.</p>
+      </article>
+      <div class="rule-h"></div>
+
+      <!-- 4. RETRO STAMPS -->
+      <div class="col-label" style="margin-top:4px">◈ САПА БЕЛГІЛЕРІ</div>
+      <div class="rule-h"></div>
+      <div class="stamps-row">
+        <div class="stamp-circle">
+          <span class="sc-arc-top">&#9733; РЕСМИ &#9733;</span>
+          <div class="sc-main">100%<br>Отандық</div>
+          <span class="sc-arc-bot">QAZAQSTAN</span>
+        </div>
+        <div class="stamp-circle" style="color:var(--accent-gold);border-color:var(--accent-gold);box-shadow:inset 0 0 0 5px var(--paper),inset 0 0 0 7px var(--accent-gold);">
+          <span class="sc-arc-top" style="color:var(--accent-gold)">&#9733; MADE IN &#9733;</span>
+          <div class="sc-main" style="color:var(--accent-gold)">Қазақ-<br>станда</div>
+          <span class="sc-arc-bot" style="color:var(--accent-gold)">2026 · v1.0.0</span>
+        </div>
+      </div>
+
+      <div class="rule-h" style="margin-top:14px"></div>
+      <div class="cta-box">
+        <div class="cta-ey">◈ ЖҮКТЕУ</div>
+        <div class="cta-tit">macOS үшін<br>тегін жүктеңіз</div>
+        <a href="#download" class="cta-btn">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Жүктеу — v1.0.0
+        </a>
+        <div class="cta-note">macOS 13 Ventura жоғары</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════ FEATURES ═══════ -->
+<div class="sdiv"><div class="sdiv-rule"></div><div class="sdiv-orn">◆ МҮМКІНДІКТЕР ◆</div><div class="sdiv-rule"></div></div>
+<section class="feat-sec" id="features">
+  <div class="feat-hdr">
+    <div class="col-label centered">◈ ЕРЕКШЕ МҮМКІНДІКТЕР</div>
+    <h2 class="sec-hl">Бір браузер. Шексіз мүмкіндік.</h2>
+  </div>
+  <div class="feat-cols">
+    <article class="feat-col rv" style="--d:0ms">
+      <div class="feat-num">I.</div>
+      <div class="rule-h"></div>
+      <h3 class="feat-tit">Жасанды Интеллект</h3>
+      <div class="rule-h thin"></div>
+      <p class="body-t">Gemini 2.5 Flash үлгісімен жұмыс істейтін кіріктірілген AI көмекші. Мәтінді аударыңыз, сайтты түйіндеңіз немесе тікелей браузерден код жазыңыз.</p>
+      <div class="feat-tag">Gemini 2.5 Flash</div>
+    </article>
+    <div class="col-rv"></div>
+    <article class="feat-col rv" style="--d:60ms">
+      <div class="feat-num">II.</div>
+      <div class="rule-h"></div>
+      <h3 class="feat-tit">Ғаламтор Lens</h3>
+      <div class="rule-h thin"></div>
+      <p class="body-t">Суретпен іздеу технологиясы. Кез-келген суретті браузерге сүйреп тастаңыз — AI суретті талдап, нәтиже ұсынады. Google Lens-тен де жылдам.</p>
+      <div class="feat-tag">Визуалды іздеу</div>
+    </article>
+    <div class="col-rv"></div>
+    <article class="feat-col rv" style="--d:120ms">
+      <div class="feat-num">III.</div>
+      <div class="rule-h"></div>
+      <h3 class="feat-tit">Privacy Shield</h3>
+      <div class="rule-h thin"></div>
+      <p class="body-t">Кіріктірілген AdBlock жүйесі. Жарнамалар, трекерлер және шпиондық скриптлер автоматты түрде бұғатталады. Қорғаныш белсендіру талап етпейді.</p>
+      <div class="feat-tag">100% AdBlock</div>
+    </article>
+    <div class="col-rv"></div>
+    <article class="feat-col rv" style="--d:180ms">
+      <div class="feat-num">IV.</div>
+      <div class="rule-h"></div>
+      <h3 class="feat-tit">Ұлттық Хаб</h3>
+      <div class="rule-h thin"></div>
+      <p class="body-t">Kaspi.kz, eGov.kz, Enbek.kz, Tengrinews және басқа Қазақстандық платформаларға тез қолжетімділік. Бір басуымен барлық маңызды қызметтер.</p>
+      <div class="feat-tag">Қазақстан</div>
+    </article>
+  </div>
+</section>
+
+<!-- ═══════ EDITION ═══════ -->
+<div class="sdiv"><div class="sdiv-rule"></div><div class="sdiv-orn">◆ ШЫҒАРЫЛЫМ ◆</div><div class="sdiv-rule"></div></div>
+<section class="ed-sec" id="edition">
+  <div class="ed-grid">
+    <div class="ed-main rv" style="--d:0ms">
+      <div class="col-label">◈ НҰСҚА ТУРАЛЫ</div>
+      <div class="rule-h"></div>
+      <h2 class="hl-lg it">«Бірінші нұсқа — ұлттың тұңғыш қадамы»</h2>
+      <div class="rule-h thin"></div>
+      <p class="body-t">Ғаламтор 1.0.0 нұсқасы — Қазақстан тарихындағы алғашқы толыққанды ұлттық веб-шолғыш. Бұл жай ғана бағдарлама емес — ол технологиялық тәуелсіздіктің бастамасы.</p>
+      <p class="body-t">Электрон (Electron) технологиясына негізделген Ғаламтор, Chromium движогін пайдалана отырып, пайдаланушыларға жаңа деңгейдегі жылдамдық пен қауіпсіздік ұсынады.</p>
+      <div class="vb">
+        <div class="vb-row"><span class="vb-k">Нұсқа</span><span class="vb-d">·············</span><span class="vb-v">v1.0.0</span></div>
+        <div class="vb-row"><span class="vb-k">Движок</span><span class="vb-d">·············</span><span class="vb-v">Chromium</span></div>
+        <div class="vb-row"><span class="vb-k">Платформа</span><span class="vb-d">···········</span><span class="vb-v">macOS</span></div>
+        <div class="vb-row"><span class="vb-k">AI Үлгі</span><span class="vb-d">·············</span><span class="vb-v">Gemini 2.5</span></div>
+        <div class="vb-row"><span class="vb-k">Лицензия</span><span class="vb-d">···········</span><span class="vb-v">Тегін</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="rv" style="--d:80ms">
+        <div class="col-label">◈ ӨЗГЕРІСТЕР ЖУРНАЛЫ</div>
+        <div class="rule-h"></div>
+        <div class="cl-row"><span class="cl-b nw">ЖАҢА</span><span>Gemini 2.5 Flash AI кіріктірілді</span></div>
+        <div class="rule-h thin"></div>
+        <div class="cl-row"><span class="cl-b nw">ЖАҢА</span><span>Ғаламтор Lens — суретпен іздеу</span></div>
+        <div class="rule-h thin"></div>
+        <div class="cl-row"><span class="cl-b nw">ЖАҢА</span><span>Privacy Shield AdBlock жүйесі</span></div>
+        <div class="rule-h thin"></div>
+        <div class="cl-row"><span class="cl-b nw">ЖАҢА</span><span>PIP музыкалық ойнатқыш</span></div>
+        <div class="rule-h thin"></div>
+        <div class="cl-row"><span class="cl-b nw">ЖАҢА</span><span>Қазақстан порталдарына жылдам кіру</span></div>
+        <div class="rule-h thin"></div>
+        <div class="cl-row"><span class="cl-b fx">ЖЕТІЛД.</span><span>Жүктеу жылдамдығы оңтайландырылды</span></div>
+      </div>
+      <div class="rv" style="--d:160ms;margin-top:24px">
+        <div class="rule-h"></div>
+        <div class="col-label">◈ ПІКІР</div>
+        <div class="rule-h"></div>
+        <blockquote class="tq">«Ғаламтор — бұл жай браузер емес, бұл Қазақстанның болашаққа деген көзқарасы.»</blockquote>
+        <div class="tq-a">— Ғаламтор бета пайдаланушысы</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ MANIFESTO ═══════ -->
+<div class="sdiv"><div class="sdiv-rule"></div><div class="sdiv-orn">◆ МАНИФЕСТ ◆</div><div class="sdiv-rule"></div></div>
+<section class="man-sec" id="manifesto">
+  <div class="man-hdr rv" style="--d:0ms">
+    <div class="col-label centered">◈ ҰЛТТЫҚ МАНИФЕСТ</div>
+    <h2 class="man-hl">Қазақстанның<br><em>Жаңа Дәуірі</em></h2>
+    <div class="rule-h"></div>
+  </div>
+  <div class="man-cols rv" style="--d:60ms">
+    <div>
+      <p class="body-t lg">
+        <span class="drop">Б</span>із Қазақстан үшін, қазақ тілінде, қазақ пайдаланушысының қажеттілігін ескере отырып жасаған браузер ұсынамыз. Бұл — технологиялық тәуелсіздіктің символы.
+      </p>
+    </div>
+    <div>
+      <p class="body-t lg">
+        <span class="drop">Ғ</span>аламтор сөзінен туған. Қазақ тілінде «интернет» дегенді білдіретін бұл атау — елдің цифрлық болашағына деген сенімнің куәсі.
+      </p>
+    </div>
+    <div>
+      <p class="body-t lg">
+        <span class="drop">Б</span>ізбен бірге болыңыз. Ғаламторды жүктеп алыңыз. Достарыңызға таратыңыз. Қазақстанның технологиялық революциясының бір бөлігіне айналыңыз.
+      </p>
+    </div>
+  </div>
+  <div class="bigtype">
+    <span class="bt">ЖЫЛДАМ.</span>
+    <span class="bt-sep">◆</span>
+    <span class="bt">ҚАУІПСІЗ.</span>
+    <span class="bt-sep">◆</span>
+    <span class="bt it">ҰЛТТЫҚ.</span>
+  </div>
+</section>
+
+<!-- ═══════ DOWNLOAD ═══════ -->
+<div class="sdiv"><div class="sdiv-rule"></div><div class="sdiv-orn">◆ ЖҮКТЕУ ◆</div><div class="sdiv-rule"></div></div>
+<section class="dl-sec" id="download">
+  <div class="dl-inner rv" style="--d:0ms">
+    <div class="dl-content">
+      <div class="col-label centered">◈ ЖАҢА ШЫҒАРЫЛЫМ</div>
+      <div class="rule-h"></div>
+      <h2 class="dl-hl">Ғаламторды<br>бүгін жүктеңіз</h2>
+      <div class="rule-h thin"></div>
+      <p class="dl-ver" id="dl-version-info">Нұсқа v1.0.0 &nbsp;·&nbsp; macOS 13+ &nbsp;·&nbsp; Тегін</p>
+      <div class="rule-h"></div>
+      <div class="dl-acts">
+        <a href="https://github.com/akhmet-dev/Galamtor-/releases" target="_blank" class="dl-btn pri" id="dl-main-btn">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span class="btn-text">macOS үшін жүктеу</span>
+        </a>
+        <a href="https://github.com/akhmet-dev/Galamtor-" target="_blank" class="dl-btn sec">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          GitHub
+        </a>
+      </div>
+      <div id="dl-platform-dropdown" class="dl-platform-dropdown"></div>
+      <div class="dl-note">* macOS Ventura 13.0 немесе одан жоғары нұсқасы қажет</div>
+    </div>
+    <div class="cert">
+      <div class="cert-out">
+        <div class="cert-in">
+          <div class="cert-top">РЕСМИ ШЫҒАРЫЛЫМ</div>
+          <div class="cert-sym">Ғ</div>
+          <div class="cert-tit">ҒАЛАМТОР</div>
+          <div class="cert-ver">v1.0.0</div>
+          <div class="cert-yr">2026</div>
+          <div class="cert-bot">ҚАЗАҚСТАН</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ FOOTER ═══════ -->
+<footer class="ftr">
+  <div class="ftr-inner">
+    <div>
+      <div class="ftr-logo">ҒАЛАМТОР</div>
+      <div class="ftr-tag">Қазақстанның ұлттық веб-шолғышы</div>
+    </div>
+    <div class="ftr-ctr">
+      <div class="ftr-orn">◆</div>
+      <p class="ftr-copy">&copy; 2026 Ғаламтор. Барлық құқықтар сақталған.<br>Қазақстан Республикасы, Астана қ.</p>
+    </div>
+    <div class="ftr-rt">
+      <a href="https://github.com/akhmet-dev/Galamtor-" target="_blank" class="ftr-lnk">GitHub</a>
+      <span class="ftr-sep">·</span>
+      <a href="#" class="ftr-lnk">Конфиденциалдылық</a>
+      <span class="ftr-sep">·</span>
+      <a href="#" class="ftr-lnk">Байланыс</a>
+    </div>
+  </div>
+  <div class="ftr-ed">ҒАЛАМТОР ГАЗЕТІ &nbsp;·&nbsp; ТОМ I &nbsp;·&nbsp; № 1 &nbsp;·&nbsp; 2026 &nbsp;·&nbsp; ТЕГІН</div>
+</footer>
+
+<script src="app.js"></script>
+<script src="github-releases.js"></script>
+<script>
+// Scroll reveal
+var rv=document.querySelectorAll('.rv');
+var io=new IntersectionObserver(function(e){
+  e.forEach(function(x){if(x.isIntersecting){x.target.classList.add('on');io.unobserve(x.target);}});
+},{threshold:.07,rootMargin:'0px 0px -30px 0px'});
+rv.forEach(function(el){io.observe(el);});
+
+// Active nav
+var secs=document.querySelectorAll('section[id]');
+var navs=document.querySelectorAll('.sec-nav a');
+var nio=new IntersectionObserver(function(e){
+  e.forEach(function(x){
+    if(x.isIntersecting){
+      navs.forEach(function(n){n.classList.remove('act');});
+      var a=document.querySelector('.sec-nav a[href="#'+x.target.id+'"]');
+      if(a)a.classList.add('act');
+    }
+  });
+},{threshold:.3});
+secs.forEach(function(s){nio.observe(s);});
+
+// Live date
+var mo=['ҚАҢТАР','АҚПАН','НАУРЫЗ','СӘУІР','МАМЫР','МАУСЫМ','ШІЛДЕ','ТАМЫЗ','ҚЫРКҮЙЕК','ҚАЗАН','ҚАРАША','ЖЕЛТОҚСАН'];
+var nd=new Date(),el=document.getElementById('iss-date');
+if(el)el.textContent=nd.getDate()+' '+mo[nd.getMonth()]+' '+nd.getFullYear();
+
+// Live clock in browser mockup
+function updateClock(){
+  var cl=document.getElementById('brws-clock');
+  if(!cl)return;
+  var n=new Date();
+  var h=String(n.getHours()).padStart(2,'0');
+  var m=String(n.getMinutes()).padStart(2,'0');
+  cl.textContent=h+':'+m;
+}
+updateClock();
+setInterval(updateClock,10000);
+
+// ── ✨ PARALLAX ENGINE ────────────────────────────────
+var prefersReduced = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+var isMobile = window.innerWidth < 768;
+
+if(!prefersReduced && !isMobile){
+  var mastTitle = document.querySelector('.mh-title');
+  var mastMeta  = document.querySelector('.mh-meta');
+  var heroPQ    = document.querySelector('.pq-wrap');
+  var brwsWrap  = document.querySelector('.brws-wrap');
+
+  var ticking = false;
+  window.addEventListener('scroll', function(){
+    if(!ticking){
+      requestAnimationFrame(function(){
+        var sy = window.scrollY;
+
+        // Masthead title floats up slowly (subtle depth)
+        if(mastTitle) mastTitle.style.transform = 'translateY('+( sy * 0.06)+'px)';
+        if(mastMeta)  mastMeta.style.transform  = 'translateY('+( sy * 0.03)+'px)';
+
+        // Browser mockup gentle lift
+        if(brwsWrap){
+          var rect = brwsWrap.getBoundingClientRect();
+          var center = rect.top + rect.height/2;
+          var vhalf  = window.innerHeight/2;
+          var offset = (center - vhalf) * 0.07;
+          brwsWrap.style.transform = 'translateY('+offset+'px)';
+        }
+
+        // Pull-quote subtle drift
+        if(heroPQ){
+          var pRect = heroPQ.getBoundingClientRect();
+          var pOff  = (pRect.top - window.innerHeight/2) * 0.04;
+          heroPQ.style.transform = 'translateY('+pOff+'px)';
+        }
+
+        // Ticker speeds up when scrolling
+        var ticker = document.querySelector('.ticker-inner');
+        if(ticker){
+          if(sy > 80) ticker.classList.add('fast');
+          else        ticker.classList.remove('fast');
+        }
+
+        ticking = false;
+      });
+      ticking = true;
+    }
+  }, {passive:true});
+}
+
+// ── 🏆 STAMP BOUNCE-IN ANIMATION ─────────────────────
+var stamps = document.querySelectorAll('.stamp-circle');
+if(stamps.length){
+  var stampIo = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        e.target.classList.add('stamp-animated');
+        stampIo.unobserve(e.target);
+      }
+    });
+  },{threshold:0.4});
+  stamps.forEach(function(s){stampIo.observe(s);});
+}
+
+// ── 📱 MOBILE TOUCH HINT ─────────────────────────────
+if(window.innerWidth < 768){
+  // On mobile, add light touch feedback to stamps
+  stamps.forEach(function(s){
+    s.addEventListener('touchstart',function(){
+      s.style.transform='rotate(0deg) scale(1.1)';
+    },{passive:true});
+    s.addEventListener('touchend',function(){
+      setTimeout(function(){s.style.transform='';},300);
+    },{passive:true});
+  });
+}
+</script>
+</body>
+</html>
