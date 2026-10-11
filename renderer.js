@@ -41,10 +41,16 @@ function updateWorkspaceTooltip() {
     const btn = document.getElementById('btn-workspace');
     if (!btn) return;
     
-    const openTabsCount = (tabs || []).length;
+    const openTabsCount = (typeof tabs !== 'undefined' && tabs) ? tabs.length : 0;
     const pinnedCount = dockIcons ? dockIcons.querySelectorAll('.dock-btn[data-url]').length : 0;
-    const vibesCount = typeof GalamtorStore !== 'undefined' ? GalamtorStore.getVibes().length : 0;
-    const prof = typeof GalamtorStore !== 'undefined' ? GalamtorStore.getProfile() : null;
+    let vibesCount = 0;
+    let prof = null;
+    try {
+      if (typeof window !== 'undefined' && window.GalamtorStore) {
+        vibesCount = window.GalamtorStore.getVibes().length;
+        prof = window.GalamtorStore.getProfile();
+      }
+    } catch (e) {}
     const userName = (prof && prof.name) ? prof.name : 'Galamtor Пайдаланушысы';
     
     let text = `${userName} | Workspace\n`;
@@ -321,7 +327,7 @@ function clearAllDragIndicators() {
 
 // ── YouTube Smooth Playback & Anti-AdBlock Shield Engine ──
 const STANDARD_BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.186 Safari/537.36';
-const FIREFOX_AUTH_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:130.0) Gecko/20100101 Firefox/130.0';
+const SAFARI_AUTH_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15';
 
 function injectYouTubeOptimizations(webview) {
   try {
@@ -434,7 +440,7 @@ function createWebview(tabId, url, isIncognito = false) {
   webview.setAttribute('src', url);
   webview.setAttribute('allowpopups', '');
   const isGoogleAuth = (url || '').toLowerCase().includes('accounts.google.com') || (url || '').toLowerCase().includes('accounts.youtube.com');
-  webview.setAttribute('useragent', isGoogleAuth ? FIREFOX_AUTH_UA : STANDARD_BROWSER_UA);
+  webview.setAttribute('useragent', isGoogleAuth ? SAFARI_AUTH_UA : STANDARD_BROWSER_UA);
   if (isIncognito) {
     webview.setAttribute('partition', 'incognito');
   }
@@ -452,7 +458,7 @@ function createWebview(tabId, url, isIncognito = false) {
       const targetUrl = ((event && event.url) || (webview.getURL && webview.getURL()) || '').toLowerCase();
       if (targetUrl.includes('accounts.google.com') || targetUrl.includes('accounts.youtube.com')) {
         if (typeof webview.setUserAgent === 'function') {
-          webview.setUserAgent(FIREFOX_AUTH_UA);
+          webview.setUserAgent(SAFARI_AUTH_UA);
         }
       } else {
         if (typeof webview.setUserAgent === 'function') {
@@ -494,7 +500,7 @@ function createWebview(tabId, url, isIncognito = false) {
       const tab = tabs.find(t => t.id === tabId);
       if (tab) {
         tab.url = event.url;
-        if (!tab.isIncognito) {
+        if (!tab.isIncognito && window.galamtorAPI?.addHistory) {
           window.galamtorAPI.addHistory({
             url: event.url,
             title: tab.title || event.url,
@@ -524,7 +530,7 @@ function createWebview(tabId, url, isIncognito = false) {
       const tab = tabs.find(t => t.id === tabId);
       if (tab) {
         tab.url = event.url;
-        if (!tab.isIncognito) {
+        if (!tab.isIncognito && window.galamtorAPI?.addHistory) {
           window.galamtorAPI.addHistory({
             url: event.url,
             title: tab.title || event.url,
@@ -2839,34 +2845,31 @@ function injectPremiumNewTabStyles() {
       margin-top: 0 !important;
     }
 
-    .shortcut-card {
-      background: rgba(14, 16, 22, 0.45) !important;
-      backdrop-filter: blur(24px) saturate(120%) !important;
-      -webkit-backdrop-filter: blur(24px) saturate(120%) !important;
-      border: 1px solid rgba(255, 255, 255, 0.03) !important;
-      border-radius: 16px !important;
-      padding: 24px 16px 20px !important;
-      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
-    }
-
+    .safari-favorites-row .shortcut-card,
     .safari-fav-item {
-      padding: 6px 4px !important;
-      border: none !important;
       background: transparent !important;
+      border: none !important;
       box-shadow: none !important;
+      padding: 6px 4px !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      cursor: pointer !important;
+      transition: all 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2) !important;
+      border-radius: 16px !important;
     }
 
+    .safari-favorites-row .shortcut-card:hover,
     .safari-fav-item:hover {
       background: rgba(255, 255, 255, 0.08) !important;
-      border: none !important;
+      backdrop-filter: blur(16px) !important;
+      -webkit-backdrop-filter: blur(16px) !important;
+      transform: translateY(-3px) scale(1.03) !important;
       box-shadow: none !important;
-    }
-
-    .shortcut-card:hover {
-      transform: translateY(-4px) !important;
-      border-color: rgba(255, 255, 255, 0.08) !important;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6) !important;
-      background: rgba(20, 22, 30, 0.65) !important;
+      border: none !important;
     }
 
     .shortcut-card:active {
@@ -5258,26 +5261,30 @@ function gpInitProfileHub() {
   // Set up downloads state and listeners
   _gp.activeDownloads = {};
 
-  window.galamtorAPI.onDownloadProgress((progress) => {
-    _gp.activeDownloads[progress.id] = progress;
-    if (_gp.overlayEl && _gp.overlayEl.classList.contains('gp-visible') && _gp.activeTab === 'downloads') {
-      gpRenderDownloadsTab();
-    }
-  });
+  if (window.galamtorAPI && typeof window.galamtorAPI.onDownloadProgress === 'function') {
+    window.galamtorAPI.onDownloadProgress((progress) => {
+      _gp.activeDownloads[progress.id] = progress;
+      if (_gp.overlayEl && _gp.overlayEl.classList.contains('gp-visible') && _gp.activeTab === 'downloads') {
+        gpRenderDownloadsTab();
+      }
+    });
+  }
 
-  window.galamtorAPI.onDownloadDone((meta) => {
-    delete _gp.activeDownloads[meta.id];
-    if (meta.state === 'completed') {
-      gpShowDownloadToast('📥 Жүктеу аяқталды', `${meta.filename} сәтті жүктелді.`);
-    } else if (meta.state === 'cancelled') {
-      gpShowDownloadToast('⚠️ Жүктеу тоқтатылды', `${meta.filename} тоқтатылды.`);
-    } else {
-      gpShowDownloadToast('❌ Жүктеу қатесі', `${meta.filename} жүктеу сәтсіз аяқталды.`);
-    }
-    if (_gp.overlayEl && _gp.overlayEl.classList.contains('gp-visible') && _gp.activeTab === 'downloads') {
-      gpRenderDownloadsTab();
-    }
-  });
+  if (window.galamtorAPI && typeof window.galamtorAPI.onDownloadDone === 'function') {
+    window.galamtorAPI.onDownloadDone((meta) => {
+      delete _gp.activeDownloads[meta.id];
+      if (meta.state === 'completed') {
+        gpShowDownloadToast('📥 Жүктеу аяқталды', `${meta.filename} сәтті жүктелді.`);
+      } else if (meta.state === 'cancelled') {
+        gpShowDownloadToast('⚠️ Жүктеу тоқтатылды', `${meta.filename} тоқтатылды.`);
+      } else {
+        gpShowDownloadToast('❌ Жүктеу қатесі', `${meta.filename} жүктеу сәтсіз аяқталды.`);
+      }
+      if (_gp.overlayEl && _gp.overlayEl.classList.contains('gp-visible') && _gp.activeTab === 'downloads') {
+        gpRenderDownloadsTab();
+      }
+    });
+  }
 
   logo.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -5429,7 +5436,8 @@ function gpInitProfileHub() {
   // CRITICAL: We must use the Google OIDC ID Token (from result.credential.idToken
   // on the Firebase Hosting page) NOT a Firebase ID Token (from user.getIdToken()).
   // GoogleAuthProvider.credential(idToken, accessToken) requires Google's own token.
-  window.galamtorAPI.onFirebaseAuthToken((payload) => {
+  if (window.galamtorAPI && typeof window.galamtorAPI.onFirebaseAuthToken === 'function') {
+    window.galamtorAPI.onFirebaseAuthToken((payload) => {
     // Normalize: support both the new object shape and a legacy plain-string fallback
     // so that existing sessions during a partial deploy are not broken.
     let googleIdToken, googleAccessToken;
@@ -5499,7 +5507,8 @@ function gpInitProfileHub() {
         }
         gpRenderProfileTab();
       });
-  });
+    });
+  }
 }
 
 // ── 12. INITIALIZE ───────────────────────────────────────────────
@@ -5507,7 +5516,9 @@ gpInitProfileHub();
 updateWorkspaceTooltip();
 
 const startupLang = localStorage.getItem('galamtor_language') || 'kk';
-window.galamtorAPI.setLanguage(startupLang);
+if (window.galamtorAPI && typeof window.galamtorAPI.setLanguage === 'function') {
+  window.galamtorAPI.setLanguage(startupLang);
+}
 gpApplyLanguage(startupLang);
 
 // Apply stored active vibe color on startup
@@ -5532,7 +5543,7 @@ async function gpRenderBookmarksTab() {
   `;
 
   try {
-    const bookmarks = await window.galamtorAPI.getBookmarks();
+    const bookmarks = (window.galamtorAPI && window.galamtorAPI.getBookmarks) ? await window.galamtorAPI.getBookmarks() : [];
     let bHtml = '';
     if (bookmarks && bookmarks.length > 0) {
       bHtml = bookmarks.map(b => {
@@ -5603,7 +5614,7 @@ async function gpRenderHistoryTab() {
   `;
   
   try {
-    const history = await window.galamtorAPI.getHistory();
+    const history = (window.galamtorAPI && window.galamtorAPI.getHistory) ? await window.galamtorAPI.getHistory() : [];
     
     let historyHtml = '';
     if (history && history.length > 0) {
@@ -5696,7 +5707,7 @@ async function gpRenderDownloadsTab() {
   `;
   
   try {
-    const completed = await window.galamtorAPI.getDownloads();
+    const completed = (window.galamtorAPI && window.galamtorAPI.getDownloads) ? await window.galamtorAPI.getDownloads() : [];
     const allDownloads = [];
     
     // Active downloads first
@@ -6828,7 +6839,7 @@ function initCyberSteppeInnovations() {
     updatePrayerUI(cityKey);
     closeCityModal();
     const c = KZ_CITIES[cityKey];
-    if (c) showToast(`📍 Қала таңдалды: ${c.name} (намаз кестесі жаңартылды)`);
+    if (c) showToast(`✓ Қала таңдалды: ${c.name} (намаз кестесі жаңартылды)`);
   };
 
   const renderCityGrid = (query) => {
@@ -7636,7 +7647,7 @@ function initStartPageCustomizer() {
         localStorage.setItem('galamtor_wallpaper_preset', preset.id);
         const curr = loadState();
         applyWallpaper(curr);
-        showToast(`🖼️ Тұсқағаз қойылды: ${preset.name}`);
+        showToast(`✓ Тұсқағаз қойылды: ${preset.name}`);
       });
       presetsGrid.appendChild(card);
     });
@@ -7650,7 +7661,7 @@ function initStartPageCustomizer() {
     localStorage.setItem('galamtor_custom_name', name);
     const curr = loadState();
     applyWallpaper(curr);
-    showToast(type === 'video' ? '🎬 MP4 Тірі видео тұсқағаз қойылды!' : '🖼️ Өз фотоңыз тұсқағаз болып қойылды!');
+    showToast(type === 'video' ? '✓ MP4 тірі видео тұсқағаз қойылды' : '✓ Жеке фото тұсқағаз қойылды');
   };
 
   if (btnUpload) {
@@ -7686,7 +7697,7 @@ function initStartPageCustomizer() {
       localStorage.setItem('galamtor_wallpaper_mode', 'preset');
       const curr = loadState();
       applyWallpaper(curr);
-      showToast('🔄 Бастапқы тұсқағазға қайтарылды');
+      showToast('✓ Бастапқы тұсқағазға қайтарылды');
     });
   }
 
@@ -7709,15 +7720,29 @@ function initStartPageCustomizer() {
     });
   }
 
-  // Widget Checkboxes
+  // Widget Checkboxes with full state synchronization
   const bindToggle = (toggleEl, key, elTarget, label) => {
     if (!toggleEl) return;
-    toggleEl.addEventListener('change', (e) => {
-      const checked = e.target.checked;
+    const update = (checked) => {
       localStorage.setItem(key, checked ? 'true' : 'false');
-      if (elTarget) elTarget.style.display = checked ? '' : 'none';
-      showToast(checked ? `👁️ ${label} қосылды` : `🙈 ${label} жасырылды`);
+      toggleEl.checked = checked;
+      const curr = loadState();
+      applyWallpaper(curr);
+      showToast(checked ? `✓ ${label} қосылды` : `— ${label} жасырылды`);
+    };
+
+    toggleEl.addEventListener('change', (e) => {
+      update(e.target.checked);
     });
+
+    const row = toggleEl.closest('.toggle-row');
+    if (row) {
+      row.addEventListener('click', (e) => {
+        if (e.target === toggleEl) return;
+        e.preventDefault();
+        update(!toggleEl.checked);
+      });
+    }
   };
 
   bindToggle(toggleClock, 'galamtor_widget_clock', elClock, 'Сағат виджеті');
@@ -7735,7 +7760,7 @@ function initStartPageCustomizer() {
       const curr = loadState();
       applyWallpaper(curr);
       const title = chip.querySelector('.chip-title') ? chip.querySelector('.chip-title').textContent : style;
-      showToast(`🎨 Виджет стилі орнатылды: ${title}`);
+      showToast(`✓ Виджет стилі: ${title}`);
     });
   });
 

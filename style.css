@@ -1359,6 +1359,59 @@ body {
   line-height: 1.2;
 }
 
+/* Hub Style Selector (5 Styles in Customizer) */
+.hub-style-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.hub-style-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: left;
+}
+.hub-style-chip:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(0, 242, 254, 0.35);
+  transform: translateX(2px);
+}
+.hub-style-chip.active {
+  background: rgba(0, 242, 254, 0.12);
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 16px rgba(0, 242, 254, 0.2);
+  color: #fff;
+  font-weight: 600;
+}
+.hub-style-chip .chip-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--accent-blue);
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+.hub-style-chip.active .chip-icon {
+  background: var(--accent-blue);
+  color: #0b0f19;
+}
+.hub-style-chip .chip-title {
+  flex: 1;
+}
+
 /* Widget Toggles */
 .widget-toggles-list {
   display: flex;
@@ -1386,15 +1439,19 @@ body {
   font-weight: 500;
 }
 .toggle-row input {
-  display: none;
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
 }
 .toggle-switch {
   width: 38px;
   height: 20px;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.18);
   border-radius: 10px;
   position: relative;
-  transition: background 0.25s ease;
+  transition: background 0.25s ease, box-shadow 0.25s ease;
   flex-shrink: 0;
 }
 .toggle-switch::after {
@@ -1406,14 +1463,15 @@ body {
   height: 16px;
   background: #ffffff;
   border-radius: 50%;
-  transition: transform 0.25s ease;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
 }
 .toggle-row input:checked + .toggle-switch {
-  background: var(--accent-blue);
+  background: #0071e3 !important;
+  box-shadow: 0 0 10px rgba(0, 113, 227, 0.45);
 }
 .toggle-row input:checked + .toggle-switch::after {
-  transform: translateX(18px);
+  transform: translateX(18px) !important;
 }
 
 /* ════════════════════════════════════════
@@ -3285,7 +3343,7 @@ button:focus-visible, input:focus-visible {
 /* ── Section 2: Safari Apple Bento Hero Card ── */
 .safari-bento-card {
   display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
   gap: 14px !important;
   width: 100% !important;
   box-sizing: border-box !important;

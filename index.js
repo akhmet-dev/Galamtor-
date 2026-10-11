@@ -978,15 +978,23 @@ app.whenReady().then(() => {
   } catch (e) {}
 
   // ── Smart Header Manager for Google Auth & Privacy Shield ──
-  const FIREFOX_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:130.0) Gecko/20100101 Firefox/130.0';
+  const SAFARI_AUTH_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15';
+
+  // Clear any stale Google BotGuard marker cookies that force "insecure browser" blocks
+  try {
+    session.defaultSession.clearStorageData({
+      storages: ['cookies'],
+      origin: 'https://accounts.google.com'
+    }).catch(() => {});
+  } catch (e) {}
 
   const handleHeaders = (details, callback) => {
     const requestHeaders = details.requestHeaders || {};
     const urlStr = (details.url || '').toLowerCase();
 
-    // Bypass Google's embedded webview block by serving standard Firefox headers on Google account endpoints
+    // Bypass Google's embedded webview block by serving standard macOS Safari headers on Google account endpoints
     if (urlStr.includes('accounts.google.com') || urlStr.includes('accounts.youtube.com')) {
-      requestHeaders['User-Agent'] = FIREFOX_UA;
+      requestHeaders['User-Agent'] = SAFARI_AUTH_UA;
       delete requestHeaders['sec-ch-ua'];
       delete requestHeaders['sec-ch-ua-mobile'];
       delete requestHeaders['sec-ch-ua-platform'];
@@ -1122,6 +1130,19 @@ app.on('web-contents-created', (event, contents) => {
 
   contents.on('will-navigate', handleNavSecurity);
   contents.on('will-redirect', handleNavSecurity);
+
+  // Dynamic User-Agent adjustment for Google Auth endpoints to bypass BotGuard embedded webview restrictions
+  const handleNavUA = (e, navUrl) => {
+    if (!navUrl || typeof navUrl !== 'string') return;
+    const u = navUrl.toLowerCase();
+    if (u.includes('accounts.google.com') || u.includes('accounts.youtube.com')) {
+      try { contents.setUserAgent(SAFARI_AUTH_UA); } catch (err) {}
+    } else {
+      try { contents.setUserAgent(STANDARD_CHROME_UA); } catch (err) {}
+    }
+  };
+  contents.on('will-navigate', handleNavUA);
+  contents.on('will-redirect', handleNavUA);
 
   contents.on('select-file', (e, path, callback) => {
     e.preventDefault();
