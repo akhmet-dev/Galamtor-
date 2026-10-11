@@ -7,11 +7,13 @@
 
 <!-- ── SEO Core ──────────────────────────────────────── -->
 <meta name="description" content="Ғаламтор — кіріктірілген AdBlock-і бар заманауи жеңіл шолғыш. Жарнамасыз таза интернет, жергілікті құпиялылық және отандық сервистерге лезде өту. macOS үшін тегін.">
-<meta name="keywords" content="Ғаламтор, Galamtor, браузер, Mac браузер, AdBlock, қазақша браузер, жарнамасыз интернет, жеңіл браузер, macOS, отандық браузер">
+<meta name="keywords" content="ғаламтор, galamtor, ғаламтор браузер, galamtor browser, Mac браузер, қазақша браузер, WebMCP, AI агенттер, Model Context Protocol, AdBlock, жарнамасыз интернет, жеңіл браузер, macOS, ашық код">
 <meta name="author" content="Ғаламтор Team">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
 <meta name="google-site-verification" content="google3bc69cdb73624073">
 <link rel="canonical" href="https://galamtor.web.app/">
+<link rel="alternate" type="text/plain" href="https://galamtor.web.app/llms.txt" title="LLM Context">
+<link rel="alternate" type="text/plain" href="https://galamtor.web.app/llms-full.txt" title="Full Agent Documentation">
 
 <!-- ── Open Graph (Facebook / WhatsApp / Telegram) ──── -->
 <meta property="og:type" content="website">
@@ -97,42 +99,40 @@
   top: 0;
   bottom: 0;
   width: 44px;
-  z-index: 99;
+  z-index: 9999;
   pointer-events: none;
-  opacity: 0.85;
-  background-image: url("data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20xmlns%3Axlink%3D%22http%3A//www.w3.org/1999/xlink%22%20viewBox%3D%220%200%20240%201000%22%20fill%3D%22%23b8860b%22%3E%3Cg%20id%3D%22D%22%3E%3Cg%20id%3D%22E%22%3E%3Cpath%20d%3D%22M120%2072.922s-9.61-8.076-12.874-4.025c-5.25%206.515%2016.14%2038.968%2016.14%2050.396%200%2018.759-12.517%2023.86-27.973%2026.539-10.371%201.798-27.259-.752-27.259-.752%203.18-4.273%205.248-5.532%2010.606-5.873-5.965-3.097-12.039-9.82-12.039-20.284%200-16.138%206.643-22.79%206.643-40.983%200-10.093-8.276-22.941-8.276-22.941%2014.629%201.464%2021.879%2015.009%2017.754%2025.834%202.328.335%204.442-.19%206.258-1.91%201.07%203-.62%206.483-2.883%209.484%201.823.974%203.162.39%206.066-.21-.276%203.092-2.128%206.376-6.66%209.468%2013.151-3.415%2021.243%205.751%2021.243%2015.347%200%207.248-5.079%2012.443-10.044%2012.443-1.604%200-3.961-.661-5.29-1.654-.938%201.995-.455%204.665.51%206.66-3.638-.962-5.948-3.123-4.304-7.621-2.795-.257-5.018-1.201-6.53-3%201.532-1.963%203.857-3.093%206.53-3.001-2.035-4.2.233-6.55%203.538-8.456%200%200-2.102%208.456%203.265%208.456%202.413%200%204.612-.786%204.612-4.343%200-3.097-2.707-7.387-8.966-7.114s-11.332%204.315-11.332%2014.306c0%209.216%207.434%2013.8%2017.23%2014.096%208.833.273%2015.5-4.512%2015.5-13.625%200-12.128-17.508-39.773-17.508-50.58%200-8.11%207.292-12.636%2014.427-12.636%209.252%200%2017.058%209.161%2017.058%209.161l-5.435%206.815z%22/%3E%3Cpath%20id%3D%22F%22%20d%3D%22M122.02%20292.14c0%2020.27-18.198%2030.688-32.498%2030.688-19.266%200-29.524-11.519-29.524-26.598%200-8.548%201.566-13.911%205.507-22.092l44.153-91.653c1.543-3.188%202.041-6.818%202.041-12.138%200-8.217-7.97-14.933-16.327-15.139-7.618-.19-15.918%207.102-15.918%2015.412%200%2010.093%205.236%2014.593%2010.612%2014.593%206.616%200%209.252-2.72%209.252-7.365%200-3.237-1.563-4.637-3.81-4.637-5.674%200-4.081%207.638-4.081%207.638-2.818-.617-5.134-3.497-3.81-7.093a10.23%2010.23%200%200%201-5.51-3.273c1.521-1.475%203.266-2.613%205.51-3-1.329-4.388.447-6.531%204.286-7.433-.775%201.687-.801%203.24-.544%204.705%206.043-1.719%2015.306%201.016%2015.306%2011.456%200%2010.365-7.194%2019.093-20.681%2016.912%203.208%201.534%204.84%204.673%205.17%208.183-2.45-.954-5.17-1.09-5.17-1.09%201.577%202.78%203.767%205.177%203.673%2010.637-2.5-1.137-4.823-3.242-8.027-1.91%205.03%209.898-1.15%2023.512-16.871%2026.733%205.754-6.745%208.571-14.027%208.571-21.277%200-23.496-6.53-27.445-6.53-43.78%200-6.835%203.513-14.215%2010.476-19.231v.273c-4.602-1.233-7.55-3.499-9.245-6.578%2010.515-2.982%2025.8-2.927%2034.006.302%209.434%201.093%2016.02%208.33%2017.96%2012.004s5.709%2016.953%200%2028.912l-44.898%2095.198c-1.948%204.165-3.13%208.583-3.13%2013.366%200%2012.03%2011.02%2016.23%2017.28%2016.23%207.483%200%2015.102-5.7%2015.102-12.82%200-4.511-2.45-7.228-5.987-7.228-8.458%200-7.944%207.195-6.258%2011.729-5.264-2.367-8.324-6.592-7.483-11.047-2.98-.409-5.817-1.822-8.435-4.774%202.06-2.6%204.572-4.567%208.435-4.637-1.687-6.912%202.94-9.835%207.483-11.456-1.437%205.073-2.38%2010.911%206.258%2010.911%206.3%200%2011.258%201.091%2014.15%205.183l.68-27.005c.364-8.098-10.838-7.867-17.958-5.456%202.687-9.327%208.198-14.37%2020.952-13.093-3.096-1.295-6.395-4.208-6.395-9.82.002-7.593%206.162-16.005%2010.206-18.492l2.022%2079.051z%22/%3E%3Cuse%20xlink%3Ahref%3D%22%23F%22%20transform%3D%22matrix%281%200%200%20-1%200%20645.08%29%22/%3E%3C/g%3E%3Cuse%20xlink%3Ahref%3D%22%23E%22%20transform%3D%22matrix%28-1%200%200%201%20240%200%29%22/%3E%3C/g%3E%3Cuse%20xlink%3Ahref%3D%22%23D%22%20transform%3D%22matrix%281%200%200%20-1%200%201000%29%22/%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.92;
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB2aWV3Qm94PSIwIDAgMjQwIDEwMDAiIGZpbGw9IiNiODg2MGIiPjxnIGlkPSJEIj48ZyBpZD0iRSI+PHBhdGggZD0iTTEyMCA3Mi45MjJzLTkuNjEtOC4wNzYtMTIuODc0LTQuMDI1Yy01LjI1IDYuNTE1IDE2LjE0IDM4Ljk2OCAxNi4xNCA1MC4zOTYgMCAxOC43NTktMTIuNTE3IDIzLjg2LTI3Ljk3MyAyNi41MzktMTAuMzcxIDEuNzk4LTI3LjI1OS0uNzUyLTI3LjI1OS0uNzUyIDMuMTgtNC4yNzMgNS4yNDgtNS41MzIgMTAuNjA2LTUuODczLTUuOTY1LTMuMDk3LTEyLjAzOS05LjgyLTEyLjAzOS0yMC4yODQgMC0xNi4xMzggNi42NDMtMjIuNzkgNi42NDMtNDAuOTgzIDAtMTAuMDkzLTguMjc2LTIyLjk0MS04LjI3Ni0yMi45NDEgMTQuNjI5IDEuNDY0IDIxLjg3OSAxNS4wMDkgMTcuNzU0IDI1LjgzNCAyLjMyOC4zMzUgNC40NDItLjE5IDYuMjU4LTEuOTEgMS4wNyAzLS42MiA2LjQ4My0yLjg4MyA5LjQ4NCAxLjgyMy45NzQgMy4xNjIuMzkgNi4wNjYtLjIxLS4yNzYgMy4wOTItMi4xMjggNi4zNzYtNi42NiA5LjQ2OCAxMy4xNTEtMy40MTUgMjEuMjQzIDUuNzUxIDIxLjI0MyAxNS4zNDcgMCA3LjI0OC01LjA3OSAxMi40NDMtMTAuMDQ0IDEyLjQ0My0xLjYwNCAwLTMuOTYxLS42NjEtNS4yOS0xLjY1NC0uOTM4IDEuOTk1LS40NTUgNC42NjUuNTEgNi42Ni0zLjYzOC0uOTYyLTUuOTQ4LTMuMTIzLTQuMzA0LTcuNjIxLTIuNzk1LS4yNTctNS4wMTgtMS4yMDEtNi41My0zIDEuNTMyLTEuOTYzIDMuODU3LTMuMDkzIDYuNTMtMy4wMDEtMi4wMzUtNC4yLjIzMy02LjU1IDMuNTM4LTguNDU2IDAgMC0yLjEwMiA4LjQ1NiAzLjI2NSA4LjQ1NiAyLjQxMyAwIDQuNjEyLS43ODYgNC42MTItNC4zNDMgMC0zLjA5Ny0yLjcwNy03LjM4Ny04Ljk2Ni03LjExNHMtMTEuMzMyIDQuMzE1LTExLjMzMiAxNC4zMDZjMCA5LjIxNiA3LjQzNCAxMy44IDE3LjIzIDE0LjA5NiA4LjgzMy4yNzMgMTUuNS00LjUxMiAxNS41LTEzLjYyNSAwLTEyLjEyOC0xNy41MDgtMzkuNzczLTE3LjUwOC01MC41OCAwLTguMTEgNy4yOTItMTIuNjM2IDE0LjQyNy0xMi42MzYgOS4yNTIgMCAxNy4wNTggOS4xNjEgMTcuMDU4IDkuMTYxbC01LjQzNSA2LjgxNXoiLz48cGF0aCBpZD0iRiIgZD0iTTEyMi4wMiAyOTIuMTRjMCAyMC4yNy0xOC4xOTggMzAuNjg4LTMyLjQ5OCAzMC42ODgtMTkuMjY2IDAtMjkuNTI0LTExLjUxOS0yOS41MjQtMjYuNTk4IDAtOC41NDggMS41NjYtMTMuOTExIDUuNTA3LTIyLjA5Mmw0NC4xNTMtOTEuNjUzYzEuNTQzLTMuMTg4IDIuMDQxLTYuODE4IDIuMDQxLTEyLjEzOCAwLTguMjE3LTcuOTctMTQuOTMzLTE2LjMyNy0xNS4xMzktNy42MTgtLjE5LTE1LjkxOCA3LjEwMi0xNS45MTggMTUuNDEyIDAgMTAuMDkzIDUuMjM2IDE0LjU5MyAxMC42MTIgMTQuNTkzIDYuNjE2IDAgOS4yNTItMi43MiA5LjI1Mi03LjM2NSAwLTMuMjM3LTEuNTYzLTQuNjM3LTMuODEtNC42MzctNS42NzQgMC00LjA4MSA3LjYzOC00LjA4MSA3LjYzOC0yLjgxOC0uNjE3LTUuMTM0LTMuNDk3LTMuODEtNy4wOTNhMTAuMjMgMTAuMjMgMCAwIDEtNS41MS0zLjI3M2MxLjUyMS0xLjQ3NSAzLjI2Ni0yLjYxMyA1LjUxLTMtMS4zMjktNC4zODguNDQ3LTYuNTMxIDQuMjg2LTcuNDMzLS43NzUgMS42ODctLjgwMSAzLjI0LS41NDQgNC43MDUgNi4wNDMtMS43MTkgMTUuMzA2IDEuMDE2IDE1LjMwNiAxMS40NTYgMCAxMC4zNjUtNy4xOTQgMTkuMDkzLTIwLjY4MSAxNi45MTIgMy4yMDggMS41MzQgNC44NCA0LjY3MyA1LjE3IDguMTgzLTIuNDUtLjk1NC01LjE3LTEuMDktNS4xNy0xLjA5IDEuNTc3IDIuNzggMy43NjcgNS4xNzcgMy42NzMgMTAuNjM3LTIuNS0xLjEzNy00LjgyMy0zLjI0Mi04LjAyNy0xLjkxIDUuMDMgOS44OTgtMS4xNSAyMy41MTItMTYuODcxIDI2LjczMyA1Ljc1NC02Ljc0NSA4LjU3MS0xNC4wMjcgOC41NzEtMjEuMjc3IDAtMjMuNDk2LTYuNTMtMjcuNDQ1LTYuNTMtNDMuNzggMC02LjgzNSAzLjUxMy0xNC4yMTUgMTAuNDc2LTE5LjIzMXYuMjczYy00LjYwMi0xLjIzMy03LjU1LTMuNDk5LTkuMjQ1LTYuNTc4IDEwLjUxNS0yLjk4MiAyNS44LTIuOTI3IDM0LjAwNi4zMDIgOS40MzQgMS4wOTMgMTYuMDIgOC4zMyAxNy45NiAxMi4wMDRzNS43MDkgMTYuOTUzIDAgMjguOTEybC00NC44OTggOTUuMTk4Yy0xLjk0OCA0LjE2NS0zLjEzIDguNTgzLTMuMTMgMTMuMzY2IDAgMTIuMDMgMTEuMDIgMTYuMjMgMTcuMjggMTYuMjMgNy40ODMgMCAxNS4xMDItNS43IDE1LjEwMi0xMi44MiAwLTQuNTExLTIuNDUtNy4yMjgtNS45ODctNy4yMjgtOC40NTggMC03Ljk0NCA3LjE5NS02LjI1OCAxMS43MjktNS4yNjQtMi4zNjctOC4zMjQtNi41OTItNy40ODMtMTEuMDQ3LTIuOTgtLjQwOS01LjgxNy0xLjgyMi04LjQzNS00Ljc3NCAyLjA2LTIuNiA0LjU3Mi00LjU2NyA4LjQzNS00LjYzNy0xLjY4Ny02LjkxMiAyLjk0LTkuODM1IDcuNDgzLTExLjQ1Ni0xLjQzNyA1LjA3My0yLjM4IDEwLjkxMSA2LjI1OCAxMC45MTEgNi4zIDAgMTEuMjU4IDEuMDkxIDE0LjE1IDUuMTgzbC42OC0yNy4wMDVjLjM2NC04LjA5OC0xMC44MzgtNy44NjctMTcuOTU4LTUuNDU2IDIuNjg3LTkuMzI3IDguMTk4LTE0LjM3IDIwLjk1Mi0xMy4wOTMtMy4wOTYtMS4yOTUtNi4zOTUtNC4yMDgtNi4zOTUtOS44Mi4wMDItNy41OTMgNi4xNjItMTYuMDA1IDEwLjIwNi0xOC40OTJsMi4wMjIgNzkuMDUxeiIvPjx1c2UgeGxpbms6aHJlZj0iI0YiIHRyYW5zZm9ybT0ibWF0cml4KDEgMCAwIC0xIDAgNjQ1LjA4KSIvPjwvZz48dXNlIHhsaW5rOmhyZWY9IiNFIiB0cmFuc2Zvcm09Im1hdHJpeCgtMSAwIDAgMSAyNDAgMCkiLz48L2c+PHVzZSB4bGluazpocmVmPSIjRCIgdHJhbnNmb3JtPSJtYXRyaXgoMSAwIDAgLTEgMCAxMDAwKSIvPjwvc3ZnPg==");
   background-repeat: repeat-y;
   background-position: center top;
   background-size: 38px auto;
-  transition: opacity 0.3s;
 }
 
 .kz-flank-left {
-  left: max(4px, calc(50% - (var(--max-w) / 2) - 48px));
-  border-right: 1.5px solid rgba(184, 134, 11, 0.4);
+  left: max(6px, calc(50% - (var(--max-w) / 2) - 52px));
+  border-right: 1.5px solid rgba(184, 134, 11, 0.45);
 }
 
 .kz-flank-right {
-  right: max(4px, calc(50% - (var(--max-w) / 2) - 48px));
+  right: max(6px, calc(50% - (var(--max-w) / 2) - 52px));
   transform: scaleX(-1);
-  border-right: 1.5px solid rgba(184, 134, 11, 0.4);
+  border-right: 1.5px solid rgba(184, 134, 11, 0.45);
 }
 
-@media (max-width: 1140px) {
+@media (max-width: 1200px) {
   .kz-flank {
-    width: 30px;
-    background-size: 26px auto;
-    opacity: 0.75;
+    width: 32px;
+    background-size: 28px auto;
   }
   .kz-flank-left {
-    left: 2px;
+    left: 4px;
   }
   .kz-flank-right {
-    right: 2px;
+    right: 4px;
   }
 }
 
-@media (max-width: 680px) {
+@media (max-width: 720px) {
   .kz-flank {
     display: none;
   }
@@ -343,116 +343,6 @@ body::after{
 /* ══════════════════════════════════════════════════════
    2. BROWSER UI MOCKUP — Galamtor Interface Preview
    ══════════════════════════════════════════════════════ */
-.brws-wrap{
-  width:100%;margin:14px 0;
-  border:1.5px solid var(--rule);border-radius:6px;
-  overflow:hidden;
-  box-shadow:0 4px 20px rgba(23,18,14,.18);
-}
-/* Chrome (top bar) */
-.brws-chrome{
-  background:#2a2118;padding:6px 10px;
-  display:flex;align-items:center;gap:8px;
-}
-.brws-dots{display:flex;gap:4px;}
-.bd{width:8px;height:8px;border-radius:50%;}
-.bd-r{background:#ef5350;}.bd-y{background:#ffb300;}.bd-g{background:#43a047;}
-.brws-tab-bar{
-  flex:1;display:flex;align-items:center;gap:0;overflow:hidden;
-}
-.brws-tab{
-  font-family:var(--ff-mono);font-size:8px;letter-spacing:.04em;
-  padding:3px 10px;border-radius:4px 4px 0 0;
-  color:#9a8c78;white-space:nowrap;
-  border-right:1px solid rgba(255,255,255,.08);
-}
-.brws-tab.active{background:#f4efe3;color:#17120e;}
-.brws-tab-add{
-  width:20px;height:20px;display:flex;align-items:center;justify-content:center;
-  color:#9a8c78;font-size:14px;cursor:default;flex-shrink:0;
-}
-/* Nav bar */
-.brws-nav{
-  background:#f4efe3;border-bottom:1px solid #bfae90;
-  display:flex;align-items:center;gap:6px;padding:5px 8px;
-}
-.brws-nav-btn{
-  width:18px;height:18px;border-radius:3px;
-  background:rgba(23,18,14,.06);border:1px solid rgba(23,18,14,.12);
-  display:flex;align-items:center;justify-content:center;
-  color:#6a5c48;flex-shrink:0;
-}
-.brws-url{
-  flex:1;font-family:var(--ff-mono);font-size:8px;
-  padding:3px 8px;border:1px solid #bfae90;border-radius:4px;
-  background:#faf6ee;color:#17120e;text-align:left;
-  display:flex;align-items:center;gap:5px;
-}
-.brws-url-lock{color:#43a047;font-size:9px;}
-.brws-url-text{color:#17120e;letter-spacing:.03em;}
-/* Sidebar + content */
-.brws-body{
-  display:flex;
-  background:var(--paper-cream);
-  height:200px;
-  overflow:hidden;
-}
-.brws-sidebar{
-  width:40px;background:#ece5d4;
-  border-right:1px solid #bfae90;
-  display:flex;flex-direction:column;align-items:center;
-  padding:10px 0;gap:9px;flex-shrink:0;
-}
-.brws-sb-logo{
-  font-family:var(--ff-serif);font-weight:700;font-size:15px;
-  color:var(--ink);line-height:1;
-}
-.brws-sb-icon{
-  width:24px;height:24px;border-radius:6px;
-  background:rgba(23,18,14,.08);
-  display:flex;align-items:center;justify-content:center;
-}
-.brws-content{
-  flex:1;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;padding:18px 16px;gap:12px;
-}
-.brws-clock{
-  font-family:var(--ff-serif);font-weight:700;font-size:30px;
-  color:var(--ink);line-height:1;letter-spacing:-.02em;
-}
-.brws-search{
-  width:100%;max-width:180px;
-  border:1.5px solid #bfae90;border-radius:6px;
-  background:#faf6ee;padding:5px 12px;
-  font-family:var(--ff-mono);font-size:8.5px;color:#9a8c78;
-  display:flex;align-items:center;gap:6px;
-}
-.brws-shortcuts{
-  display:flex;gap:10px;
-  flex-wrap:wrap;justify-content:center;
-}
-.brws-sc{
-  width:44px;height:40px;border-radius:8px;
-  background:rgba(23,18,14,.07);border:1px solid rgba(23,18,14,.1);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-}
-.brws-sc-icon{width:16px;height:16px;border-radius:4px;background:rgba(23,18,14,.2);}
-.brws-sc-lbl{font-family:var(--ff-mono);font-size:6px;color:var(--ink-light);letter-spacing:.06em;}
-/* Loading bar anim */
-.brws-load{
-  height:2.5px;background:linear-gradient(90deg,transparent,#00aac8 40%,transparent);
-  animation:load 2.2s ease-in-out infinite;
-  background-size:200% 100%;
-}
-@keyframes load{0%{background-position:-100% 0}100%{background-position:200% 0}}
-/* AI badge */
-.brws-ai-chip{
-  font-family:var(--ff-mono);font-size:8px;letter-spacing:.1em;
-  background:#17120e;color:#dfc990;
-  padding:3px 10px;border-radius:3px;
-  display:inline-block;
-}
-
 /* Stats */
 .col-stats{display:flex;align-items:center;justify-content:space-around;width:100%;padding:10px 0;border-top:1px solid var(--rule);}
 .sn{font-family:var(--ff-serif);font-weight:700;font-size:20px;color:var(--ink);line-height:1;text-align:center;}
@@ -703,11 +593,7 @@ body::after{
   .ftr-logo{font-size:18px;}
   .mh-meta-side span:first-child,.mh-meta-sep{font-size:8px;}
   .sec-nav a{padding:4px 10px;font-size:8px;}
-  /* Browser mockup tweaks for mobile */
-  .brws-body{height:160px;}
-  .brws-clock{font-size:22px;}
-  .brws-search{max-width:150px;}
-  .brws-sc{width:38px;height:34px;}
+
 }
 
 /* ══════════════════════════════════════════════════════
@@ -783,6 +669,8 @@ section{position:relative;}
 </svg>
 </head>
 <body>
+<div class="kz-flank kz-flank-left" aria-hidden="true"></div>
+<div class="kz-flank kz-flank-right" aria-hidden="true"></div>
 <div class="paper-grain"></div>
 
 <!-- TICKER -->
@@ -878,70 +766,31 @@ section{position:relative;}
       </div>
       <div style="height:12px;width:1px;background:var(--rule);"></div>
 
-      <!-- Real Browser UI Mockup -->
-      <div class="brws-wrap">
-        <div class="brws-load"></div>
-        <div class="brws-chrome">
-          <div class="brws-dots">
-            <span class="bd bd-r"></span>
-            <span class="bd bd-y"></span>
-            <span class="bd bd-g"></span>
+      <!-- Central Feature Article: WebMCP & Agent Infrastructure -->
+      <article class="agent-manifesto-card" style="background:var(--paper-mid);border:1px solid var(--rule);padding:18px 20px;margin:12px 0;box-shadow:2px 2px 0 rgba(23,18,14,0.06);position:relative;">
+        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--rule);padding-bottom:8px;margin-bottom:12px;">
+          <span style="font-family:var(--ff-mono);font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:var(--gold);font-weight:700;">◈ AI АГЕНТТЕР МЕН WEBMCP ДӘУІРІ</span>
+          <span style="font-family:var(--ff-mono);font-size:8px;letter-spacing:0.08em;color:var(--ink-light);background:rgba(184,134,11,0.12);padding:2px 6px;border:1px solid rgba(184,134,11,0.3);border-radius:2px;">AGENT READY</span>
+        </div>
+        <h3 style="font-family:var(--ff-serif);font-size:19px;line-height:1.25;color:var(--ink);margin:0 0 10px 0;font-weight:700;">Адамдарға жылдам, AI агенттерге ашық шолғыш</h3>
+        <p class="body-t sm" style="margin-bottom:10px;line-height:1.55;">
+          Ғаламтор тек дәстүрлі пайдаланушы үшін ғана емес, заманауи автономды жасанды интеллект агенттеріне (Claude, Gemini, ChatGPT) толықтай бейімделген инфрақұрылым ұсынады.
+        </p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0;padding:10px 12px;background:var(--paper);border:1px dashed var(--rule-light);">
+          <div>
+            <div style="font-family:var(--ff-mono);font-size:8.5px;font-weight:700;color:var(--ink);margin-bottom:3px;">◆ WebMCP стандарты</div>
+            <p style="font-size:11px;line-height:1.45;color:var(--ink-mid);margin:0;">Сайттарды артық жарнама қоқысынсыз, таза құрылымдық дерек күйінде агентке беру.</p>
           </div>
-          <div class="brws-tab-bar">
-            <div class="brws-tab active">Ғаламтор — Басты бет</div>
-            <div class="brws-tab">Kaspi.kz</div>
-            <div class="brws-tab-add">+</div>
+          <div>
+            <div style="font-family:var(--ff-mono);font-size:8.5px;font-weight:700;color:var(--ink);margin-bottom:3px;">◆ llms.txt қолдауы</div>
+            <p style="font-size:11px;line-height:1.45;color:var(--ink-mid);margin:0;">LLM модельдер браузер контекстін сайт түбіріндегі стандартталған файлдан бірден оқиды.</p>
           </div>
         </div>
-        <div class="brws-nav">
-          <div class="brws-nav-btn">
-            <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="10 4 6 8 10 12"/></svg>
-          </div>
-          <div class="brws-nav-btn">
-            <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6 4 10 8 6 12"/></svg>
-          </div>
-          <div class="brws-url">
-            <span class="brws-url-lock">🔒</span>
-            <span class="brws-url-text">galamtor.kz — Жаңа қойынды</span>
-          </div>
-          <span class="brws-ai-chip">🛡️ AdBlock ●</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px solid var(--rule-light);font-family:var(--ff-mono);font-size:8.5px;color:var(--ink-light);">
+          <span>MIT License · macOS (M1-M4 & Intel)</span>
+          <a href="https://github.com/akhmet-dev/Galamtor-" target="_blank" rel="noopener" style="color:var(--ink);text-decoration:none;border-bottom:1px solid var(--ink);font-weight:600;">GitHub репозиторий →</a>
         </div>
-        <div class="brws-body">
-          <div class="brws-sidebar">
-            <div class="brws-sb-logo">Ғ</div>
-            <div class="brws-sb-icon">
-              <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="#6a5c48" stroke-width="1.5"><path d="M2 4a1 1 0 011-1h10a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V4z"/><path d="M2 7h12"/></svg>
-            </div>
-            <div class="brws-sb-icon">
-              <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="#6a5c48" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
-            </div>
-            <div class="brws-sb-icon">
-              <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="#00aac8" stroke-width="1.5"><path d="M8 1L9.5 6H14L10.5 9L12 14L8 11L4 14L5.5 9L2 6H6.5Z"/></svg>
-            </div>
-          </div>
-          <div class="brws-content">
-            <div class="brws-clock" id="brws-clock">12:00</div>
-            <div class="brws-search">
-              <svg viewBox="0 0 16 16" width="9" height="9" fill="none" stroke="#9a8c78" stroke-width="1.5"><circle cx="7" cy="7" r="4"/><path d="M11 11l2 2"/></svg>
-              <span style="font-size:7.5px;color:#9a8c78;font-family:var(--ff-mono)">Ғаламтордан іздеу...</span>
-            </div>
-            <div class="brws-shortcuts">
-              <div class="brws-sc">
-                <div class="brws-sc-icon" style="background:#e53935;"></div>
-                <div class="brws-sc-lbl">Kaspi</div>
-              </div>
-              <div class="brws-sc">
-                <div class="brws-sc-icon" style="background:#1565c0;"></div>
-                <div class="brws-sc-lbl">eGov</div>
-              </div>
-              <div class="brws-sc">
-                <div class="brws-sc-icon" style="background:#2e7d32;"></div>
-                <div class="brws-sc-lbl">Enbek</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      </article>
 
       <div class="col-stats" style="width:100%">
         <div><div class="sn">0</div><div class="sl">Жарнама</div></div>
@@ -1219,17 +1068,7 @@ var mo=['ҚАҢТАР','АҚПАН','НАУРЫЗ','СӘУІР','МАМЫР','М
 var nd=new Date(),el=document.getElementById('iss-date');
 if(el)el.textContent=nd.getDate()+' '+mo[nd.getMonth()]+' '+nd.getFullYear();
 
-// Live clock in browser mockup
-function updateClock(){
-  var cl=document.getElementById('brws-clock');
-  if(!cl)return;
-  var n=new Date();
-  var h=String(n.getHours()).padStart(2,'0');
-  var m=String(n.getMinutes()).padStart(2,'0');
-  cl.textContent=h+':'+m;
-}
-updateClock();
-setInterval(updateClock,10000);
+
 
 // ── ✨ PARALLAX ENGINE ────────────────────────────────
 var prefersReduced = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
@@ -1239,7 +1078,6 @@ if(!prefersReduced && !isMobile){
   var mastTitle = document.querySelector('.mh-title');
   var mastMeta  = document.querySelector('.mh-meta');
   var heroPQ    = document.querySelector('.pq-wrap');
-  var brwsWrap  = document.querySelector('.brws-wrap');
 
   var ticking = false;
   window.addEventListener('scroll', function(){
