@@ -2648,61 +2648,394 @@ button:focus-visible, input:focus-visible {
 }
 
 /* ═══════════════════════════════════════════════
-   5 DISTINCT DESIGN STYLES FOR THE 3 START PAGE WIDGETS
-   (Currency, Prayer Times, News Ticker)
-   Strictly balanced for the 592px start page container
+   CREATIVE DUAL HUB (ҰЛТТЫҚ БАҒАМ & НАМАЗ КЕСТЕСІ)
+   AND PORTAL BREAKING NEWS BAR
+   Strictly balanced for the 592px search bar container
    ═══════════════════════════════════════════════ */
 
-/* Universal rules to prevent awkward wrapping */
+/* Universal rules to prevent text wrapping */
 .cyber-steppe-hub .cs-val,
 .cyber-steppe-hub .rate-item,
-.cyber-steppe-hub #prayer-times-display,
-.cyber-steppe-hub #news-ticker-display {
+.cyber-steppe-hub .prayer-timeline,
+.cyber-steppe-hub .prayer-next-highlight {
   white-space: nowrap !important;
 }
 
-/* Style Selector in Customizer Drawer */
-.hub-style-selector {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  margin-top: 8px;
-}
-.hub-style-chip {
+/* Base Widget Header inside Cards */
+.cs-widget-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  padding: 8px 12px;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 11.5px;
+  gap: 6px;
+  width: 100%;
+}
+.cs-badge {
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.cs-title {
+  font-family: 'JetBrains Mono', monospace, -apple-system, sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+}
+.currency-widget .cs-title { color: #f7b733; }
+.prayer-widget .cs-title { color: #10b981; }
+
+.cs-trend-pill {
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 700;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* City Selector Pill Button */
+.city-pill-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  padding: 2px 7px;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 9.5px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  text-align: left;
 }
-.hub-style-chip:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(0, 242, 254, 0.3);
+.city-pill-btn:hover {
+  background: rgba(0, 223, 129, 0.2);
+  border-color: #00df81;
+  color: #ffffff;
   transform: translateY(-1px);
 }
-.hub-style-chip.active {
-  background: rgba(0, 242, 254, 0.15);
-  border-color: #00f2fe;
-  color: #ffffff;
-  box-shadow: 0 0 12px rgba(0, 242, 254, 0.25);
+.city-pill-btn .pin-icon {
+  font-size: 9px;
 }
-.hub-style-chip .chip-icon {
-  font-size: 14px;
+.city-pill-btn .arrow-down {
+  font-size: 8px;
+  opacity: 0.7;
 }
-.hub-style-chip .chip-title {
-  font-weight: 600;
+
+/* Prayer Next Pill Highlight */
+.prayer-next-highlight {
+  background: rgba(0, 223, 129, 0.16);
+  color: #00df81;
+  border: 1px solid rgba(0, 223, 129, 0.3);
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  margin-right: 6px;
+}
+.prayer-timeline {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 /* ───────────────────────────────────────────────
-   1. STYLE 1: UNIFIED GLASS CAPSULE DOCK (💎 Біртұтас Шыны Капсула)
+   PORTAL BREAKING NEWS BAR (Сайттағындай жедел жаңалықтар)
    ─────────────────────────────────────────────── */
+.portal-news-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 592px;
+  margin: 10px auto 14px auto;
+  padding: 6px 12px;
+  background: rgba(14, 18, 28, 0.82);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+  transition: all 0.25s ease;
+}
+.portal-news-bar:hover {
+  background: rgba(18, 24, 38, 0.92);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+.portal-news-live-tag {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+.pulse-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
+  animation: newsPulse 1.8s infinite ease-in-out;
+}
+@keyframes newsPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+.portal-news-source {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  padding: 2px 6px;
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+.portal-news-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+.portal-news-title {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.portal-news-title:hover {
+  color: #38bdf8;
+  text-decoration: underline;
+}
+.portal-news-time {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.45);
+  flex-shrink: 0;
+}
+.portal-news-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.portal-news-nav-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.portal-news-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+/* ───────────────────────────────────────────────
+   CITY SELECTION MODAL
+   ─────────────────────────────────────────────── */
+.city-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1000;
+}
+.city-modal-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 520px;
+  background: rgba(14, 18, 28, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7);
+  z-index: 1001;
+  padding: 24px;
+  box-sizing: border-box;
+}
+.city-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.city-modal-title h4 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 4px 0;
+}
+.city-modal-title p {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+}
+.city-modal-close {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.7);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.city-modal-close:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+}
+.city-search-box input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: #fff;
+  font-size: 12.5px;
+  box-sizing: border-box;
+  margin-bottom: 16px;
+  outline: none;
+}
+.city-search-box input:focus {
+  border-color: #00df81;
+  box-shadow: 0 0 10px rgba(0, 223, 129, 0.25);
+}
+.city-grid-list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.city-card-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 8px 6px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.city-card-btn:hover {
+  background: rgba(0, 223, 129, 0.15);
+  border-color: #00df81;
+  color: #ffffff;
+  transform: translateY(-2px);
+}
+.city-card-btn.active {
+  background: rgba(0, 223, 129, 0.25);
+  border-color: #00df81;
+  color: #00df81;
+  box-shadow: 0 0 12px rgba(0, 223, 129, 0.3);
+}
+
+/* ───────────────────────────────────────────────
+   5 CREATIVE STYLES FOR THE DUAL HUB (592px container)
+   ─────────────────────────────────────────────── */
+
+/* 1. STYLE 1: НҰРЛЫ АСТРАЛ & АЛТЫН ТЕҢГЕ (.hub-style-astral) */
+.cyber-steppe-hub.hub-style-astral {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 10px;
+  width: 100%;
+  max-width: 592px;
+  box-sizing: border-box;
+  margin: 14px auto 10px auto;
+}
+.cyber-steppe-hub.hub-style-astral .cs-widget {
+  background: radial-gradient(ellipse at top left, rgba(30, 38, 56, 0.85) 0%, rgba(14, 18, 28, 0.78) 100%);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  padding: 10px 14px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 70px;
+  box-sizing: border-box;
+  transition: all 0.25s ease;
+}
+.cyber-steppe-hub.hub-style-astral .currency-widget {
+  border-color: rgba(255, 183, 3, 0.35);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.42), 0 0 20px rgba(255, 183, 3, 0.08);
+}
+.cyber-steppe-hub.hub-style-astral .prayer-widget {
+  border-color: rgba(0, 223, 129, 0.35);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.42), 0 0 20px rgba(0, 223, 129, 0.08);
+}
+.cyber-steppe-hub.hub-style-astral .cs-widget:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* 2. STYLE 2: ЕГІЗ BENTO КАРТОЧКАЛАРЫ (.hub-style-bento) */
+.cyber-steppe-hub.hub-style-bento {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+  max-width: 592px;
+  box-sizing: border-box;
+  margin: 14px auto 10px auto;
+}
+.cyber-steppe-hub.hub-style-bento .cs-widget {
+  background: rgba(14, 18, 28, 0.78);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 70px;
+  box-sizing: border-box;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.36);
+  transition: all 0.2s ease;
+}
+.cyber-steppe-hub.hub-style-bento .cs-widget:hover {
+  background: rgba(20, 26, 42, 0.9);
+  border-color: rgba(255, 255, 255, 0.26);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.46);
+}
+
+/* 3. STYLE 3: БІРТҰТАС ЭЛЕГАНТ КАПСУЛА (.hub-style-capsule) */
 .cyber-steppe-hub.hub-style-capsule {
   display: flex;
   align-items: center;
@@ -2715,264 +3048,108 @@ button:focus-visible, input:focus-visible {
   -webkit-backdrop-filter: blur(32px);
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 9999px;
-  padding: 4px 6px;
+  padding: 6px 14px;
   margin: 14px auto 10px auto;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  flex-wrap: nowrap;
 }
 .cyber-steppe-hub.hub-style-capsule .cs-widget {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   background: transparent;
   border: none;
   border-radius: 9999px;
-  padding: 5px 10px;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  position: relative;
+  padding: 2px 10px;
   flex: 1;
   min-width: 0;
-  justify-content: center;
+  position: relative;
 }
-.cyber-steppe-hub.hub-style-capsule .cs-widget:hover {
-  background: rgba(255, 255, 255, 0.08);
-  transform: none;
+.cyber-steppe-hub.hub-style-capsule .cs-widget-header {
+  width: auto;
+  flex-shrink: 0;
+  gap: 4px;
+}
+.cyber-steppe-hub.hub-style-capsule .cs-title {
+  font-size: 8.5px;
 }
 .cyber-steppe-hub.hub-style-capsule .cs-widget + .cs-widget::before {
   content: "";
   position: absolute;
   left: 0;
-  top: 20%;
-  height: 60%;
+  top: 15%;
+  height: 70%;
   width: 1px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.15);
 }
-.cyber-steppe-hub.hub-style-capsule .cs-label {
-  font-size: 8.5px;
-  font-weight: 700;
-  padding: 2px 5px;
-  border-radius: 4px;
-  flex-shrink: 0;
+.cyber-steppe-hub.hub-style-capsule .prayer-timeline {
+  display: none;
 }
-.cyber-steppe-hub.hub-style-capsule .currency-widget .cs-label { background: rgba(255, 183, 3, 0.15); color: #ffb703; }
-.cyber-steppe-hub.hub-style-capsule .prayer-widget .cs-label { background: rgba(0, 223, 129, 0.15); color: #00df81; }
-.cyber-steppe-hub.hub-style-capsule .news-widget .cs-label { background: rgba(0, 242, 254, 0.15); color: #00f2fe; }
 .cyber-steppe-hub.hub-style-capsule .cs-val {
-  font-size: 10.5px;
-  color: rgba(255, 255, 255, 0.9);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.cyber-steppe-hub.hub-style-capsule #news-ticker-display {
-  max-width: 110px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 10px;
   white-space: nowrap;
 }
 
-/* ───────────────────────────────────────────────
-   2. STYLE 2: BENTO MICRO-CARDS (🍱 Модульдік Bento Карточкалар)
-   ─────────────────────────────────────────────── */
-.cyber-steppe-hub.hub-style-bento {
+/* 4. STYLE 4: CYBER-STEPPE НЕОН HUD (.hub-style-neon) */
+.cyber-steppe-hub.hub-style-neon {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
   width: 100%;
   max-width: 592px;
   box-sizing: border-box;
   margin: 14px auto 10px auto;
 }
-.cyber-steppe-hub.hub-style-bento .cs-widget {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  height: 64px;
-  background: rgba(14, 18, 28, 0.76);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  padding: 8px 12px;
-  box-sizing: border-box;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.36);
-  transition: all 0.2s ease;
-  width: 100%;
-}
-.cyber-steppe-hub.hub-style-bento .cs-widget:hover {
-  background: rgba(22, 28, 44, 0.9);
-  border-color: rgba(255, 255, 255, 0.25);
-  transform: translateY(-2px);
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.45);
-}
-.cyber-steppe-hub.hub-style-bento .cs-label {
-  font-size: 8.5px;
-  letter-spacing: 0.08em;
-  font-weight: 700;
-}
-.cyber-steppe-hub.hub-style-bento .currency-widget .cs-label { color: #f7b733; }
-.cyber-steppe-hub.hub-style-bento .prayer-widget .cs-label { color: #10b981; }
-.cyber-steppe-hub.hub-style-bento .news-widget .cs-label { color: #38bdf8; }
-.cyber-steppe-hub.hub-style-bento .cs-val {
-  font-size: 10.5px;
-  color: rgba(255, 255, 255, 0.95);
-  width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.cyber-steppe-hub.hub-style-bento #news-ticker-display {
-  max-width: 155px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ───────────────────────────────────────────────
-   3. STYLE 3: DYNAMIC ISLAND COMPACT PILL (🏝️ Dynamic Island Ақылды Таблеткасы)
-   ─────────────────────────────────────────────── */
-.cyber-steppe-hub.hub-style-island {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(8, 10, 16, 0.94);
-  backdrop-filter: blur(36px);
-  -webkit-backdrop-filter: blur(36px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 9999px;
-  padding: 4px 6px;
-  gap: 4px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.8);
-  margin: 14px auto 10px auto;
-  max-width: 592px;
-  box-sizing: border-box;
-}
-.cyber-steppe-hub.hub-style-island .cs-widget {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 9999px;
-  padding: 5px 10px;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  transition: all 0.2s ease;
-}
-.cyber-steppe-hub.hub-style-island .cs-widget:hover {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.25);
-  transform: scale(1.02);
-}
-.cyber-steppe-hub.hub-style-island .cs-label {
-  font-size: 8.5px;
-  color: #dfc990;
-  font-weight: 700;
-}
-.cyber-steppe-hub.hub-style-island .cs-val {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.9);
-}
-.cyber-steppe-hub.hub-style-island #news-ticker-display {
-  max-width: 100px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ───────────────────────────────────────────────
-   4. STYLE 4: CYBER-STEPPE NEON HUD (⚡ Cyber-Steppe Неон HUD)
-   ─────────────────────────────────────────────── */
-.cyber-steppe-hub.hub-style-neon {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  max-width: 592px;
-  box-sizing: border-box;
-  margin: 14px auto 10px auto;
-}
 .cyber-steppe-hub.hub-style-neon .cs-widget {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-  justify-content: center;
   background: linear-gradient(135deg, rgba(8, 20, 34, 0.9) 0%, rgba(12, 28, 48, 0.8) 100%);
   border: 1px solid rgba(0, 242, 254, 0.28);
-  border-radius: 10px;
-  padding: 6px 10px;
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 70px;
+  box-sizing: border-box;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 0 16px rgba(0, 242, 254, 0.08), inset 0 1px 0 rgba(0, 242, 254, 0.2);
   transition: all 0.2s ease;
 }
 .cyber-steppe-hub.hub-style-neon .currency-widget {
-  border-color: rgba(255, 183, 3, 0.4);
-  box-shadow: 0 0 14px rgba(255, 183, 3, 0.12), inset 0 1px 0 rgba(255, 183, 3, 0.25);
+  border-color: rgba(255, 183, 3, 0.45);
+  box-shadow: 0 0 16px rgba(255, 183, 3, 0.12), inset 0 1px 0 rgba(255, 183, 3, 0.25);
 }
 .cyber-steppe-hub.hub-style-neon .prayer-widget {
-  border-color: rgba(0, 223, 129, 0.4);
-  box-shadow: 0 0 14px rgba(0, 223, 129, 0.12), inset 0 1px 0 rgba(0, 223, 129, 0.25);
+  border-color: rgba(0, 223, 129, 0.45);
+  box-shadow: 0 0 16px rgba(0, 223, 129, 0.12), inset 0 1px 0 rgba(0, 223, 129, 0.25);
 }
-.cyber-steppe-hub.hub-style-neon .news-widget {
-  border-color: rgba(0, 242, 254, 0.4);
-  box-shadow: 0 0 14px rgba(0, 242, 254, 0.12), inset 0 1px 0 rgba(0, 242, 254, 0.25);
-}
-.cyber-steppe-hub.hub-style-neon .cs-label {
-  font-weight: 800;
-  font-size: 8.5px;
-  letter-spacing: 0.1em;
-  flex-shrink: 0;
-}
-.cyber-steppe-hub.hub-style-neon .currency-widget .cs-label { color: #ffb703; text-shadow: 0 0 6px rgba(255, 183, 3, 0.5); }
-.cyber-steppe-hub.hub-style-neon .prayer-widget .cs-label { color: #00df81; text-shadow: 0 0 6px rgba(0, 223, 129, 0.5); }
-.cyber-steppe-hub.hub-style-neon .news-widget .cs-label { color: #00f2fe; text-shadow: 0 0 6px rgba(0, 242, 254, 0.5); }
-.cyber-steppe-hub.hub-style-neon .cs-val {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.9);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.cyber-steppe-hub.hub-style-neon #news-ticker-display {
-  max-width: 105px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.cyber-steppe-hub.hub-style-neon .cs-widget:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 24px rgba(0, 242, 254, 0.25);
 }
 
-/* ───────────────────────────────────────────────
-   5. STYLE 5: AMBIENT FLOATING FEATHER BAR (🕊️ Жеңіл Амбиент Жолағы)
-   ─────────────────────────────────────────────── */
+/* 5. STYLE 5: МИНИМАЛИСТІК ЛЮКС ГОРИЗОНТ (.hub-style-ambient) */
 .cyber-steppe-hub.hub-style-ambient {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
   width: 100%;
   max-width: 592px;
   box-sizing: border-box;
   margin: 14px auto 10px auto;
 }
 .cyber-steppe-hub.hub-style-ambient .cs-widget {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-  justify-content: center;
   background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 9999px;
-  padding: 5px 10px;
+  padding: 8px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 64px;
+  box-sizing: border-box;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
   color: rgba(255, 255, 255, 0.95);
   transition: all 0.2s ease;
 }
@@ -2981,24 +3158,7 @@ button:focus-visible, input:focus-visible {
   border-color: rgba(255, 255, 255, 0.28);
   transform: translateY(-1px);
 }
-.cyber-steppe-hub.hub-style-ambient .cs-label {
-  color: rgba(255, 255, 255, 0.72);
-  font-weight: 600;
-  font-size: 8.5px;
-  flex-shrink: 0;
-}
-.cyber-steppe-hub.hub-style-ambient .cs-val {
-  font-size: 10px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.cyber-steppe-hub.hub-style-ambient #news-ticker-display {
-  max-width: 105px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+
 
 
 

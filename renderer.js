@@ -6582,36 +6582,193 @@ function initCyberSteppeInnovations() {
     });
   }
 
-  // 5. Kazakhstan Live News Ticker
-  try {
-    const KAZAKH_NEWS_ITEMS = [
-      { title: "Ғаламтор v1.0.2 жарық көрді: Қазақша мәзір мен жаңа мүмкіндіктер", url: "https://github.com/akhmet-dev/Galamtor-/releases" },
-      { title: "eGov.kz: Мемлекеттік қызметтер мен цифрлық құжаттар жүйесі", url: "https://egov.kz" },
-      { title: "Tengrinews: Қазақстанның цифрлық экожүйесі мен технология жаңалықтары", url: "https://tengrinews.kz" },
-      { title: "Kaspi.kz: Отандық онлайн төлемдер мен финтех қызметтері", url: "https://kaspi.kz" },
-      { title: "Enbek.kz: Еліміздегі жаңа бос жұмыс орындары порталы", url: "https://enbek.kz" }
+  // 5. Kazakhstan 20 Cities Prayer Schedule & Localization Engine
+  const KZ_CITIES = {
+    almaty: { name: 'Алматы', region: 'Алматы қ.', times: { fajr: '05:32', sunrise: '07:05', dhuhr: '12:44', asr: '15:52', maghrib: '18:22', isha: '19:50' } },
+    astana: { name: 'Астана', region: 'Астана қ. (Елорда)', times: { fajr: '05:43', sunrise: '07:18', dhuhr: '12:56', asr: '16:02', maghrib: '18:32', isha: '20:02' } },
+    shymkent: { name: 'Шымкент', region: 'Шымкент қ.', times: { fajr: '05:45', sunrise: '07:15', dhuhr: '12:58', asr: '16:08', maghrib: '18:38', isha: '20:05' } },
+    aktau: { name: 'Ақтау', region: 'Маңғыстау обл.', times: { fajr: '06:34', sunrise: '08:08', dhuhr: '13:46', asr: '16:54', maghrib: '19:24', isha: '20:55' } },
+    aktobe: { name: 'Ақтөбе', region: 'Ақтөбе обл.', times: { fajr: '06:22', sunrise: '07:56', dhuhr: '13:35', asr: '16:42', maghrib: '19:12', isha: '20:42' } },
+    atyrau: { name: 'Атырау', region: 'Атырау обл.', times: { fajr: '06:30', sunrise: '08:04', dhuhr: '13:42', asr: '16:50', maghrib: '19:20', isha: '20:50' } },
+    karaganda: { name: 'Қарағанды', region: 'Қарағанды обл.', times: { fajr: '05:40', sunrise: '07:14', dhuhr: '12:52', asr: '15:58', maghrib: '18:28', isha: '19:58' } },
+    oskemen: { name: 'Өскемен', region: 'ШҚО', times: { fajr: '05:05', sunrise: '06:40', dhuhr: '12:20', asr: '15:28', maghrib: '18:00', isha: '19:30' } },
+    pavlodar: { name: 'Павлодар', region: 'Павлодар обл.', times: { fajr: '05:22', sunrise: '06:58', dhuhr: '12:38', asr: '15:44', maghrib: '18:15', isha: '19:48' } },
+    semey: { name: 'Семей', region: 'Абай обл.', times: { fajr: '05:12', sunrise: '06:46', dhuhr: '12:26', asr: '15:32', maghrib: '18:05', isha: '19:36' } },
+    taraz: { name: 'Тараз', region: 'Жамбыл обл.', times: { fajr: '05:40', sunrise: '07:10', dhuhr: '12:52', asr: '16:02', maghrib: '18:32', isha: '19:58' } },
+    kostanay: { name: 'Қостанай', region: 'Қостанай обл.', times: { fajr: '05:58', sunrise: '07:35', dhuhr: '13:12', asr: '16:15', maghrib: '18:48', isha: '20:20' } },
+    kyzylorda: { name: 'Қызылорда', region: 'Қызылорда обл.', times: { fajr: '06:05', sunrise: '07:38', dhuhr: '13:18', asr: '16:26', maghrib: '18:56', isha: '20:25' } },
+    oral: { name: 'Орал', region: 'БҚО', times: { fajr: '06:25', sunrise: '08:00', dhuhr: '13:38', asr: '16:45', maghrib: '19:15', isha: '20:45' } },
+    petropavl: { name: 'Петропавл', region: 'СҚО', times: { fajr: '05:46', sunrise: '07:24', dhuhr: '13:02', asr: '16:06', maghrib: '18:38', isha: '20:12' } },
+    turkestan: { name: 'Түркістан', region: 'Түркістан обл.', times: { fajr: '05:50', sunrise: '07:20', dhuhr: '13:02', asr: '16:12', maghrib: '18:42', isha: '20:10' } },
+    kokshetau: { name: 'Көкшетау', region: 'Ақмола обл.', times: { fajr: '05:45', sunrise: '07:22', dhuhr: '13:00', asr: '16:05', maghrib: '18:36', isha: '20:08' } },
+    temirtau: { name: 'Теміртау', region: 'Қарағанды обл.', times: { fajr: '05:41', sunrise: '07:15', dhuhr: '12:53', asr: '15:59', maghrib: '18:29', isha: '19:59' } },
+    taldykorgan: { name: 'Талдықорған', region: 'Жетісу обл.', times: { fajr: '05:25', sunrise: '06:58', dhuhr: '12:37', asr: '15:45', maghrib: '18:15', isha: '19:43' } },
+    zhezkazgan: { name: 'Жезқазған', region: 'Ұлытау обл.', times: { fajr: '05:55', sunrise: '07:28', dhuhr: '13:08', asr: '16:16', maghrib: '18:46', isha: '20:16' } }
+  };
+
+  const getSavedCity = () => localStorage.getItem('galamtor_user_city') || 'almaty';
+
+  const updatePrayerUI = (cityKey) => {
+    const city = KZ_CITIES[cityKey] || KZ_CITIES.almaty;
+    const cityLabel = document.getElementById('current-city-label');
+    const nextPill = document.getElementById('prayer-next-pill');
+    const timelineList = document.getElementById('prayer-timeline-list');
+
+    if (cityLabel) cityLabel.textContent = city.name;
+
+    const now = new Date();
+    const curMins = now.getHours() * 60 + now.getMinutes();
+
+    const prayerOrder = [
+      { name: 'Таң', time: city.times.fajr },
+      { name: 'Күн', time: city.times.sunrise },
+      { name: 'Бесін', time: city.times.dhuhr },
+      { name: 'Екінді', time: city.times.asr },
+      { name: 'Ақшам', time: city.times.maghrib },
+      { name: 'Құптан', time: city.times.isha }
     ];
 
-    let newsIdx = 0;
-    const updateNews = () => {
-      const el = document.getElementById('news-ticker-display');
-      const widget = document.getElementById('cs-news');
-      if (!el) return;
-      const item = KAZAKH_NEWS_ITEMS[newsIdx];
-      el.textContent = item.title;
-      if (widget) {
-        widget.onclick = () => {
+    prayerOrder.forEach(p => {
+      const [h, m] = p.time.split(':').map(Number);
+      p.mins = h * 60 + m;
+    });
+
+    let next = prayerOrder.find(p => p.mins > curMins);
+    if (!next) next = prayerOrder[0]; // Next day's Fajr
+
+    if (nextPill) {
+      nextPill.textContent = `${next.name} ${next.time}`;
+    }
+
+    if (timelineList) {
+      timelineList.textContent = `Таң ${city.times.fajr} · Екінді ${city.times.asr} · Ақшам ${city.times.maghrib}`;
+    }
+  };
+
+  // City Modal Handlers
+  const cityModalDialog = document.getElementById('city-modal-dialog');
+  const cityModalBackdrop = document.getElementById('city-modal-backdrop');
+  const btnCitySelect = document.getElementById('btn-city-select');
+  const btnCloseCityModal = document.getElementById('btn-close-city-modal');
+  const citySearchInput = document.getElementById('city-search-input');
+  const cityGridList = document.getElementById('city-grid-list');
+
+  const openCityModal = () => {
+    if (!cityModalDialog || !cityModalBackdrop) return;
+    renderCityGrid('');
+    if (citySearchInput) citySearchInput.value = '';
+    cityModalDialog.style.display = 'block';
+    cityModalBackdrop.style.display = 'block';
+    if (citySearchInput) citySearchInput.focus();
+  };
+
+  const closeCityModal = () => {
+    if (cityModalDialog) cityModalDialog.style.display = 'none';
+    if (cityModalBackdrop) cityModalBackdrop.style.display = 'none';
+  };
+
+  const selectCity = (cityKey) => {
+    localStorage.setItem('galamtor_user_city', cityKey);
+    updatePrayerUI(cityKey);
+    closeCityModal();
+    const c = KZ_CITIES[cityKey];
+    if (c) showToast(`📍 Қала таңдалды: ${c.name} (намаз кестесі жаңартылды)`);
+  };
+
+  const renderCityGrid = (query) => {
+    if (!cityGridList) return;
+    const currentCity = getSavedCity();
+    const q = (query || '').trim().toLowerCase();
+    cityGridList.innerHTML = '';
+
+    Object.keys(KZ_CITIES).forEach(key => {
+      const c = KZ_CITIES[key];
+      if (q && !c.name.toLowerCase().includes(q) && !c.region.toLowerCase().includes(q)) return;
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `city-card-btn ${key === currentCity ? 'active' : ''}`;
+      btn.innerHTML = `
+        <span style="font-weight:700;font-size:12px;">${c.name}</span>
+        <span style="font-size:9.5px;opacity:0.7;">${c.region}</span>
+      `;
+      btn.addEventListener('click', () => selectCity(key));
+      cityGridList.appendChild(btn);
+    });
+  };
+
+  if (btnCitySelect) btnCitySelect.addEventListener('click', (e) => { e.stopPropagation(); openCityModal(); });
+  if (btnCloseCityModal) btnCloseCityModal.addEventListener('click', closeCityModal);
+  if (cityModalBackdrop) cityModalBackdrop.addEventListener('click', closeCityModal);
+  if (citySearchInput) {
+    citySearchInput.addEventListener('input', (e) => renderCityGrid(e.target.value));
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && cityModalDialog && cityModalDialog.style.display === 'block') {
+      closeCityModal();
+    }
+  });
+
+  // Initial prayer schedule
+  updatePrayerUI(getSavedCity());
+  setInterval(() => updatePrayerUI(getSavedCity()), 60000);
+
+  // 6. Website-Style Breaking News Feed (Жедел Жаңалықтар Жолағы)
+  try {
+    const PORTAL_NEWS_ITEMS = [
+      { source: "Tengrinews.kz", time: "5 мин бұрын", title: "Қазақстанның жаңа IT инфрақұрылымы мен цифрлық қызметтері қарқынды дамуда", url: "https://tengrinews.kz" },
+      { source: "Informburo.kz", time: "18 мин бұрын", title: "Ұлттық Банк: Валюта нарығы мен теңге бағамының тұрақтылығы туралы мәлімдеме", url: "https://informburo.kz" },
+      { source: "eGov.kz", time: "32 мин бұрын", title: "Мемлекеттік цифрлық құжаттар мен сервистер енді жаңа форматта қолжетімді", url: "https://egov.kz" },
+      { source: "Baribar.kz", time: "45 мин бұрын", title: "Қазақ тіліндегі заманауи білім беру және ғылыми жобалар жандануда", url: "https://baribar.kz" },
+      { source: "Kazinform", time: "1 сағ бұрын", title: "Еліміздің барлық өңірлерінде жаңа инновациялық инфрақұрылым нысандары ашылды", url: "https://inform.kz" }
+    ];
+
+    let currentNewsIndex = 0;
+    const sourceEl = document.getElementById('portal-news-source');
+    const titleEl = document.getElementById('portal-news-title');
+    const timeEl = document.getElementById('portal-news-time');
+    const contentEl = document.getElementById('portal-news-content');
+    const btnPrev = document.getElementById('btn-news-prev');
+    const btnNext = document.getElementById('btn-news-next');
+
+    const renderNews = (idx) => {
+      const item = PORTAL_NEWS_ITEMS[idx];
+      if (!item) return;
+      if (sourceEl) sourceEl.textContent = item.source;
+      if (titleEl) titleEl.textContent = item.title;
+      if (timeEl) timeEl.textContent = item.time;
+      if (contentEl) {
+        contentEl.onclick = () => {
           if (tabs.length === 0 || !activeTabId) createTab(item.url);
           else navigateTo(item.url);
         };
       }
-      newsIdx = (newsIdx + 1) % KAZAKH_NEWS_ITEMS.length;
     };
 
-    updateNews();
-    setInterval(updateNews, 6000);
-  } catch (e) {
-    console.error('[CyberSteppe] News widget error:', e);
+    if (btnPrev) {
+      btnPrev.addEventListener('click', (e) => {
+        e.stopPropagation();
+        currentNewsIndex = (currentNewsIndex - 1 + PORTAL_NEWS_ITEMS.length) % PORTAL_NEWS_ITEMS.length;
+        renderNews(currentNewsIndex);
+      });
+    }
+
+    if (btnNext) {
+      btnNext.addEventListener('click', (e) => {
+        e.stopPropagation();
+        currentNewsIndex = (currentNewsIndex + 1) % PORTAL_NEWS_ITEMS.length;
+        renderNews(currentNewsIndex);
+      });
+    }
+
+    renderNews(currentNewsIndex);
+    setInterval(() => {
+      currentNewsIndex = (currentNewsIndex + 1) % PORTAL_NEWS_ITEMS.length;
+      renderNews(currentNewsIndex);
+    }, 6000);
+  } catch (err) {
+    console.error('[PortalNews] Error initializing news feed:', err);
   }
 }
 
@@ -7125,7 +7282,7 @@ function initStartPageCustomizer() {
   const elClock = document.getElementById('welcome-clock-widget');
   const elCurrency = document.getElementById('cs-currency');
   const elPrayer = document.getElementById('cs-prayer');
-  const elNews = document.getElementById('cs-news');
+  const elNews = document.getElementById('portal-news-bar');
   const elWisdom = document.getElementById('wisdom-quote-widget');
   const elShortcuts = document.querySelector('.shortcuts-grid');
 
@@ -7159,7 +7316,7 @@ function initStartPageCustomizer() {
       customUrl: localStorage.getItem('galamtor_custom_url') || '',
       customType: localStorage.getItem('galamtor_custom_type') || 'image',
       customName: localStorage.getItem('galamtor_custom_name') || '',
-      hubStyle: localStorage.getItem('galamtor_hub_style') || 'capsule',
+      hubStyle: localStorage.getItem('galamtor_hub_style') || 'bento',
       dim: parseInt(localStorage.getItem('galamtor_dim_level') || '35', 10),
       blur: parseInt(localStorage.getItem('galamtor_blur_level') || '0', 10),
       showClock: localStorage.getItem('galamtor_widget_clock') !== 'false',
@@ -7214,7 +7371,7 @@ function initStartPageCustomizer() {
     if (elClock) elClock.style.display = state.showClock ? '' : 'none';
     if (elCurrency) elCurrency.style.display = state.showCurrency ? '' : 'none';
     if (elPrayer) elPrayer.style.display = state.showPrayer ? '' : 'none';
-    if (elNews) elNews.style.display = state.showNews ? '' : 'none';
+    if (elNews) elNews.style.display = state.showNews ? 'flex' : 'none';
     if (elWisdom) elWisdom.style.display = state.showWisdom ? '' : 'none';
     if (elShortcuts) elShortcuts.style.display = state.showShortcuts ? '' : 'none';
 
@@ -7235,9 +7392,9 @@ function initStartPageCustomizer() {
     const hub = document.getElementById('cyber-steppe-hub');
     if (hub) {
       hub.classList.remove(
-        'hub-style-capsule',
+        'hub-style-astral',
         'hub-style-bento',
-        'hub-style-island',
+        'hub-style-capsule',
         'hub-style-neon',
         'hub-style-ambient'
       );
