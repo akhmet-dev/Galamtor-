@@ -29,6 +29,7 @@ app.userAgentFallback = STANDARD_CHROME_UA;
 
 // Enable macOS autofill, password generation, overlay scrollbars and smooth media playback
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
 app.commandLine.appendSwitch('enable-features', 'PasswordGeneration,PasswordImport,OverlayScrollbar');
 
 if (!app.isPackaged) {
@@ -976,6 +977,33 @@ app.whenReady().then(() => {
     session.fromPartition('incognito').setUserAgent(STANDARD_CHROME_UA);
   } catch (e) {}
 
+  // ── Smart Header Manager for Google Auth & Privacy Shield ──
+  const FIREFOX_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:130.0) Gecko/20100101 Firefox/130.0';
+
+  const handleHeaders = (details, callback) => {
+    const requestHeaders = details.requestHeaders || {};
+    const urlStr = (details.url || '').toLowerCase();
+
+    // Bypass Google's embedded webview block by serving standard Firefox headers on Google account endpoints
+    if (urlStr.includes('accounts.google.com') || urlStr.includes('accounts.youtube.com')) {
+      requestHeaders['User-Agent'] = FIREFOX_UA;
+      delete requestHeaders['sec-ch-ua'];
+      delete requestHeaders['sec-ch-ua-mobile'];
+      delete requestHeaders['sec-ch-ua-platform'];
+      delete requestHeaders['sec-ch-ua-platform-version'];
+      delete requestHeaders['sec-ch-ua-full-version-list'];
+    } else {
+      requestHeaders['User-Agent'] = STANDARD_CHROME_UA;
+    }
+
+    callback({ requestHeaders });
+  };
+
+  session.defaultSession.webRequest.onBeforeSendHeaders(handleHeaders);
+  try {
+    session.fromPartition('incognito').webRequest.onBeforeSendHeaders(handleHeaders);
+  } catch (e) {}
+
   // ── Setup AdBlocker & Privacy Shield Engine ──
   setupAdBlocker();
 
@@ -1511,6 +1539,8 @@ function startLocalAIServerProcess() {
   try {
     const candidatePaths = [
       process.env.LOCAL_AI_SCRIPT,
+      path.join(__dirname, '../galamtor-hermes-core/src/index.js'),
+      '/Users/dev/Desktop/galamtor-hermes-core/src/index.js',
       path.join(__dirname, '../galamtor-local-ai/serve_local.py'),
       path.join(process.cwd(), 'galamtor-local-ai/serve_local.py'),
       '/Users/dev/Desktop/galamtor-local-ai/serve_local.py'
@@ -1518,9 +1548,10 @@ function startLocalAIServerProcess() {
 
     const scriptPath = candidatePaths.find(p => fs.existsSync(p));
     if (scriptPath) {
-      const proc = spawn('python3', [scriptPath], { detached: true, stdio: 'ignore' });
+      const runner = scriptPath.endsWith('.js') ? 'node' : 'python3';
+      const proc = spawn(runner, [scriptPath], { detached: true, stdio: 'ignore' });
       proc.unref();
-      console.log(`[Local AI] Local AI Python server launched from ${scriptPath} on port 8080`);
+      console.log(`[Local AI] Local AI server launched from ${scriptPath} on port 8080`);
     }
   } catch (err) {
     console.error('[Local AI] Server launch error:', err);
@@ -1542,7 +1573,7 @@ function callLocalAIServer(prompt, pageContext) {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(payload)
       },
-      timeout: 3000
+      timeout: 25000 // 25s for local M1 Pro Hermes 3 generation
     };
 
     const req = http.request(options, (res) => {

@@ -321,6 +321,7 @@ function clearAllDragIndicators() {
 
 // ── YouTube Smooth Playback & Anti-AdBlock Shield Engine ──
 const STANDARD_BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.186 Safari/537.36';
+const FIREFOX_AUTH_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:130.0) Gecko/20100101 Firefox/130.0';
 
 function injectYouTubeOptimizations(webview) {
   try {
@@ -432,7 +433,8 @@ function createWebview(tabId, url, isIncognito = false) {
   const webview = document.createElement('webview');
   webview.setAttribute('src', url);
   webview.setAttribute('allowpopups', '');
-  webview.setAttribute('useragent', STANDARD_BROWSER_UA);
+  const isGoogleAuth = (url || '').toLowerCase().includes('accounts.google.com') || (url || '').toLowerCase().includes('accounts.youtube.com');
+  webview.setAttribute('useragent', isGoogleAuth ? FIREFOX_AUTH_UA : STANDARD_BROWSER_UA);
   if (isIncognito) {
     webview.setAttribute('partition', 'incognito');
   }
@@ -443,6 +445,33 @@ function createWebview(tabId, url, isIncognito = false) {
   webview.addEventListener('dom-ready', applyYTShield);
   webview.addEventListener('did-navigate', applyYTShield);
   webview.addEventListener('did-navigate-in-page', applyYTShield);
+
+  // Dynamic User-Agent switching for Google Authentication to bypass embedded webview blocks
+  const handleNavUA = (event) => {
+    try {
+      const targetUrl = ((event && event.url) || (webview.getURL && webview.getURL()) || '').toLowerCase();
+      if (targetUrl.includes('accounts.google.com') || targetUrl.includes('accounts.youtube.com')) {
+        if (typeof webview.setUserAgent === 'function') {
+          webview.setUserAgent(FIREFOX_AUTH_UA);
+        }
+      } else {
+        if (typeof webview.setUserAgent === 'function') {
+          webview.setUserAgent(STANDARD_BROWSER_UA);
+        }
+      }
+    } catch (e) {}
+  };
+
+  webview.addEventListener('will-navigate', handleNavUA);
+  webview.addEventListener('did-navigate', handleNavUA);
+  webview.addEventListener('did-navigate-in-page', handleNavUA);
+
+  // Handle popups and target="_blank" by creating a new browser tab
+  webview.addEventListener('new-window', (e) => {
+    if (e && e.url) {
+      createTab(e.url);
+    }
+  });
 
   webview.addEventListener('did-start-loading', () => {
     if (activeTabId === tabId) showLoadingBar();
