@@ -1582,6 +1582,9 @@ function updateMediaPlayerUI() {
     }
 
     const targetBtn = getMediaTargetButton() || mediaPlayer;
+    const badge = mediaPlayer ? mediaPlayer.querySelector('.media-player-badge') : null;
+    const staticIcon = mediaPlayer ? mediaPlayer.querySelector('.media-static-icon') : null;
+    const overlayIcon = mediaPlayer ? mediaPlayer.querySelector('.overlay-icon') : null;
 
     if (GlobalMediaState.isPlaying && GlobalMediaState.activeTabId) {
       const tab = (tabs || []).find(t => t.id === GlobalMediaState.activeTabId);
@@ -1590,10 +1593,6 @@ function updateMediaPlayerUI() {
       if (targetBtn && targetBtn.id !== 'btn-workspace') {
         targetBtn.title = `Ойнатылуда: ${songTitle}`;
       }
-      
-      const badge = mediaPlayer ? mediaPlayer.querySelector('.media-player-badge') : null;
-      const staticIcon = mediaPlayer ? mediaPlayer.querySelector('.media-static-icon') : null;
-      const overlayIcon = mediaPlayer ? mediaPlayer.querySelector('.overlay-icon') : null;
 
       if (badge) {
         badge.classList.add('media-player-active');

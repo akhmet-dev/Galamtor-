@@ -229,6 +229,8 @@ body {
 }
 
 .tab:hover .tab-close { opacity: 1; }
+.tab.active .tab-close { opacity: 0.6; }
+.tab.active .tab-close:hover { opacity: 1; }
 .tab-close:hover {
   background: rgba(255, 80, 80, 0.25);
   color: var(--danger);
@@ -664,7 +666,13 @@ body {
 }
 
 .sidebar-spacer { flex: 1; }
-.dock-bottom { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.dock-bottom { 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  gap: 4px;
+  padding-bottom: 12px;
+}
 
 /* ════════════════════════════════════════
    MAIN VIEW
@@ -697,7 +705,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  padding: 36px 0;
   background: radial-gradient(circle at 50% 35%, rgba(0, 242, 254, 0.09) 0%, rgba(147, 51, 234, 0.06) 45%, var(--bg-base) 90%);
   z-index: 10;
   transition: opacity 0.3s ease;
@@ -716,6 +725,7 @@ body {
   width: 100%;
   max-width: 640px;
   padding: 0 24px;
+  margin: auto 0;
 }
 
 /* ── Dynamic Clock & Date Widget ── */
@@ -934,10 +944,10 @@ body {
 .sc-desc  { font-size: 10px; color: var(--text-muted); line-height: 1.3; }
 
 .welcome-footer {
-  position: absolute;
-  bottom: 28px;
-  left: 50%;
-  transform: translateX(-50%);
+  position: relative;
+  margin-top: 36px;
+  margin-bottom: 24px;
+  text-align: center;
   font-size: 11px;
   color: var(--text-muted);
   letter-spacing: 0.5px;
