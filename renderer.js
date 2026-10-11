@@ -2715,9 +2715,16 @@ function injectPremiumNewTabStyles() {
     }
 
     .safari-fav-item {
-      padding: 12px 6px 10px !important;
-      border: 1px solid rgba(255, 255, 255, 0.14) !important;
+      padding: 6px 4px !important;
+      border: none !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+
+    .safari-fav-item:hover {
       background: rgba(255, 255, 255, 0.08) !important;
+      border: none !important;
+      box-shadow: none !important;
     }
 
     .shortcut-card:hover {
@@ -6730,13 +6737,22 @@ function initCyberSteppeInnovations() {
 
   // 6. Website-Style Breaking News Feed (Жедел Жаңалықтар Жолағы)
   try {
+    const NEWS_SVGS = {
+      tech: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`,
+      finance: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+      gov: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+      edu: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`,
+      innov: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+      auto: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a1 1 0 0 0-.8-.4H6.5a1 1 0 0 0-.8.4L3 11l-2.16.86A1 1 0 0 0 0 12.85V16h3"/><circle cx="6.5" cy="16.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/></svg>`
+    };
+
     const PORTAL_NEWS_ITEMS = [
-      { source: "Tengrinews.kz", time: "5 мин бұрын", title: "Қазақстанның жаңа IT инфрақұрылымы мен цифрлық қызметтері қарқынды дамуда", url: "https://tengrinews.kz", icon: "💻", gradient: "linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)" },
-      { source: "Informburo.kz", time: "18 мин бұрын", title: "Ұлттық Банк: Валюта нарығы мен теңге бағамының тұрақтылығы туралы мәлімдеме", url: "https://informburo.kz", icon: "🏦", gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)" },
-      { source: "eGov.kz", time: "32 мин бұрын", title: "Мемлекеттік цифрлық құжаттар мен сервистер енді жаңа форматта қолжетімді", url: "https://egov.kz", icon: "🏛️", gradient: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)" },
-      { source: "Baribar.kz", time: "45 мин бұрын", title: "Қазақ тіліндегі заманауи білім беру және ғылыми жобалар жандануда", url: "https://baribar.kz", icon: "📚", gradient: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)" },
-      { source: "Kazinform", time: "1 сағ бұрын", title: "Еліміздің барлық өңірлерінде жаңа инновациялық инфрақұрылым нысандары ашылды", url: "https://inform.kz", icon: "🚀", gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" },
-      { source: "Kolesa.kz", time: "2 сағ бұрын", title: "Қазақстанда электромобильдер мен эко-көліктер инфрақұрылымы кеңеюде", url: "https://kolesa.kz", icon: "🚗", gradient: "linear-gradient(135deg, #30cfd0 0%, #330867 100%)" }
+      { source: "Tengrinews.kz", time: "5 мин бұрын", title: "Қазақстанның жаңа IT инфрақұрылымы мен цифрлық қызметтері қарқынды дамуда", url: "https://tengrinews.kz", svgKey: "tech", gradient: "linear-gradient(135deg, #0288d1 0%, #00bcd4 100%)" },
+      { source: "Informburo.kz", time: "18 мин бұрын", title: "Ұлттық Банк: Валюта нарығы мен теңге бағамының тұрақтылығы туралы мәлімдеме", url: "https://informburo.kz", svgKey: "finance", gradient: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)" },
+      { source: "eGov.kz", time: "32 мин бұрын", title: "Мемлекеттік цифрлық құжаттар мен сервистер енді жаңа форматта қолжетімді", url: "https://egov.kz", svgKey: "gov", gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)" },
+      { source: "Baribar.kz", time: "45 мин бұрын", title: "Қазақ тіліндегі заманауи білім беру және ғылыми жобалар жандануда", url: "https://baribar.kz", svgKey: "edu", gradient: "linear-gradient(135deg, #ec4899 0%, #be185d 100%)" },
+      { source: "Kazinform", time: "1 сағ бұрын", title: "Еліміздің барлық өңірлерінде жаңа инновациялық инфрақұрылым нысандары ашылды", url: "https://inform.kz", svgKey: "innov", gradient: "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)" },
+      { source: "Kolesa.kz", time: "2 сағ бұрын", title: "Қазақстанда электромобильдер мен эко-көліктер инфрақұрылымы кеңеюде", url: "https://kolesa.kz", svgKey: "auto", gradient: "linear-gradient(135deg, #0288d1 0%, #1565c0 100%)" }
     ];
 
     let currentNewsIndex = 0;
@@ -6760,8 +6776,8 @@ function initCyberSteppeInnovations() {
       if (titleNode) titleNode.textContent = item.title;
       if (srcNode) srcNode.textContent = item.source;
       if (timeNode) timeNode.textContent = item.time;
-      if (thumb && item.icon) {
-        thumb.textContent = item.icon;
+      if (thumb && item.svgKey && NEWS_SVGS[item.svgKey]) {
+        thumb.innerHTML = NEWS_SVGS[item.svgKey];
         if (item.gradient) thumb.style.background = item.gradient;
       }
       card.onclick = () => {
