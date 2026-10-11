@@ -122,5 +122,10 @@ contextBridge.exposeInMainWorld('galamtorAPI', {
     const listener = (event, action, data) => callback(action, data);
     ipcRenderer.on('menu-action', listener);
     return () => ipcRenderer.removeListener('menu-action', listener);
-  }
+  },
+
+  // ── Start Page Custom Wallpaper API ──
+  pickCustomWallpaper: () => ipcRenderer.invoke('wallpaper:pick-media'),
+  clearCustomWallpaper: () => ipcRenderer.invoke('wallpaper:clear-custom')
 });
+

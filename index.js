@@ -246,6 +246,11 @@ function setApplicationMenu() {
         accelerator: 'CmdOrCtrl+J',
         click: () => sendMenuAction('open-downloads')
       },
+      {
+        label: 'Басты бетті баптау (Тұсқағаз, MP4, Виджеттер)...',
+        accelerator: 'CmdOrCtrl+Shift+P',
+        click: () => sendMenuAction('customize-startpage')
+      },
       { type: 'separator' },
       { role: 'togglefullscreen', label: 'Толық экран режимі' },
       { role: 'toggleDevTools', label: 'Әзірлеуші құралдары (DevTools)' }
@@ -1632,3 +1637,72 @@ ${(preprocessed || '').substring(0, 15000)}`;
 
   return await callGeminiAPI(GALAMTOR_SYSTEM_PROMPT, prompt);
 });
+
+// ── Start Page Custom Wallpaper / Media IPC ──
+ipcMain.handle('wallpaper:pick-media', async (event) => {
+  if (!validateSender(event)) return { canceled: true };
+  const { dialog } = require('electron');
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Тұсқағазға сурет немесе MP4 видео таңдаңыз',
+    buttonLabel: 'Қою',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Суреттер мен MP4 видеолар', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm', 'mov'] },
+      { name: 'Барлық файлдар', extensions: ['*'] }
+    ]
+  });
+
+  if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+    return { canceled: true };
+  }
+
+  const srcPath = result.filePaths[0];
+  const ext = path.extname(srcPath).toLowerCase();
+  const isVideo = ['.mp4', '.webm', '.mov'].includes(ext);
+
+  const wallDir = path.join(app.getPath('userData'), 'wallpapers');
+  if (!fs.existsSync(wallDir)) {
+    fs.mkdirSync(wallDir, { recursive: true });
+  }
+
+  const destName = `custom_wallpaper_${Date.now()}${ext}`;
+  const destPath = path.join(wallDir, destName);
+
+  try {
+    fs.copyFileSync(srcPath, destPath);
+    return {
+      canceled: false,
+      filePath: destPath,
+      fileUrl: `file://${destPath}`,
+      mediaType: isVideo ? 'video' : 'image',
+      originalName: path.basename(srcPath)
+    };
+  } catch (err) {
+    console.error('Failed to copy wallpaper file:', err);
+    return {
+      canceled: false,
+      filePath: srcPath,
+      fileUrl: `file://${srcPath}`,
+      mediaType: isVideo ? 'video' : 'image',
+      originalName: path.basename(srcPath)
+    };
+  }
+});
+
+ipcMain.handle('wallpaper:clear-custom', async (event) => {
+  if (!validateSender(event)) return false;
+  try {
+    const wallDir = path.join(app.getPath('userData'), 'wallpapers');
+    if (fs.existsSync(wallDir)) {
+      const files = fs.readdirSync(wallDir);
+      for (const f of files) {
+        fs.unlinkSync(path.join(wallDir, f));
+      }
+    }
+    return true;
+  } catch (e) {
+    console.error('Error clearing custom wallpaper:', e);
+    return false;
+  }
+});
+

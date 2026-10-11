@@ -6946,6 +6946,11 @@ function setupMenuDispatcher() {
       case 'open-settings':
         if (typeof gpOpenModal === 'function') gpOpenModal('profile');
         break;
+      case 'customize-startpage': {
+        const btnOpen = document.getElementById('btn-open-customizer');
+        if (btnOpen) btnOpen.click();
+        break;
+      }
       case 'toggle-ai': {
         const aiPanel = document.getElementById('ai-sidebar-panel');
         if (aiPanel) aiPanel.classList.toggle('active');
@@ -7021,5 +7026,331 @@ const btnSidebarDl = document.getElementById('btn-sidebar-downloads');
 if (btnSidebarDl) {
   btnSidebarDl.addEventListener('click', () => gpOpenModal('downloads'));
 }
+
+// ══════════════════════════════════════════════════════════════
+//  GALAMTOR START PAGE CUSTOMIZER (WALLPAPERS, MP4, WIDGETS)
+// ══════════════════════════════════════════════════════════════
+const GALAMTOR_PRESET_WALLPAPERS = [
+  {
+    id: 'alatau',
+    name: 'Алатау түні',
+    location: 'Іле-Алатау ұлттық паркі, Алматы',
+    file: 'assets/wallpapers/alatau.jpg'
+  },
+  {
+    id: 'bozzhira',
+    name: 'Бозжыра шатқалы',
+    location: 'Үстірт қорығы, Маңғыстау',
+    file: 'assets/wallpapers/bozzhira.jpg'
+  },
+  {
+    id: 'kolsai',
+    name: 'Көлсай көлі',
+    location: 'Күнгей Алатау, Алматы облысы',
+    file: 'assets/wallpapers/kolsai.jpg'
+  },
+  {
+    id: 'charyn',
+    name: 'Шарын шатқалы',
+    location: 'Қамалдар аңғары, Алматы облысы',
+    file: 'assets/wallpapers/charyn.jpg'
+  },
+  {
+    id: 'burabay',
+    name: 'Бурабай & Оқжетпес',
+    location: 'Әулиекөл жағалауы, Ақмола облысы',
+    file: 'assets/wallpapers/burabay.jpg'
+  },
+  {
+    id: 'kaindy',
+    name: 'Қайыңды көлі',
+    location: 'Күнгей Алатау, Алматы облысы',
+    file: 'assets/wallpapers/kaindy.jpg'
+  },
+  {
+    id: 'akorda',
+    name: 'Ақорда резиденциясы',
+    location: 'Есіл жағалауы, Астана қаласы',
+    file: 'assets/wallpapers/akorda.jpg'
+  },
+  {
+    id: 'turkestan',
+    name: 'Қожа Ахмет Ясауи',
+    location: 'Түркістан қаласы',
+    file: 'assets/wallpapers/turkestan.jpg'
+  },
+  {
+    id: 'aktau',
+    name: 'Каспий теңізі & Ақтау',
+    location: 'Ақтау жағалауы, Маңғыстау',
+    file: 'assets/wallpapers/aktau.jpg'
+  },
+  {
+    id: 'shymbulak',
+    name: 'Шымбұлақ тау шатқалы',
+    location: 'Іле-Алатау, Алматы',
+    file: 'assets/wallpapers/shymbulak.jpg'
+  }
+];
+
+function initStartPageCustomizer() {
+  const bgVideo = document.getElementById('welcome-bg-video');
+  const bgImage = document.getElementById('welcome-bg-image');
+  const bgDim = document.getElementById('welcome-bg-dim');
+  const btnOpen = document.getElementById('btn-open-customizer');
+  const btnClose = document.getElementById('btn-close-customizer');
+  const backdrop = document.getElementById('customizer-backdrop');
+  const drawer = document.getElementById('customizer-drawer');
+  const presetsGrid = document.getElementById('presets-grid');
+  const btnUpload = document.getElementById('btn-upload-custom-wallpaper');
+  const inputFile = document.getElementById('input-custom-wallpaper-file');
+  const customBar = document.getElementById('custom-media-active-bar');
+  const customFilename = document.getElementById('custom-media-filename');
+  const customBadge = document.getElementById('custom-media-badge');
+  const btnReset = document.getElementById('btn-reset-custom-wallpaper');
+  const sliderDim = document.getElementById('slider-dim-level');
+  const valDim = document.getElementById('dim-level-val');
+  const sliderBlur = document.getElementById('slider-blur-level');
+  const valBlur = document.getElementById('blur-level-val');
+
+  // Widget Toggles
+  const toggleClock = document.getElementById('toggle-widget-clock');
+  const toggleCurrency = document.getElementById('toggle-widget-currency');
+  const togglePrayer = document.getElementById('toggle-widget-prayer');
+  const toggleNews = document.getElementById('toggle-widget-news');
+  const toggleWisdom = document.getElementById('toggle-widget-wisdom');
+  const toggleShortcuts = document.getElementById('toggle-widget-shortcuts');
+
+  // Widget Target Elements
+  const elClock = document.getElementById('welcome-clock-widget');
+  const elCurrency = document.getElementById('cs-currency');
+  const elPrayer = document.getElementById('cs-prayer');
+  const elNews = document.getElementById('cs-news');
+  const elWisdom = document.getElementById('wisdom-quote-widget');
+  const elShortcuts = document.querySelector('.shortcuts-grid');
+
+  if (!drawer || !btnOpen || !bgImage) return;
+
+  // Open & Close Drawer
+  const openDrawer = () => {
+    drawer.classList.add('active');
+    backdrop.classList.add('active');
+  };
+  const closeDrawer = () => {
+    drawer.classList.remove('active');
+    backdrop.classList.remove('active');
+  };
+
+  btnOpen.addEventListener('click', openDrawer);
+  if (btnClose) btnClose.addEventListener('click', closeDrawer);
+  if (backdrop) backdrop.addEventListener('click', closeDrawer);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && drawer.classList.contains('active')) {
+      closeDrawer();
+    }
+  });
+
+  // State Management
+  const loadState = () => {
+    return {
+      mode: localStorage.getItem('galamtor_wallpaper_mode') || 'preset',
+      presetId: localStorage.getItem('galamtor_wallpaper_preset') || 'alatau',
+      customUrl: localStorage.getItem('galamtor_custom_url') || '',
+      customType: localStorage.getItem('galamtor_custom_type') || 'image',
+      customName: localStorage.getItem('galamtor_custom_name') || '',
+      dim: parseInt(localStorage.getItem('galamtor_dim_level') || '35', 10),
+      blur: parseInt(localStorage.getItem('galamtor_blur_level') || '0', 10),
+      showClock: localStorage.getItem('galamtor_widget_clock') !== 'false',
+      showCurrency: localStorage.getItem('galamtor_widget_currency') !== 'false',
+      showPrayer: localStorage.getItem('galamtor_widget_prayer') !== 'false',
+      showNews: localStorage.getItem('galamtor_widget_news') !== 'false',
+      showWisdom: localStorage.getItem('galamtor_widget_wisdom') !== 'false',
+      showShortcuts: localStorage.getItem('galamtor_widget_shortcuts') !== 'false'
+    };
+  };
+
+  const applyWallpaper = (state) => {
+    if (state.mode === 'custom' && state.customUrl) {
+      if (state.customType === 'video') {
+        bgImage.style.display = 'none';
+        bgVideo.style.display = 'block';
+        if (bgVideo.src !== state.customUrl) {
+          bgVideo.src = state.customUrl;
+          bgVideo.play().catch(e => console.log('Autoplay handled:', e));
+        }
+      } else {
+        bgVideo.pause();
+        bgVideo.style.display = 'none';
+        bgImage.style.display = 'block';
+        bgImage.style.backgroundImage = `url("${state.customUrl}")`;
+      }
+      if (customBar) {
+        customBar.style.display = 'flex';
+        customFilename.textContent = state.customName || (state.customType === 'video' ? 'видео.mp4' : 'сурет.jpg');
+        customBadge.textContent = state.customType === 'video' ? 'MP4 ВИДЕО' : 'СУРЕТ';
+      }
+    } else {
+      bgVideo.pause();
+      bgVideo.style.display = 'none';
+      bgImage.style.display = 'block';
+      const preset = GALAMTOR_PRESET_WALLPAPERS.find(p => p.id === state.presetId) || GALAMTOR_PRESET_WALLPAPERS[0];
+      bgImage.style.backgroundImage = `url("${preset.file}")`;
+      if (customBar) customBar.style.display = 'none';
+    }
+
+    // Apply Dim & Blur
+    if (bgDim) {
+      bgDim.style.setProperty('--dim-opacity', (state.dim / 100).toString());
+      bgDim.style.setProperty('--blur-amount', `${state.blur}px`);
+    }
+    if (sliderDim) sliderDim.value = state.dim;
+    if (valDim) valDim.textContent = `${state.dim}%`;
+    if (sliderBlur) sliderBlur.value = state.blur;
+    if (valBlur) valBlur.textContent = `${state.blur}px`;
+
+    // Apply Widgets
+    if (elClock) elClock.style.display = state.showClock ? '' : 'none';
+    if (elCurrency) elCurrency.style.display = state.showCurrency ? '' : 'none';
+    if (elPrayer) elPrayer.style.display = state.showPrayer ? '' : 'none';
+    if (elNews) elNews.style.display = state.showNews ? '' : 'none';
+    if (elWisdom) elWisdom.style.display = state.showWisdom ? '' : 'none';
+    if (elShortcuts) elShortcuts.style.display = state.showShortcuts ? '' : 'none';
+
+    // Update checkboxes
+    if (toggleClock) toggleClock.checked = state.showClock;
+    if (toggleCurrency) toggleCurrency.checked = state.showCurrency;
+    if (togglePrayer) togglePrayer.checked = state.showPrayer;
+    if (toggleNews) toggleNews.checked = state.showNews;
+    if (toggleWisdom) toggleWisdom.checked = state.showWisdom;
+    if (toggleShortcuts) toggleShortcuts.checked = state.showShortcuts;
+
+    // Update preset cards active class
+    document.querySelectorAll('.preset-card').forEach(card => {
+      card.classList.toggle('active', state.mode === 'preset' && card.dataset.preset === state.presetId);
+    });
+  };
+
+  // Render Preset Cards
+  if (presetsGrid) {
+    presetsGrid.innerHTML = '';
+    GALAMTOR_PRESET_WALLPAPERS.forEach(preset => {
+      const card = document.createElement('div');
+      card.className = 'preset-card';
+      card.dataset.preset = preset.id;
+      card.innerHTML = `
+        <div class="preset-thumb-wrap">
+          <img src="${preset.file}" class="preset-thumb" alt="${preset.name}" loading="lazy">
+          <span class="preset-badge">✓ Белсенді</span>
+        </div>
+        <div class="preset-info">
+          <span class="preset-name">${preset.name}</span>
+          <span class="preset-loc">${preset.location}</span>
+        </div>
+      `;
+      card.addEventListener('click', () => {
+        localStorage.setItem('galamtor_wallpaper_mode', 'preset');
+        localStorage.setItem('galamtor_wallpaper_preset', preset.id);
+        const curr = loadState();
+        applyWallpaper(curr);
+        showToast(`🖼️ Тұсқағаз қойылды: ${preset.name}`);
+      });
+      presetsGrid.appendChild(card);
+    });
+  }
+
+  // Handle Custom Media Upload
+  const handleCustomFile = (url, type, name) => {
+    localStorage.setItem('galamtor_wallpaper_mode', 'custom');
+    localStorage.setItem('galamtor_custom_url', url);
+    localStorage.setItem('galamtor_custom_type', type);
+    localStorage.setItem('galamtor_custom_name', name);
+    const curr = loadState();
+    applyWallpaper(curr);
+    showToast(type === 'video' ? '🎬 MP4 Тірі видео тұсқағаз қойылды!' : '🖼️ Өз фотоңыз тұсқағаз болып қойылды!');
+  };
+
+  if (btnUpload) {
+    btnUpload.addEventListener('click', async () => {
+      if (window.galamtorAPI && window.galamtorAPI.pickCustomWallpaper) {
+        try {
+          const res = await window.galamtorAPI.pickCustomWallpaper();
+          if (res && !res.canceled && res.fileUrl) {
+            handleCustomFile(res.fileUrl, res.mediaType, res.originalName);
+            return;
+          }
+        } catch (err) {
+          console.error('IPC pickCustomWallpaper error, falling back:', err);
+        }
+      }
+      if (inputFile) inputFile.click();
+    });
+  }
+
+  if (inputFile) {
+    inputFile.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const isVideo = file.type.startsWith('video/') || file.name.match(/\.(mp4|webm|mov)$/i);
+      const url = URL.createObjectURL(file);
+      handleCustomFile(url, isVideo ? 'video' : 'image', file.name);
+    });
+  }
+
+  // Reset to default preset
+  if (btnReset) {
+    btnReset.addEventListener('click', () => {
+      localStorage.setItem('galamtor_wallpaper_mode', 'preset');
+      const curr = loadState();
+      applyWallpaper(curr);
+      showToast('🔄 Бастапқы тұсқағазға қайтарылды');
+    });
+  }
+
+  // Sliders
+  if (sliderDim) {
+    sliderDim.addEventListener('input', (e) => {
+      const val = e.target.value;
+      if (valDim) valDim.textContent = `${val}%`;
+      if (bgDim) bgDim.style.setProperty('--dim-opacity', (val / 100).toString());
+      localStorage.setItem('galamtor_dim_level', val);
+    });
+  }
+
+  if (sliderBlur) {
+    sliderBlur.addEventListener('input', (e) => {
+      const val = e.target.value;
+      if (valBlur) valBlur.textContent = `${val}px`;
+      if (bgDim) bgDim.style.setProperty('--blur-amount', `${val}px`);
+      localStorage.setItem('galamtor_blur_level', val);
+    });
+  }
+
+  // Widget Checkboxes
+  const bindToggle = (toggleEl, key, elTarget, label) => {
+    if (!toggleEl) return;
+    toggleEl.addEventListener('change', (e) => {
+      const checked = e.target.checked;
+      localStorage.setItem(key, checked ? 'true' : 'false');
+      if (elTarget) elTarget.style.display = checked ? '' : 'none';
+      showToast(checked ? `👁️ ${label} қосылды` : `🙈 ${label} жасырылды`);
+    });
+  };
+
+  bindToggle(toggleClock, 'galamtor_widget_clock', elClock, 'Сағат виджеті');
+  bindToggle(toggleCurrency, 'galamtor_widget_currency', elCurrency, 'Ұлттық Банк бағамы');
+  bindToggle(togglePrayer, 'galamtor_widget_prayer', elPrayer, 'Намаз кестесі');
+  bindToggle(toggleNews, 'galamtor_widget_news', elNews, 'Жаңалықтар');
+  bindToggle(toggleWisdom, 'galamtor_widget_wisdom', elWisdom, 'Ғұламалар даналығы');
+  bindToggle(toggleShortcuts, 'galamtor_widget_shortcuts', elShortcuts, 'Қазақстандық қызметтер');
+
+  // Initial Apply
+  const initial = loadState();
+  applyWallpaper(initial);
+}
+
+// Bootstrap Start Page Customizer
+initStartPageCustomizer();
+
 
 
