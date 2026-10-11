@@ -2696,6 +2696,14 @@ function injectPremiumNewTabStyles() {
       margin-top: 18px !important;
     }
 
+    .safari-favorites-row {
+      display: grid !important;
+      grid-template-columns: repeat(7, 1fr) !important;
+      gap: 10px !important;
+      width: 100% !important;
+      margin-top: 0 !important;
+    }
+
     .shortcut-card {
       background: rgba(14, 16, 22, 0.45) !important;
       backdrop-filter: blur(24px) saturate(120%) !important;
@@ -2704,6 +2712,12 @@ function injectPremiumNewTabStyles() {
       border-radius: 16px !important;
       padding: 24px 16px 20px !important;
       transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+
+    .safari-fav-item {
+      padding: 12px 6px 10px !important;
+      border: 1px solid rgba(255, 255, 255, 0.14) !important;
+      background: rgba(255, 255, 255, 0.08) !important;
     }
 
     .shortcut-card:hover {
@@ -6717,11 +6731,12 @@ function initCyberSteppeInnovations() {
   // 6. Website-Style Breaking News Feed (Жедел Жаңалықтар Жолағы)
   try {
     const PORTAL_NEWS_ITEMS = [
-      { source: "Tengrinews.kz", time: "5 мин бұрын", title: "Қазақстанның жаңа IT инфрақұрылымы мен цифрлық қызметтері қарқынды дамуда", url: "https://tengrinews.kz" },
-      { source: "Informburo.kz", time: "18 мин бұрын", title: "Ұлттық Банк: Валюта нарығы мен теңге бағамының тұрақтылығы туралы мәлімдеме", url: "https://informburo.kz" },
-      { source: "eGov.kz", time: "32 мин бұрын", title: "Мемлекеттік цифрлық құжаттар мен сервистер енді жаңа форматта қолжетімді", url: "https://egov.kz" },
-      { source: "Baribar.kz", time: "45 мин бұрын", title: "Қазақ тіліндегі заманауи білім беру және ғылыми жобалар жандануда", url: "https://baribar.kz" },
-      { source: "Kazinform", time: "1 сағ бұрын", title: "Еліміздің барлық өңірлерінде жаңа инновациялық инфрақұрылым нысандары ашылды", url: "https://inform.kz" }
+      { source: "Tengrinews.kz", time: "5 мин бұрын", title: "Қазақстанның жаңа IT инфрақұрылымы мен цифрлық қызметтері қарқынды дамуда", url: "https://tengrinews.kz", icon: "💻", gradient: "linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)" },
+      { source: "Informburo.kz", time: "18 мин бұрын", title: "Ұлттық Банк: Валюта нарығы мен теңге бағамының тұрақтылығы туралы мәлімдеме", url: "https://informburo.kz", icon: "🏦", gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)" },
+      { source: "eGov.kz", time: "32 мин бұрын", title: "Мемлекеттік цифрлық құжаттар мен сервистер енді жаңа форматта қолжетімді", url: "https://egov.kz", icon: "🏛️", gradient: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)" },
+      { source: "Baribar.kz", time: "45 мин бұрын", title: "Қазақ тіліндегі заманауи білім беру және ғылыми жобалар жандануда", url: "https://baribar.kz", icon: "📚", gradient: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)" },
+      { source: "Kazinform", time: "1 сағ бұрын", title: "Еліміздің барлық өңірлерінде жаңа инновациялық инфрақұрылым нысандары ашылды", url: "https://inform.kz", icon: "🚀", gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" },
+      { source: "Kolesa.kz", time: "2 сағ бұрын", title: "Қазақстанда электромобильдер мен эко-көліктер инфрақұрылымы кеңеюде", url: "https://kolesa.kz", icon: "🚗", gradient: "linear-gradient(135deg, #30cfd0 0%, #330867 100%)" }
     ];
 
     let currentNewsIndex = 0;
@@ -6731,10 +6746,36 @@ function initCyberSteppeInnovations() {
     const contentEl = document.getElementById('portal-news-content');
     const btnPrev = document.getElementById('btn-news-prev');
     const btnNext = document.getElementById('btn-news-next');
+    const btnRefresh = document.getElementById('btn-refresh-news');
+
+    const updateCard = (cardId, item) => {
+      const card = document.getElementById(cardId);
+      if (!card || !item) return;
+      const idx = cardId.slice(-1);
+      const titleNode = document.getElementById(`safari-news-title-${idx}`);
+      const srcNode = document.getElementById(`safari-news-src-${idx}`);
+      const timeNode = document.getElementById(`safari-news-time-${idx}`);
+      const thumb = card.querySelector('.safari-reading-thumb');
+
+      if (titleNode) titleNode.textContent = item.title;
+      if (srcNode) srcNode.textContent = item.source;
+      if (timeNode) timeNode.textContent = item.time;
+      if (thumb && item.icon) {
+        thumb.textContent = item.icon;
+        if (item.gradient) thumb.style.background = item.gradient;
+      }
+      card.onclick = () => {
+        if (tabs.length === 0 || !activeTabId) createTab(item.url);
+        else navigateTo(item.url);
+      };
+    };
 
     const renderNews = (idx) => {
-      const item = PORTAL_NEWS_ITEMS[idx];
+      const item = PORTAL_NEWS_ITEMS[idx % PORTAL_NEWS_ITEMS.length];
+      const itemNext = PORTAL_NEWS_ITEMS[(idx + 1) % PORTAL_NEWS_ITEMS.length];
       if (!item) return;
+
+      // Legacy single news bar (if present)
       if (sourceEl) sourceEl.textContent = item.source;
       if (titleEl) titleEl.textContent = item.title;
       if (timeEl) timeEl.textContent = item.time;
@@ -6744,6 +6785,10 @@ function initCyberSteppeInnovations() {
           else navigateTo(item.url);
         };
       }
+
+      // Safari Dual Reading Cards
+      updateCard('safari-news-card-0', item);
+      updateCard('safari-news-card-1', itemNext);
     };
 
     if (btnPrev) {
@@ -6762,11 +6807,20 @@ function initCyberSteppeInnovations() {
       });
     }
 
+    if (btnRefresh) {
+      btnRefresh.addEventListener('click', (e) => {
+        e.stopPropagation();
+        currentNewsIndex = (currentNewsIndex + 2) % PORTAL_NEWS_ITEMS.length;
+        renderNews(currentNewsIndex);
+        showToast('📰 Жаңалықтар тізімі жаңартылды');
+      });
+    }
+
     renderNews(currentNewsIndex);
     setInterval(() => {
-      currentNewsIndex = (currentNewsIndex + 1) % PORTAL_NEWS_ITEMS.length;
+      currentNewsIndex = (currentNewsIndex + 2) % PORTAL_NEWS_ITEMS.length;
       renderNews(currentNewsIndex);
-    }, 6000);
+    }, 7000);
   } catch (err) {
     console.error('[PortalNews] Error initializing news feed:', err);
   }
@@ -7282,9 +7336,10 @@ function initStartPageCustomizer() {
   const elClock = document.getElementById('welcome-clock-widget');
   const elCurrency = document.getElementById('cs-currency');
   const elPrayer = document.getElementById('cs-prayer');
-  const elNews = document.getElementById('portal-news-bar');
+  const elBentoHero = document.getElementById('section-bento-hero');
+  const elNews = document.getElementById('section-reading-news') || document.getElementById('portal-news-bar');
   const elWisdom = document.getElementById('wisdom-quote-widget');
-  const elShortcuts = document.querySelector('.shortcuts-grid');
+  const elShortcuts = document.getElementById('section-favorites') || document.querySelector('.shortcuts-grid');
 
   if (!drawer || !btnOpen || !bgImage) return;
 
@@ -7371,7 +7426,8 @@ function initStartPageCustomizer() {
     if (elClock) elClock.style.display = state.showClock ? '' : 'none';
     if (elCurrency) elCurrency.style.display = state.showCurrency ? '' : 'none';
     if (elPrayer) elPrayer.style.display = state.showPrayer ? '' : 'none';
-    if (elNews) elNews.style.display = state.showNews ? 'flex' : 'none';
+    if (elBentoHero) elBentoHero.style.display = (state.showCurrency || state.showPrayer) ? '' : 'none';
+    if (elNews) elNews.style.display = state.showNews ? '' : 'none';
     if (elWisdom) elWisdom.style.display = state.showWisdom ? '' : 'none';
     if (elShortcuts) elShortcuts.style.display = state.showShortcuts ? '' : 'none';
 

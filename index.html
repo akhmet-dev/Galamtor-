@@ -230,58 +230,124 @@
               </div>
             </form>
 
-            <!-- Creative Dual Hub: NBRK Currency & Localized Prayer Times (592px) -->
-            <div id="cyber-steppe-hub" class="cyber-steppe-hub hub-style-bento">
-              <!-- Widget 1: National Currency Rates -->
-              <div class="cs-widget currency-widget" id="cs-currency" title="ҚР Ұлттық Банкінің нақты бағамы">
-                <div class="cs-widget-header">
-                  <span class="cs-badge badge-kzt">₸</span>
-                  <span class="cs-title">ҰЛТТЫҚ БАҒАМ</span>
-                  <span class="cs-trend-pill" id="kzt-trend-pill">+0.4% ▲</span>
+            <!-- ── SECTION 1: Safari Favorites Row (Таңдаулы сайттар) ── -->
+            <section class="safari-section" id="section-favorites">
+              <div class="safari-section-heading">Таңдаулы сайттар</div>
+              <div class="safari-favorites-row shortcuts-grid">
+                <div class="safari-fav-item shortcut-card" data-url="https://kaspi.kz" title="Kaspi.kz — Төлемдер, аударымдар">
+                  <div class="safari-fav-icon sc-icon kaspi-bg">K</div>
+                  <span class="safari-fav-label sc-label">Kaspi.kz</span>
                 </div>
-                <div class="cs-val" id="currency-values">
-                  <span class="rate-item">$ <span id="rate-usd">485.5</span></span>
-                  <span class="rate-sep">·</span>
-                  <span class="rate-item">€ <span id="rate-eur">532.0</span></span>
-                  <span class="rate-sep">·</span>
-                  <span class="rate-item">₽ <span id="rate-rub">5.25</span></span>
+                <div class="safari-fav-item shortcut-card" data-url="https://egov.kz" title="eGov.kz — Мемлекеттік қызметтер">
+                  <div class="safari-fav-icon sc-icon egov-bg">🏛️</div>
+                  <span class="safari-fav-label sc-label">eGov.kz</span>
+                </div>
+                <div class="safari-fav-item shortcut-card" data-url="https://enbek.kz" title="Enbek.kz — Жұмыс пен еңбек порталы">
+                  <div class="safari-fav-icon sc-icon enbek-bg">💼</div>
+                  <span class="safari-fav-label sc-label">Enbek.kz</span>
+                </div>
+                <div class="safari-fav-item shortcut-card" data-url="https://tengrinews.kz" title="Tengrinews — Соңғы жаңалықтар">
+                  <div class="safari-fav-icon sc-icon tengri-bg">📰</div>
+                  <span class="safari-fav-label sc-label">Tengrinews</span>
+                </div>
+                <div class="safari-fav-item shortcut-card" data-url="https://kolesa.kz" title="Kolesa.kz — Автокөлік маркетплейсі">
+                  <div class="safari-fav-icon sc-icon kolesa-bg">🚗</div>
+                  <span class="safari-fav-label sc-label">Kolesa.kz</span>
+                </div>
+                <div class="safari-fav-item shortcut-card" data-url="https://krisha.kz" title="Krisha.kz — Жылжымайтын мүлік">
+                  <div class="safari-fav-icon sc-icon krisha-bg">🏠</div>
+                  <span class="safari-fav-label sc-label">Krisha.kz</span>
+                </div>
+                <div class="safari-fav-item shortcut-card" data-url="https://youtube.com" title="YouTube — Бейнероликтер">
+                  <div class="safari-fav-icon sc-icon youtube-bg">▶️</div>
+                  <span class="safari-fav-label sc-label">YouTube</span>
                 </div>
               </div>
+            </section>
 
-              <!-- Widget 2: Prayer Times with City Selector Localization -->
-              <div class="cs-widget prayer-widget" id="cs-prayer" title="Бүгінгі намаз кестесі мен қала таңдау">
-                <div class="cs-widget-header">
-                  <span class="cs-badge badge-prayer">🕌</span>
-                  <span class="cs-title">НАМАЗ КЕСТЕСІ</span>
-                  <button type="button" id="btn-city-select" class="city-pill-btn" title="Қаланы өзгерту">
-                    <span class="pin-icon">📍</span>
-                    <span id="current-city-label">Алматы</span>
-                    <span class="arrow-down">▾</span>
-                  </button>
+            <!-- ── SECTION 2: Safari Privacy Report Style Big Bento Card (Ұлттық Қаржы & Намаз Уақыты) ── -->
+            <section class="safari-section" id="section-bento-hero">
+              <div class="safari-section-heading">Қазақстанның Ұлттық Қаржысы & Намаз Уақыты</div>
+              <div id="cyber-steppe-hub" class="safari-bento-card">
+                <!-- Left Sub-card: NBRK Currency Rates -->
+                <div class="safari-bento-sub currency-widget" id="cs-currency" title="ҚР Ұлттық Банкінің нақты бағамы">
+                  <div class="safari-bento-header">
+                    <div class="safari-bento-badge">
+                      <span class="cs-badge badge-kzt">₸</span>
+                      <span class="cs-title">ҰЛТТЫҚ БАНК БАҒАМЫ</span>
+                    </div>
+                    <span class="cs-trend-pill" id="kzt-trend-pill">+0.4% ▲</span>
+                  </div>
+                  <div class="safari-bento-val" id="currency-values">
+                    <span class="rate-item">$ <span id="rate-usd">485.5</span></span>
+                    <span class="rate-sep">·</span>
+                    <span class="rate-item">€ <span id="rate-eur">532.0</span></span>
+                    <span class="rate-sep">·</span>
+                    <span class="rate-item">₽ <span id="rate-rub">5.25</span></span>
+                  </div>
+                  <div class="safari-bento-subtext">ҚР Ұлттық Банкінің ресми бағамы мен биржалық динамикасы</div>
+                  <div class="safari-bento-footer">
+                    <span class="shield-indicator">🛡️ Кибер-Қалқан: 12 сайт қорғалды</span>
+                  </div>
                 </div>
-                <div class="cs-val" id="prayer-display-wrap">
-                  <span class="prayer-next-highlight" id="prayer-next-pill">Бесін 12:44</span>
-                  <span class="prayer-timeline" id="prayer-timeline-list">Таң 05:32 · Екінді 15:52 · Ақшам 18:22</span>
-                </div>
-              </div>
-            </div>
 
-            <!-- Website-Style Breaking News Portal Bar (Сайттағындай Жедел Жаңалықтар Жолағы) -->
-            <div id="portal-news-bar" class="portal-news-bar">
-              <div class="portal-news-live-tag">
-                <span class="pulse-indicator"></span>
-                <span>ЖЕДЕЛ АҚПАРАТ</span>
+                <!-- Right Sub-card: Localized Prayer Schedule -->
+                <div class="safari-bento-sub prayer-widget" id="cs-prayer" title="Бүгінгі намаз кестесі мен қала таңдау">
+                  <div class="safari-bento-header">
+                    <div class="safari-bento-badge">
+                      <span class="cs-badge badge-prayer">🕌</span>
+                      <span class="cs-title">НАМАЗ КЕСТЕСІ</span>
+                    </div>
+                    <button type="button" id="btn-city-select" class="city-pill-btn" title="Қаланы өзгерту">
+                      <span class="pin-icon">📍</span>
+                      <span id="current-city-label">Астана</span>
+                      <span class="arrow-down">▾</span>
+                    </button>
+                  </div>
+                  <div class="safari-bento-val prayer-highlight-row" id="prayer-display-wrap">
+                    <span class="prayer-next-highlight" id="prayer-next-pill">Құптан 20:02</span>
+                    <span class="prayer-timeline" id="prayer-timeline-list">Таң 05:43 · Екінді 16:02 · Ақшам 18:32</span>
+                  </div>
+                  <div class="safari-bento-subtext">Географиялық күн бату уақытына сәйкес нақты есептелген</div>
+                  <div class="safari-bento-footer">
+                    <span class="prayer-hint">Қаланы өзгерту үшін батырманы басыңыз ▾</span>
+                  </div>
+                </div>
               </div>
-              <div class="portal-news-source" id="portal-news-source">Tengrinews.kz</div>
-              <div class="portal-news-content" id="portal-news-content">
-                <span id="portal-news-title" class="portal-news-title">Қазақстанның цифрлық экожүйесі мен жаңа технологиялар жаңалығы</span>
-                <span id="portal-news-time" class="portal-news-time">10 мин бұрын</span>
+            </section>
+
+            <!-- ── SECTION 3: Safari Reading List Style News Cards (Ел жаңалықтары) ── -->
+            <section class="safari-section" id="section-reading-news">
+              <div class="safari-section-heading">
+                <span>Ел жаңалықтары</span>
+                <span class="safari-section-action" id="btn-refresh-news" title="Жаңалықтарды жаңарту">Жаңарту ↻</span>
               </div>
-              <div class="portal-news-actions">
-                <button type="button" id="btn-news-prev" class="portal-news-nav-btn" title="Алдыңғы хабар">‹</button>
-                <button type="button" id="btn-news-next" class="portal-news-nav-btn" title="Келесі хабар">›</button>
+              <div class="safari-reading-grid" id="portal-news-bar">
+                <!-- Card 1 -->
+                <div class="safari-reading-card" id="safari-news-card-0">
+                  <div class="safari-reading-thumb" style="background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);">💻</div>
+                  <div class="safari-reading-meta">
+                    <span class="safari-reading-title" id="safari-news-title-0">Қазақстанның цифрлық экожүйесінде жаңа AI жобалар іске қосылды</span>
+                    <div class="safari-reading-subline">
+                      <span class="safari-source-tag" id="safari-news-src-0">Tengrinews.kz</span>
+                      <span class="safari-time-tag" id="safari-news-time-0">15 мин бұрын</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="safari-reading-card" id="safari-news-card-1">
+                  <div class="safari-reading-thumb" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">🏛️</div>
+                  <div class="safari-reading-meta">
+                    <span class="safari-reading-title" id="safari-news-title-1">Мемлекеттік электронды құжаттар реформасы жаңа форматта қолжетімді</span>
+                    <div class="safari-reading-subline">
+                      <span class="safari-source-tag" id="safari-news-src-1">eGov.kz</span>
+                      <span class="safari-time-tag" id="safari-news-time-1">30 мин бұрын</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
+            </section>
 
             <!-- Daily Historical Kazakh Wisdom / Quote Widget -->
             <div id="wisdom-quote-widget" class="wisdom-quote-widget">
@@ -290,52 +356,6 @@
               <span class="quote-symbol">»</span>
               <div id="daily-quote-author" class="daily-quote-author">— Абай Құнанбайұлы</div>
             </div>
-
-            <!-- Kazakhstan Quick Access Hub -->
-            <section class="shortcuts-grid">
-              <div class="shortcut-card" data-url="https://kaspi.kz">
-                <div class="sc-icon kaspi-bg">
-                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 10h20"/><path d="M6 16h4"/></svg>
-                </div>
-                <span class="sc-label">Kaspi.kz</span>
-                <span class="sc-desc">Төлемдер, аударымдар</span>
-              </div>
-              <div class="shortcut-card" data-url="https://egov.kz">
-                <div class="sc-icon egov-bg">
-                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/><path d="M10 10h1"/><path d="M14 10h1"/></svg>
-                </div>
-                <span class="sc-label">eGov.kz</span>
-                <span class="sc-desc">Мемлекеттік қызметтер</span>
-              </div>
-              <div class="shortcut-card" data-url="https://enbek.kz">
-                <div class="sc-icon enbek-bg">
-                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                </div>
-                <span class="sc-label">Enbek.kz</span>
-                <span class="sc-desc">Жұмыс пен еңбек порталы</span>
-              </div>
-              <div class="shortcut-card" data-url="https://tengrinews.kz">
-                <div class="sc-icon tengri-bg">
-                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
-                </div>
-                <span class="sc-label">Tengrinews</span>
-                <span class="sc-desc">Соңғы жаңалықтар</span>
-              </div>
-              <div class="shortcut-card" data-url="https://kolesa.kz">
-                <div class="sc-icon kolesa-bg">
-                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a2 2 0 0 0-1.6-.8H9a2 2 0 0 0-2 2v6H5"/><circle cx="7" cy="16.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/></svg>
-                </div>
-                <span class="sc-label">Kolesa.kz</span>
-                <span class="sc-desc">Автокөлік маркетплейсі</span>
-              </div>
-              <div class="shortcut-card" data-url="https://krisha.kz">
-                <div class="sc-icon krisha-bg">
-                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                </div>
-                <span class="sc-label">Krisha.kz</span>
-                <span class="sc-desc">Жылжымайтын мүлік</span>
-              </div>
-            </section>
 
             <footer class="welcome-footer"><span>Қазақстанның ұлттық браузері</span></footer>
           </div>
