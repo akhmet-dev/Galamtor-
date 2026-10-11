@@ -7159,6 +7159,7 @@ function initStartPageCustomizer() {
       customUrl: localStorage.getItem('galamtor_custom_url') || '',
       customType: localStorage.getItem('galamtor_custom_type') || 'image',
       customName: localStorage.getItem('galamtor_custom_name') || '',
+      hubStyle: localStorage.getItem('galamtor_hub_style') || 'capsule',
       dim: parseInt(localStorage.getItem('galamtor_dim_level') || '35', 10),
       blur: parseInt(localStorage.getItem('galamtor_blur_level') || '0', 10),
       showClock: localStorage.getItem('galamtor_widget_clock') !== 'false',
@@ -7228,6 +7229,24 @@ function initStartPageCustomizer() {
     // Update preset cards active class
     document.querySelectorAll('.preset-card').forEach(card => {
       card.classList.toggle('active', state.mode === 'preset' && card.dataset.preset === state.presetId);
+    });
+
+    // Apply 5 Hub Widget Styles
+    const hub = document.getElementById('cyber-steppe-hub');
+    if (hub) {
+      hub.classList.remove(
+        'hub-style-capsule',
+        'hub-style-bento',
+        'hub-style-island',
+        'hub-style-neon',
+        'hub-style-ambient'
+      );
+      if (state.hubStyle) {
+        hub.classList.add(`hub-style-${state.hubStyle}`);
+      }
+    }
+    document.querySelectorAll('.hub-style-chip').forEach(chip => {
+      chip.classList.toggle('active', chip.dataset.style === state.hubStyle);
     });
   };
 
@@ -7343,6 +7362,18 @@ function initStartPageCustomizer() {
   bindToggle(toggleNews, 'galamtor_widget_news', elNews, 'Жаңалықтар');
   bindToggle(toggleWisdom, 'galamtor_widget_wisdom', elWisdom, 'Ғұламалар даналығы');
   bindToggle(toggleShortcuts, 'galamtor_widget_shortcuts', elShortcuts, 'Қазақстандық қызметтер');
+
+  // Hub Style Selector Clicks
+  document.querySelectorAll('.hub-style-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const style = chip.dataset.style;
+      localStorage.setItem('galamtor_hub_style', style);
+      const curr = loadState();
+      applyWallpaper(curr);
+      const title = chip.querySelector('.chip-title') ? chip.querySelector('.chip-title').textContent : style;
+      showToast(`🎨 Виджет стилі орнатылды: ${title}`);
+    });
+  });
 
   // Initial Apply
   const initial = loadState();
