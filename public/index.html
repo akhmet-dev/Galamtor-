@@ -96,12 +96,17 @@
    🇰🇿 KAZAKH NATIONAL ORNAMENT FLANKS
    Official Flag Qoşqar-müiız Pattern flanking the page
    ═══════════════════════════════════════════════════════ */
+.paper-wrap {
+  position: relative;
+  width: 100%;
+  overflow: visible;
+}
 .kz-flank {
-  position: fixed;
+  position: absolute;
   top: 0;
   bottom: 0;
   width: 44px;
-  z-index: 9999;
+  z-index: 5;
   pointer-events: none;
   opacity: 0.92;
   background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB2aWV3Qm94PSIwIDAgMjQwIDEwMDAiIGZpbGw9IiNiODg2MGIiPjxnIGlkPSJEIj48ZyBpZD0iRSI+PHBhdGggZD0iTTEyMCA3Mi45MjJzLTkuNjEtOC4wNzYtMTIuODc0LTQuMDI1Yy01LjI1IDYuNTE1IDE2LjE0IDM4Ljk2OCAxNi4xNCA1MC4zOTYgMCAxOC43NTktMTIuNTE3IDIzLjg2LTI3Ljk3MyAyNi41MzktMTAuMzcxIDEuNzk4LTI3LjI1OS0uNzUyLTI3LjI1OS0uNzUyIDMuMTgtNC4yNzMgNS4yNDgtNS41MzIgMTAuNjA2LTUuODczLTUuOTY1LTMuMDk3LTEyLjAzOS05LjgyLTEyLjAzOS0yMC4yODQgMC0xNi4xMzggNi42NDMtMjIuNzkgNi42NDMtNDAuOTgzIDAtMTAuMDkzLTguMjc2LTIyLjk0MS04LjI3Ni0yMi45NDEgMTQuNjI5IDEuNDY0IDIxLjg3OSAxNS4wMDkgMTcuNzU0IDI1LjgzNCAyLjMyOC4zMzUgNC40NDItLjE5IDYuMjU4LTEuOTEgMS4wNyAzLS42MiA2LjQ4My0yLjg4MyA5LjQ4NCAxLjgyMy45NzQgMy4xNjIuMzkgNi4wNjYtLjIxLS4yNzYgMy4wOTItMi4xMjggNi4zNzYtNi42NiA5LjQ2OCAxMy4xNTEtMy40MTUgMjEuMjQzIDUuNzUxIDIxLjI0MyAxNS4zNDcgMCA3LjI0OC01LjA3OSAxMi40NDMtMTAuMDQ0IDEyLjQ0My0xLjYwNCAwLTMuOTYxLS42NjEtNS4yOS0xLjY1NC0uOTM4IDEuOTk1LS40NTUgNC42NjUuNTEgNi42Ni0zLjYzOC0uOTYyLTUuOTQ4LTMuMTIzLTQuMzA0LTcuNjIxLTIuNzk1LS4yNTctNS4wMTgtMS4yMDEtNi41My0zIDEuNTMyLTEuOTYzIDMuODU3LTMuMDkzIDYuNTMtMy4wMDEtMi4wMzUtNC4yLjIzMy02LjU1IDMuNTM4LTguNDU2IDAgMC0yLjEwMiA4LjQ1NiAzLjI2NSA4LjQ1NiAyLjQxMyAwIDQuNjEyLS43ODYgNC42MTItNC4zNDMgMC0zLjA5Ny0yLjcwNy03LjM4Ny04Ljk2Ni03LjExNHMtMTEuMzMyIDQuMzE1LTExLjMzMiAxNC4zMDZjMCA5LjIxNiA3LjQzNCAxMy44IDE3LjIzIDE0LjA5NiA4LjgzMy4yNzMgMTUuNS00LjUxMiAxNS41LTEzLjYyNSAwLTEyLjEyOC0xNy41MDgtMzkuNzczLTE3LjUwOC01MC41OCAwLTguMTEgNy4yOTItMTIuNjM2IDE0LjQyNy0xMi42MzYgOS4yNTIgMCAxNy4wNTggOS4xNjEgMTcuMDU4IDkuMTYxbC01LjQzNSA2LjgxNXoiLz48cGF0aCBpZD0iRiIgZD0iTTEyMi4wMiAyOTIuMTRjMCAyMC4yNy0xOC4xOTggMzAuNjg4LTMyLjQ5OCAzMC42ODgtMTkuMjY2IDAtMjkuNTI0LTExLjUxOS0yOS41MjQtMjYuNTk4IDAtOC41NDggMS41NjYtMTMuOTExIDUuNTA3LTIyLjA5Mmw0NC4xNTMtOTEuNjUzYzEuNTQzLTMuMTg4IDIuMDQxLTYuODE4IDIuMDQxLTEyLjEzOCAwLTguMjE3LTcuOTctMTQuOTMzLTE2LjMyNy0xNS4xMzktNy42MTgtLjE5LTE1LjkxOCA3LjEwMi0xNS45MTggMTUuNDEyIDAgMTAuMDkzIDUuMjM2IDE0LjU5MyAxMC42MTIgMTQuNTkzIDYuNjE2IDAgOS4yNTItMi43MiA5LjI1Mi03LjM2NSAwLTMuMjM3LTEuNTYzLTQuNjM3LTMuODEtNC42MzctNS42NzQgMC00LjA4MSA3LjYzOC00LjA4MSA3LjYzOC0yLjgxOC0uNjE3LTUuMTM0LTMuNDk3LTMuODEtNy4wOTNhMTAuMjMgMTAuMjMgMCAwIDEtNS41MS0zLjI3M2MxLjUyMS0xLjQ3NSAzLjI2Ni0yLjYxMyA1LjUxLTMtMS4zMjktNC4zODguNDQ3LTYuNTMxIDQuMjg2LTcuNDMzLS43NzUgMS42ODctLjgwMSAzLjI0LS41NDQgNC43MDUgNi4wNDMtMS43MTkgMTUuMzA2IDEuMDE2IDE1LjMwNiAxMS40NTYgMCAxMC4zNjUtNy4xOTQgMTkuMDkzLTIwLjY4MSAxNi45MTIgMy4yMDggMS41MzQgNC44NCA0LjY3MyA1LjE3IDguMTgzLTIuNDUtLjk1NC01LjE3LTEuMDktNS4xNy0xLjA5IDEuNTc3IDIuNzggMy43NjcgNS4xNzcgMy42NzMgMTAuNjM3LTIuNS0xLjEzNy00LjgyMy0zLjI0Mi04LjAyNy0xLjkxIDUuMDMgOS44OTgtMS4xNSAyMy41MTItMTYuODcxIDI2LjczMyA1Ljc1NC02Ljc0NSA4LjU3MS0xNC4wMjcgOC41NzEtMjEuMjc3IDAtMjMuNDk2LTYuNTMtMjcuNDQ1LTYuNTMtNDMuNzggMC02LjgzNSAzLjUxMy0xNC4yMTUgMTAuNDc2LTE5LjIzMXYuMjczYy00LjYwMi0xLjIzMy03LjU1LTMuNDk5LTkuMjQ1LTYuNTc4IDEwLjUxNS0yLjk4MiAyNS44LTIuOTI3IDM0LjAwNi4zMDIgOS40MzQgMS4wOTMgMTYuMDIgOC4zMyAxNy45NiAxMi4wMDRzNS43MDkgMTYuOTUzIDAgMjguOTEybC00NC44OTggOTUuMTk4Yy0xLjk0OCA0LjE2NS0zLjEzIDguNTgzLTMuMTMgMTMuMzY2IDAgMTIuMDMgMTEuMDIgMTYuMjMgMTcuMjggMTYuMjMgNy40ODMgMCAxNS4xMDItNS43IDE1LjEwMi0xMi44MiAwLTQuNTExLTIuNDUtNy4yMjgtNS45ODctNy4yMjgtOC40NTggMC03Ljk0NCA3LjE5NS02LjI1OCAxMS43MjktNS4yNjQtMi4zNjctOC4zMjQtNi41OTItNy40ODMtMTEuMDQ3LTIuOTgtLjQwOS01LjgxNy0xLjgyMi04LjQzNS00Ljc3NCAyLjA2LTIuNiA0LjU3Mi00LjU2NyA4LjQzNS00LjYzNy0xLjY4Ny02LjkxMiAyLjk0LTkuODM1IDcuNDgzLTExLjQ1Ni0xLjQzNyA1LjA3My0yLjM4IDEwLjkxMSA2LjI1OCAxMC45MTEgNi4zIDAgMTEuMjU4IDEuMDkxIDE0LjE1IDUuMTgzbC42OC0yNy4wMDVjLjM2NC04LjA5OC0xMC44MzgtNy44NjctMTcuOTU4LTUuNDU2IDIuNjg3LTkuMzI3IDguMTk4LTE0LjM3IDIwLjk1Mi0xMy4wOTMtMy4wOTYtMS4yOTUtNi4zOTUtNC4yMDgtNi4zOTUtOS44Mi4wMDItNy41OTMgNi4xNjItMTYuMDA1IDEwLjIwNi0xOC40OTJsMi4wMjIgNzkuMDUxeiIvPjx1c2UgeGxpbms6aHJlZj0iI0YiIHRyYW5zZm9ybT0ibWF0cml4KDEgMCAwIC0xIDAgNjQ1LjA4KSIvPjwvZz48dXNlIHhsaW5rOmhyZWY9IiNFIiB0cmFuc2Zvcm09Im1hdHJpeCgtMSAwIDAgMSAyNDAgMCkiLz48L2c+PHVzZSB4bGluazpocmVmPSIjRCIgdHJhbnNmb3JtPSJtYXRyaXgoMSAwIDAgLTEgMCAxMDAwKSIvPjwvc3ZnPg==");
@@ -235,6 +240,7 @@ body::after{
    TICKER
    ══════════════════════════════════════════════════════ */
 .ticker{
+  position:relative;z-index:20;
   display:flex;align-items:center;
   background:var(--ink);color:var(--paper);
   overflow:hidden;height:28px;
@@ -523,7 +529,7 @@ body::after{
 /* ══════════════════════════════════════════════════════
    FOOTER
    ══════════════════════════════════════════════════════ */
-.ftr{border-top:4px solid var(--ink);background:var(--ink);color:var(--paper);}
+.ftr{position:relative;z-index:20;border-top:4px solid var(--ink);background:var(--ink);color:var(--paper);}
 .ftr-inner{max-width:var(--max-w);margin:0 auto;padding:28px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;align-items:center;}
 .ftr-logo{font-family:var(--ff-serif);font-weight:700;font-size:22px;letter-spacing:.06em;}
 .ftr-tag{font-family:var(--ff-mono);font-size:8.5px;letter-spacing:.14em;color:#8a7a60;margin-top:4px;text-transform:uppercase;}
@@ -671,8 +677,6 @@ section{position:relative;}
 </svg>
 </head>
 <body>
-<div class="kz-flank kz-flank-left" aria-hidden="true"></div>
-<div class="kz-flank kz-flank-right" aria-hidden="true"></div>
 <div class="paper-grain"></div>
 
 <!-- TICKER -->
@@ -685,8 +689,13 @@ section{position:relative;}
   </div>
 </div>
 
-<!-- MASTHEAD -->
-<header class="masthead">
+<!-- ═══════ MAIN PAPER CONTENT FLANKED BY ORNAMENTS ═══════ -->
+<div class="paper-wrap">
+  <div class="kz-flank kz-flank-left" aria-hidden="true"></div>
+  <div class="kz-flank kz-flank-right" aria-hidden="true"></div>
+
+  <!-- MASTHEAD -->
+  <header class="masthead">
   <div class="mh-rule-thick"></div>
   <div class="mh-meta">
     <div class="mh-meta-side">
@@ -1018,6 +1027,8 @@ section{position:relative;}
     </div>
   </div>
 </section>
+
+</div><!-- /.paper-wrap -->
 
 <!-- ═══════ FOOTER ═══════ -->
 <footer class="ftr">
