@@ -23,8 +23,13 @@ try {
   console.log('[AutoUpdater] electron-updater available during packaged release builds.');
 }
 
-// Enable macOS autofill and password generation features at Chromium engine level
-app.commandLine.appendSwitch('enable-features', 'PasswordGeneration,PasswordImport');
+// Standard macOS Chrome User-Agent to avoid YouTube and web service degradation
+const STANDARD_CHROME_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.186 Safari/537.36';
+app.userAgentFallback = STANDARD_CHROME_UA;
+
+// Enable macOS autofill, password generation, overlay scrollbars and smooth media playback
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+app.commandLine.appendSwitch('enable-features', 'PasswordGeneration,PasswordImport,OverlayScrollbar');
 
 if (!app.isPackaged) {
   require('electron-reload')(__dirname, {
@@ -548,7 +553,7 @@ const AD_DOMAINS = [
 function setupAdBlocker() {
   const filter = { urls: ['http://*/*', 'https://*/*'] };
   
-  session.defaultSession.webRequest.onBeforeRequest(filter, (details, callback) => {
+  const handleRequest = (details, callback) => {
     if (!adBlockEnabled) {
       return callback({ cancel: false });
     }
@@ -557,6 +562,19 @@ function setupAdBlocker() {
       const parsedUrl = new url.URL(details.url);
       const hostname = parsedUrl.hostname.toLowerCase();
       
+      // CRITICAL: Protect YouTube & Google Video player media streams
+      // Canceling ad/telemetry endpoints from youtube.com triggers YouTube's anti-adblock video crash ("Что-то пошло не так")
+      const isYouTubeContext = 
+        (details.initiator && (details.initiator.includes('youtube.com') || details.initiator.includes('googlevideo.com'))) ||
+        (details.referrer && (details.referrer.includes('youtube.com') || details.referrer.includes('googlevideo.com'))) ||
+        hostname.includes('youtube.com') ||
+        hostname.includes('googlevideo.com') ||
+        hostname.includes('ytimg.com');
+
+      if (isYouTubeContext) {
+        return callback({ cancel: false });
+      }
+
       const isAd = AD_DOMAINS.some(domain => hostname === domain || hostname.endsWith('.' + domain));
       if (isAd) {
         totalBlockedAds++;
@@ -570,7 +588,12 @@ function setupAdBlocker() {
     }
 
     callback({ cancel: false });
-  });
+  };
+
+  session.defaultSession.webRequest.onBeforeRequest(filter, handleRequest);
+  try {
+    session.fromPartition('incognito').webRequest.onBeforeRequest(filter, handleRequest);
+  } catch (e) {}
 }
 
 // ── Ұлттық Кибер-Қалқан (Cyber Qalqan Anti-Phishing) ──
@@ -947,16 +970,26 @@ app.whenReady().then(() => {
   // Enable spellcheck languages at session level
   session.defaultSession.setSpellCheckerLanguages(['kk', 'ru', 'en']);
 
+  // Set standard macOS Chrome User-Agent across all sessions
+  session.defaultSession.setUserAgent(STANDARD_CHROME_UA);
+  try {
+    session.fromPartition('incognito').setUserAgent(STANDARD_CHROME_UA);
+  } catch (e) {}
+
   // ── Setup AdBlocker & Privacy Shield Engine ──
   setupAdBlocker();
 
+  // Protect local application shell with CSP, without interfering with external website headers
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': ["default-src 'self' 'unsafe-inline' data: https: wss: blob:;"]
-      }
-    });
+    if (details.url && details.url.startsWith('file://')) {
+      return callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': ["default-src 'self' 'unsafe-inline' 'unsafe-eval' data: https: wss: blob:;"]
+        }
+      });
+    }
+    callback({ responseHeaders: details.responseHeaders });
   });
 
   // ── Setup Downloads Monitor System ──

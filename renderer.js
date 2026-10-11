@@ -319,6 +319,105 @@ function clearAllDragIndicators() {
   });
 }
 
+// ── YouTube Smooth Playback & Anti-AdBlock Shield Engine ──
+const STANDARD_BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.186 Safari/537.36';
+
+function injectYouTubeOptimizations(webview) {
+  try {
+    const currentUrl = (webview.getURL && webview.getURL()) || (webview.getAttribute && webview.getAttribute('src')) || '';
+    if (!currentUrl || !currentUrl.includes('youtube.com')) return;
+
+    const ytScript = `
+      (() => {
+        if (window.__galamtor_yt_guard_active) return;
+        window.__galamtor_yt_guard_active = true;
+
+        // 1. Hide ad overlays, promos, and banners cleanly via CSS
+        if (!document.getElementById('galamtor-yt-ad-styles')) {
+          const style = document.createElement('style');
+          style.id = 'galamtor-yt-ad-styles';
+          style.textContent = \`
+            .video-ads, .ytp-ad-module, .ytp-ad-overlay-container,
+            ytd-banner-promo-renderer, ytd-ad-slot-renderer,
+            #player-ads, ytd-promoted-sparkles-web-renderer,
+            ytd-companion-slot-renderer, ytd-action-companion-ad-renderer,
+            ytd-single-hero-badge-renderer, ytd-statement-banner-renderer,
+            #masthead-ad, .ytd-in-feed-ad-layout-renderer,
+            ytd-ad-slot-renderer, #panels ytd-ads-engagement-panel-content-renderer,
+            ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"],
+            tp-yt-paper-dialog:has(.ytd-enforcement-message-view-model) {
+              display: none !important;
+            }
+          \`;
+          (document.head || document.documentElement).appendChild(style);
+        }
+
+        // 2. High-speed video ad auto-skip without breaking media source buffers
+        let lastSkipTs = 0;
+        const processYouTubeAds = () => {
+          try {
+            const player = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
+            const video = document.querySelector('video');
+
+            // Click skip ad button if present
+            const skipSelectors = [
+              '.ytp-ad-skip-button',
+              '.ytp-ad-skip-button-modern',
+              '.ytp-skip-ad-button',
+              '.ytp-ad-skip-button-slot button',
+              'button.ytp-ad-skip-button-modern',
+              '.ytp-ad-overlay-close-button'
+            ];
+            for (const sel of skipSelectors) {
+              const btn = document.querySelector(sel);
+              if (btn && btn.offsetParent !== null) {
+                btn.click();
+                break;
+              }
+            }
+
+            // If an ad is actively playing inside video element
+            const isAdShowing = player && (player.classList.contains('ad-showing') || player.classList.contains('ad-interrupting'));
+            if (isAdShowing && video) {
+              const now = Date.now();
+              if (now - lastSkipTs > 150) {
+                lastSkipTs = now;
+                video.muted = true;
+                if (!isNaN(video.duration) && video.duration > 0) {
+                  video.playbackRate = 16.0;
+                  video.currentTime = video.duration - 0.05;
+                }
+                if (video.paused) {
+                  video.play().catch(() => {});
+                }
+              }
+            } else if (video && !isAdShowing && video.playbackRate === 16.0) {
+              // Restore normal playback speed when main video starts
+              video.playbackRate = 1.0;
+            }
+
+            // Automatically dismiss any anti-adblock enforcement dialog and resume playback
+            const modal = document.querySelector('tp-yt-paper-dialog:has(.ytd-enforcement-message-view-model)') ||
+                          document.querySelector('ytd-enforcement-message-view-model');
+            if (modal) {
+              const parentDialog = modal.closest('tp-yt-paper-dialog') || modal;
+              parentDialog.remove();
+              const playBtn = document.querySelector('.ytp-play-button');
+              if (video && video.paused) {
+                video.play().catch(() => {});
+              }
+            }
+          } catch (e) {}
+        };
+
+        setInterval(processYouTubeAds, 120);
+      })();
+    `;
+
+    webview.executeJavaScript(ytScript).catch(() => {});
+  } catch (err) {}
+}
+
 function createWebview(tabId, url, isIncognito = false) {
   let wrapper = document.querySelector(`.webview-wrapper[data-tab-id="${tabId}"]`);
   if (!wrapper) {
@@ -333,10 +432,17 @@ function createWebview(tabId, url, isIncognito = false) {
   const webview = document.createElement('webview');
   webview.setAttribute('src', url);
   webview.setAttribute('allowpopups', '');
+  webview.setAttribute('useragent', STANDARD_BROWSER_UA);
   if (isIncognito) {
     webview.setAttribute('partition', 'incognito');
   }
   wrapper.appendChild(webview);
+
+  // Setup YouTube optimization triggers
+  const applyYTShield = () => injectYouTubeOptimizations(webview);
+  webview.addEventListener('dom-ready', applyYTShield);
+  webview.addEventListener('did-navigate', applyYTShield);
+  webview.addEventListener('did-navigate-in-page', applyYTShield);
 
   webview.addEventListener('did-start-loading', () => {
     if (activeTabId === tabId) showLoadingBar();
