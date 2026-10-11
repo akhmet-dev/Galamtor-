@@ -106,5 +106,21 @@ contextBridge.exposeInMainWorld('galamtorAPI', {
   },
 
   // ── Qazaq AI Context Engine API ──
-  aiContextAdapt: (content, url) => ipcRenderer.invoke('ai:context-adapt', { content, url })
+  aiContextAdapt: (content, url) => ipcRenderer.invoke('ai:context-adapt', { content, url }),
+
+  // ── Bookmarks API ──
+  getBookmarks: () => ipcRenderer.invoke('bookmarks:get'),
+  addBookmark: (bookmark) => ipcRenderer.invoke('bookmarks:add', bookmark),
+  removeBookmark: (idOrUrl) => ipcRenderer.invoke('bookmarks:remove', idOrUrl),
+  isBookmarked: (url) => ipcRenderer.invoke('bookmarks:check', url),
+
+  // ── Currency Rates API ──
+  getExchangeRates: () => ipcRenderer.invoke('rates:get'),
+
+  // ── Native Application Menu Action Bridge ──
+  onMenuAction: (callback) => {
+    const listener = (event, action, data) => callback(action, data);
+    ipcRenderer.on('menu-action', listener);
+    return () => ipcRenderer.removeListener('menu-action', listener);
+  }
 });

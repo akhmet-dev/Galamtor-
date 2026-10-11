@@ -1,7 +1,7 @@
 {
   "name": "galamtor",
   "productName": "Galamtor",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Galamtor - Kazakhstani Browser",
   "main": "index.js",
   "scripts": {

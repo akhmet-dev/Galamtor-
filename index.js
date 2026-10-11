@@ -95,7 +95,13 @@ function getContextTranslation(key) {
   return trans[key] || key;
 }
 
-// ── Native macOS / Application Menu template (ensures Cmd+C / Cmd+V shortcuts work natively) ──
+// ── Native macOS / Application Menu (Full Kazakh Localization & Shortcuts) ──
+function sendMenuAction(action, data) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('menu-action', action, data);
+  }
+}
+
 function setApplicationMenu() {
   const isMac = process.platform === 'darwin';
   const template = [];
@@ -105,43 +111,228 @@ function setApplicationMenu() {
       label: 'Galamtor',
       submenu: [
         { role: 'about', label: 'Galamtor туралы' },
+        {
+          label: 'Жаңартуларды тексеру...',
+          click: () => {
+            if (autoUpdater) {
+              autoUpdater.checkForUpdates().catch(err => log.error('Manual update check error:', err));
+            }
+            sendMenuAction('check-update');
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Баптаулар...',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => sendMenuAction('open-settings')
+        },
         { type: 'separator' },
         { role: 'services', label: 'Қызметтер' },
         { type: 'separator' },
-        { role: 'hide', label: 'Жасыру' },
+        { role: 'hide', label: 'Ғаламторды жасыру' },
         { role: 'hideOthers', label: 'Басқаларын жасыру' },
         { role: 'unhide', label: 'Барлығын көрсету' },
         { type: 'separator' },
-        { role: 'quit', label: 'Шығу' }
+        { role: 'quit', label: 'Ғаламтордан шығу' }
       ]
     });
   }
 
+  // Файл
   template.push({
-    label: 'Edit',
+    label: 'Файл',
     submenu: [
-      { role: 'undo', label: 'Болдырмау (Undo)' },
-      { role: 'redo', label: 'Қайталау (Redo)' },
+      {
+        label: 'Жаңа қойынды',
+        accelerator: 'CmdOrCtrl+T',
+        click: () => sendMenuAction('new-tab')
+      },
+      {
+        label: 'Жаңа жеке қойынды (Инкогнито)',
+        accelerator: 'Shift+CmdOrCtrl+N',
+        click: () => sendMenuAction('new-incognito-tab')
+      },
+      {
+        label: 'Қойындыны жабу',
+        accelerator: 'CmdOrCtrl+W',
+        click: () => sendMenuAction('close-tab')
+      },
       { type: 'separator' },
-      { role: 'cut', label: 'Қию (Cut)' },
-      { role: 'copy', label: 'Көшіру (Copy)' },
-      { role: 'paste', label: 'Қою (Paste)' },
-      { role: 'selectAll', label: 'Барлығын таңдау (Select All)' }
+      {
+        label: 'Бетті сақтау...',
+        accelerator: 'CmdOrCtrl+S',
+        click: () => sendMenuAction('save-page')
+      },
+      {
+        label: 'Басып шығару...',
+        accelerator: 'CmdOrCtrl+P',
+        click: () => sendMenuAction('print')
+      },
+      ...(!isMac ? [
+        { type: 'separator' },
+        { role: 'quit', label: 'Шығу' }
+      ] : [])
     ]
   });
 
+  // Өңдеу
   template.push({
-    label: 'View',
+    label: 'Өңдеу',
     submenu: [
-      { role: 'reload', label: 'Қайта жүктеу' },
-      { role: 'forceReload', label: 'Мәжбүрлі қайта жүктеу' },
-      { role: 'toggleDevTools', label: 'Әзірлеуші құралдары' },
+      { role: 'undo', label: 'Болдырмау' },
+      { role: 'redo', label: 'Қайталау' },
       { type: 'separator' },
-      { role: 'resetZoom', label: 'Масштабты қалпына келтіру' },
-      { role: 'zoomIn', label: 'Үлкейту' },
-      { role: 'zoomOut', label: 'Кішірейту' },
+      { role: 'cut', label: 'Қиып алу' },
+      { role: 'copy', label: 'Көшіру' },
+      { role: 'paste', label: 'Қою' },
+      { role: 'selectAll', label: 'Барлығын таңдау' },
       { type: 'separator' },
-      { role: 'togglefullscreen', label: 'Толық экран режимі' }
+      {
+        label: 'Беттен іздеу...',
+        accelerator: 'CmdOrCtrl+F',
+        click: () => sendMenuAction('find-in-page')
+      }
+    ]
+  });
+
+  // Көрініс
+  template.push({
+    label: 'Көрініс',
+    submenu: [
+      {
+        label: 'Қайта жүктеу',
+        accelerator: 'CmdOrCtrl+R',
+        click: () => sendMenuAction('reload')
+      },
+      {
+        label: 'Мәжбүрлі қайта жүктеу',
+        accelerator: 'Shift+CmdOrCtrl+R',
+        click: () => sendMenuAction('force-reload')
+      },
+      { type: 'separator' },
+      {
+        label: 'Үлкейту',
+        accelerator: 'CmdOrCtrl+=',
+        click: () => sendMenuAction('zoom-in')
+      },
+      {
+        label: 'Кішірейту',
+        accelerator: 'CmdOrCtrl+-',
+        click: () => sendMenuAction('zoom-out')
+      },
+      {
+        label: 'Масштабты қалпына келтіру',
+        accelerator: 'CmdOrCtrl+0',
+        click: () => sendMenuAction('zoom-reset')
+      },
+      { type: 'separator' },
+      {
+        label: 'Galamtor AI Көмекшісі',
+        accelerator: 'CmdOrCtrl+/',
+        click: () => sendMenuAction('toggle-ai')
+      },
+      {
+        label: 'Тарих тақтасы',
+        accelerator: 'CmdOrCtrl+Y',
+        click: () => sendMenuAction('open-history')
+      },
+      {
+        label: 'Бетбелгілер тақтасы',
+        accelerator: 'CmdOrCtrl+B',
+        click: () => sendMenuAction('open-bookmarks')
+      },
+      {
+        label: 'Жүктеулер тақтасы',
+        accelerator: 'CmdOrCtrl+J',
+        click: () => sendMenuAction('open-downloads')
+      },
+      { type: 'separator' },
+      { role: 'togglefullscreen', label: 'Толық экран режимі' },
+      { role: 'toggleDevTools', label: 'Әзірлеуші құралдары (DevTools)' }
+    ]
+  });
+
+  // Тарих
+  template.push({
+    label: 'Тарих',
+    submenu: [
+      {
+        label: 'Артқа',
+        accelerator: 'CmdOrCtrl+[',
+        click: () => sendMenuAction('go-back')
+      },
+      {
+        label: 'Алға',
+        accelerator: 'CmdOrCtrl+]',
+        click: () => sendMenuAction('go-forward')
+      },
+      {
+        label: 'Басты бетке өту',
+        accelerator: 'Shift+CmdOrCtrl+H',
+        click: () => sendMenuAction('go-home')
+      },
+      { type: 'separator' },
+      {
+        label: 'Тарихты ашу...',
+        click: () => sendMenuAction('open-history')
+      },
+      {
+        label: 'Тарихты тазарту...',
+        click: () => sendMenuAction('clear-history')
+      }
+    ]
+  });
+
+  // Бетбелгілер
+  template.push({
+    label: 'Бетбелгілер',
+    submenu: [
+      {
+        label: 'Осы бетті бетбелгіге қосу',
+        accelerator: 'CmdOrCtrl+D',
+        click: () => sendMenuAction('add-bookmark')
+      },
+      {
+        label: 'Бетбелгілерді қарау...',
+        accelerator: 'Shift+CmdOrCtrl+B',
+        click: () => sendMenuAction('open-bookmarks')
+      }
+    ]
+  });
+
+  // Терезе
+  template.push({
+    label: 'Терезе',
+    submenu: [
+      { role: 'minimize', label: 'Кішірейту' },
+      { role: 'zoom', label: 'Масштабтау' },
+      ...(isMac ? [
+        { type: 'separator' },
+        { role: 'front', label: 'Барлығын алға шығару' },
+        { role: 'window', label: 'Терезе' }
+      ] : [
+        { role: 'close', label: 'Жабу' }
+      ])
+    ]
+  });
+
+  // Анықтама
+  template.push({
+    label: 'Анықтама',
+    submenu: [
+      {
+        label: 'Galamtor ресми сайты',
+        click: () => shell.openExternal('https://galamtor.web.app')
+      },
+      {
+        label: 'Кибер-Қалқан қауіпсіздік жүйесі туралы',
+        click: () => sendMenuAction('about-qalqan')
+      },
+      { type: 'separator' },
+      {
+        label: 'Қазақ тілді қолдау қызметі',
+        click: () => shell.openExternal('https://github.com/akhmet-dev/Galamtor-')
+      }
     ]
   });
 
@@ -261,6 +452,78 @@ function saveSession(sessionTabs) {
   } catch (err) {
     console.error('[Session] Failed to save session:', err);
   }
+}
+
+// ── Bookmarks Manager System ──
+function getBookmarksPath() {
+  return path.join(app.getPath('userData'), 'bookmarks.json');
+}
+
+function loadBookmarks() {
+  try {
+    const bPath = getBookmarksPath();
+    if (fs.existsSync(bPath)) {
+      const data = fs.readFileSync(bPath, 'utf8');
+      return JSON.parse(data) || [];
+    }
+  } catch (err) {
+    console.error('[Bookmarks] Failed to load bookmarks:', err);
+  }
+  // Default Kazakh digital ecosystem bookmarks
+  return [
+    { id: 'bm_1', title: 'Kaspi.kz', url: 'https://kaspi.kz', favicon: 'https://kaspi.kz/favicon.ico', createdAt: Date.now() },
+    { id: 'bm_2', title: 'eGov.kz', url: 'https://egov.kz', favicon: 'https://egov.kz/favicon.ico', createdAt: Date.now() },
+    { id: 'bm_3', title: 'Tengrinews.kz', url: 'https://tengrinews.kz', favicon: 'https://tengrinews.kz/favicon.ico', createdAt: Date.now() },
+    { id: 'bm_4', title: 'Enbek.kz', url: 'https://enbek.kz', favicon: 'https://enbek.kz/favicon.ico', createdAt: Date.now() },
+    { id: 'bm_5', title: 'Kolesa.kz', url: 'https://kolesa.kz', favicon: 'https://kolesa.kz/favicon.ico', createdAt: Date.now() },
+    { id: 'bm_6', title: 'Krisha.kz', url: 'https://krisha.kz', favicon: 'https://krisha.kz/favicon.ico', createdAt: Date.now() }
+  ];
+}
+
+function saveBookmarks(bookmarks) {
+  try {
+    const bPath = getBookmarksPath();
+    fs.writeFileSync(bPath, JSON.stringify(bookmarks, null, 2), 'utf8');
+  } catch (err) {
+    console.error('[Bookmarks] Failed to save bookmarks:', err);
+  }
+}
+
+// ── Live NBRK Currency Rates System ──
+let cachedRates = { USD: 485.5, EUR: 532.0, RUB: 5.25, CNY: 68.2, updatedAt: Date.now() };
+
+async function fetchLiveExchangeRates() {
+  return new Promise((resolve) => {
+    https.get('https://open.er-api.com/v6/latest/USD', { timeout: 4000 }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed && parsed.rates && parsed.rates.KZT) {
+            const usdKzt = parsed.rates.KZT;
+            const eurKzt = parsed.rates.EUR ? (usdKzt / parsed.rates.EUR) : 532.0;
+            const rubKzt = parsed.rates.RUB ? (usdKzt / parsed.rates.RUB) : 5.25;
+            const cnyKzt = parsed.rates.CNY ? (usdKzt / parsed.rates.CNY) : 68.2;
+            cachedRates = {
+              USD: parseFloat(usdKzt.toFixed(1)),
+              EUR: parseFloat(eurKzt.toFixed(1)),
+              RUB: parseFloat(rubKzt.toFixed(2)),
+              CNY: parseFloat(cnyKzt.toFixed(1)),
+              updatedAt: Date.now()
+            };
+            NBRK_RATES.USD = cachedRates.USD;
+            NBRK_RATES.EUR = cachedRates.EUR;
+            NBRK_RATES.RUB = cachedRates.RUB;
+            NBRK_RATES.CNY = cachedRates.CNY;
+            resolve(cachedRates);
+            return;
+          }
+        } catch (e) {}
+        resolve(cachedRates);
+      });
+    }).on('error', () => resolve(cachedRates));
+  });
 }
 
 // ── AdBlocker & Privacy Shield Engine ──
@@ -686,7 +949,7 @@ app.whenReady().then(() => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
-        'Content-Security-Policy': ["default-src 'self' 'unsafe-inline' 'unsafe-eval' data: https: wss: blob:;"]
+        'Content-Security-Policy': ["default-src 'self' 'unsafe-inline' data: https: wss: blob:;"]
       }
     });
   });
@@ -986,6 +1249,54 @@ ipcMain.handle('session:load', (event) => {
   return loadSession();
 });
 
+// ── Bookmarks IPC Handlers ──
+ipcMain.handle('bookmarks:get', (event) => {
+  if (!validateSender(event)) return [];
+  return loadBookmarks();
+});
+
+ipcMain.handle('bookmarks:add', (event, bookmark) => {
+  if (!validateSender(event) || !bookmark || !bookmark.url) return false;
+  let bookmarks = loadBookmarks();
+  const idx = bookmarks.findIndex(b => b.url === bookmark.url);
+  if (idx >= 0) {
+    bookmarks[idx] = { ...bookmarks[idx], ...bookmark, updatedAt: Date.now() };
+  } else {
+    bookmarks.unshift({
+      id: 'bm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      title: bookmark.title || 'Жаңа бетбелгі',
+      url: bookmark.url,
+      favicon: bookmark.favicon || '',
+      createdAt: Date.now()
+    });
+  }
+  saveBookmarks(bookmarks);
+  return true;
+});
+
+ipcMain.handle('bookmarks:remove', (event, idOrUrl) => {
+  if (!validateSender(event) || !idOrUrl) return false;
+  let bookmarks = loadBookmarks();
+  bookmarks = bookmarks.filter(b => b.id !== idOrUrl && b.url !== idOrUrl);
+  saveBookmarks(bookmarks);
+  return true;
+});
+
+ipcMain.handle('bookmarks:check', (event, url) => {
+  if (!validateSender(event) || !url) return false;
+  const bookmarks = loadBookmarks();
+  return bookmarks.some(b => b.url === url);
+});
+
+// ── Rates IPC Handler ──
+ipcMain.handle('rates:get', async (event) => {
+  if (!validateSender(event)) return cachedRates;
+  if (Date.now() - cachedRates.updatedAt > 30 * 60 * 1000) {
+    return await fetchLiveExchangeRates();
+  }
+  return cachedRates;
+});
+
 ipcMain.handle('download:trigger', (event, url) => {
   if (!validateSender(event) || typeof url !== 'string') return false;
   try {
@@ -1127,6 +1438,7 @@ async function callGeminiAPI(systemInstruction, userPrompt, chatHistory) {
   const targets = [
     { apiVersion: 'v1beta', model: 'gemini-2.5-flash' },
     { apiVersion: 'v1beta', model: 'gemini-2.0-flash' },
+    { apiVersion: 'v1beta', model: 'gemini-1.5-flash' },
     { apiVersion: 'v1beta', model: 'gemini-2.0-flash-lite' }
   ];
 
@@ -1159,11 +1471,18 @@ const { spawn } = require('child_process');
 
 function startLocalAIServerProcess() {
   try {
-    const scriptPath = '/Users/dev/Desktop/galamtor-local-ai/serve_local.py';
-    if (fs.existsSync(scriptPath)) {
+    const candidatePaths = [
+      process.env.LOCAL_AI_SCRIPT,
+      path.join(__dirname, '../galamtor-local-ai/serve_local.py'),
+      path.join(process.cwd(), 'galamtor-local-ai/serve_local.py'),
+      '/Users/dev/Desktop/galamtor-local-ai/serve_local.py'
+    ].filter(Boolean);
+
+    const scriptPath = candidatePaths.find(p => fs.existsSync(p));
+    if (scriptPath) {
       const proc = spawn('python3', [scriptPath], { detached: true, stdio: 'ignore' });
       proc.unref();
-      console.log('[Local AI] Native M1 Pro Python server launched on port 8080');
+      console.log(`[Local AI] Local AI Python server launched from ${scriptPath} on port 8080`);
     }
   } catch (err) {
     console.error('[Local AI] Server launch error:', err);
