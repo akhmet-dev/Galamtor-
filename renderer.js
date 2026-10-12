@@ -6780,6 +6780,7 @@ function initCyberSteppeInnovations() {
     const cityLabel = document.getElementById('current-city-label');
     const nextPill = document.getElementById('prayer-next-pill');
     const timelineList = document.getElementById('prayer-timeline-list');
+    const remainingEl = document.getElementById('prayer-time-remaining');
 
     if (cityLabel) cityLabel.textContent = city.name;
 
@@ -6787,12 +6788,12 @@ function initCyberSteppeInnovations() {
     const curMins = now.getHours() * 60 + now.getMinutes();
 
     const prayerOrder = [
-      { name: 'Таң', time: city.times.fajr },
-      { name: 'Күн', time: city.times.sunrise },
-      { name: 'Бесін', time: city.times.dhuhr },
-      { name: 'Екінді', time: city.times.asr },
-      { name: 'Ақшам', time: city.times.maghrib },
-      { name: 'Құптан', time: city.times.isha }
+      { id: 'fajr', name: 'Таң', time: city.times.fajr },
+      { id: 'sunrise', name: 'Күн', time: city.times.sunrise },
+      { id: 'dhuhr', name: 'Бесін', time: city.times.dhuhr },
+      { id: 'asr', name: 'Екінді', time: city.times.asr },
+      { id: 'maghrib', name: 'Ақшам', time: city.times.maghrib },
+      { id: 'isha', name: 'Құптан', time: city.times.isha }
     ];
 
     prayerOrder.forEach(p => {
@@ -6800,11 +6801,38 @@ function initCyberSteppeInnovations() {
       p.mins = h * 60 + m;
     });
 
-    let next = prayerOrder.find(p => p.mins > curMins);
-    if (!next) next = prayerOrder[0]; // Next day's Fajr
+    // Populate individual prayer times in the 5 cards
+    ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].forEach(k => {
+      const el = document.getElementById(`time-${k}`);
+      if (el && city.times[k]) el.textContent = city.times[k];
+    });
+
+    // Determine next prayer among 5 daily obligatory prayers
+    const mainPrayers = prayerOrder.filter(p => p.id !== 'sunrise');
+    let next = mainPrayers.find(p => p.mins > curMins);
+    let minsLeft = 0;
+    if (!next) {
+      next = mainPrayers[0]; // Next day's Fajr
+      minsLeft = (24 * 60 - curMins) + next.mins;
+    } else {
+      minsLeft = next.mins - curMins;
+    }
+
+    const hoursLeft = Math.floor(minsLeft / 60);
+    const minsRemaining = minsLeft % 60;
+    const countdownStr = hoursLeft > 0 ? `${hoursLeft} сағ ${minsRemaining} мин қалды` : `${minsRemaining} мин қалды`;
+
+    // Highlight active-next card
+    document.querySelectorAll('.p-time-item').forEach(item => {
+      item.classList.toggle('active-next', item.dataset.prayer === next.id);
+    });
 
     if (nextPill) {
       nextPill.textContent = `${next.name} ${next.time}`;
+    }
+
+    if (remainingEl) {
+      remainingEl.textContent = countdownStr;
     }
 
     if (timelineList) {
@@ -7523,6 +7551,26 @@ function initStartPageCustomizer() {
     if (e.key === 'Escape' && drawer.classList.contains('active')) {
       closeDrawer();
     }
+  });
+
+  // VisionOS Pill Tabs Switching (Wallpapers | Video | Widgets)
+  const tabPills = drawer.querySelectorAll('.customizer-tab-pill');
+  const tabPanes = {
+    wallpapers: document.getElementById('tab-pane-wallpapers'),
+    video: document.getElementById('tab-pane-video'),
+    widgets: document.getElementById('tab-pane-widgets')
+  };
+
+  tabPills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      const targetTab = pill.dataset.tab;
+      tabPills.forEach(p => p.classList.toggle('active', p === pill));
+      Object.entries(tabPanes).forEach(([key, pane]) => {
+        if (pane) {
+          pane.style.display = (key === targetTab) ? 'flex' : 'none';
+        }
+      });
+    });
   });
 
   // State Management

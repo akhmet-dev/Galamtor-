@@ -220,13 +220,13 @@
             <!-- Search with Lens Drop Zone -->
             <form id="welcome-search-form" class="welcome-search-form">
               <div class="welcome-search-box" id="welcome-search-box">
-                <svg class="search-icon-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 <input type="text" id="welcome-search-input" placeholder="Ғаламтордан іздеу..." autocomplete="off" spellcheck="false">
-                <!-- Lens icon in welcome search -->
                 <button type="button" id="btn-lens-welcome" class="lens-btn-welcome" title="Суретпен іздеу (Galamtor Lens)">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                 </button>
-                <button type="submit" class="search-submit-btn">Іздеу</button>
+                <button type="submit" class="search-submit-btn-cyan" title="Ғаламтордан іздеу">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#00f2fe" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </button>
               </div>
               <!-- Drag overlay for image lens -->
               <div id="lens-drop-overlay" class="lens-drop-overlay">
@@ -328,25 +328,58 @@
             <section class="safari-section" id="section-bento-hero">
               <div class="safari-section-heading">Қазақстанның Ұлттық Қаржысы & Намаз Уақыты</div>
               <div id="cyber-steppe-hub" class="safari-bento-card">
-                <!-- Left Sub-card: NBRK Currency Rates -->
+                <!-- Left Sub-card: NBRK Currency Rates with Sparkline Graph -->
                 <div class="safari-bento-sub currency-widget" id="cs-currency" title="ҚР Ұлттық Банкінің нақты бағамы">
                   <div class="safari-bento-header">
                     <div class="safari-bento-badge">
                       <span class="cs-badge badge-kzt">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f7b733" stroke-width="2.5" stroke-linecap="round"><path d="M6 5h12M12 5v14M8 9h8"/></svg>
                       </span>
-                      <span class="cs-title">Ұлттық Банк бағамы</span>
+                      <div class="cs-header-texts">
+                        <span class="cs-title">Valuta Baǵamy</span>
+                        <span class="cs-subtitle">KASE ресми биржалық бағамы</span>
+                      </div>
                     </div>
-                    <span class="cs-trend-pill" id="kzt-trend-pill">+0.4% ▲</span>
+                    <span class="cs-trend-pill" id="kzt-trend-pill">+1.2% ▲</span>
                   </div>
-                  <div class="safari-bento-val" id="currency-values">
-                    <span class="rate-item"><span class="cur-tag">USD</span> <span id="rate-usd">485.5</span> ₸</span>
-                    <span class="rate-sep">·</span>
-                    <span class="rate-item"><span class="cur-tag">EUR</span> <span id="rate-eur">532.0</span> ₸</span>
-                    <span class="rate-sep">·</span>
-                    <span class="rate-item"><span class="cur-tag">RUB</span> <span id="rate-rub">5.25</span> ₸</span>
+
+                  <div class="currency-bento-body">
+                    <div class="currency-rates-col" id="currency-values">
+                      <div class="rate-row-item">
+                        <span class="cur-flag">🇺🇸</span>
+                        <span class="cur-name">USD</span>
+                        <span class="cur-val"><span id="rate-usd">449.9</span> ₸</span>
+                        <span class="cur-diff rate-up">+1.01 ₸</span>
+                      </div>
+                      <div class="rate-row-item">
+                        <span class="cur-flag">🇪🇺</span>
+                        <span class="cur-name">EUR</span>
+                        <span class="cur-val"><span id="rate-eur">504.1</span> ₸</span>
+                        <span class="cur-diff rate-up">+0.35 ₸</span>
+                      </div>
+                      <div class="rate-row-item">
+                        <span class="cur-flag">🇷🇺</span>
+                        <span class="cur-name">RUB</span>
+                        <span class="cur-val"><span id="rate-rub">5.29</span> ₸</span>
+                        <span class="cur-diff rate-up">+0.04 ₸</span>
+                      </div>
+                    </div>
+
+                    <div class="currency-sparkline-box">
+                      <svg viewBox="0 0 160 64" class="sparkline-svg" preserveAspectRatio="none">
+                        <defs>
+                          <linearGradient id="kzt-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#10b981" stop-opacity="0.38"/>
+                            <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
+                          </linearGradient>
+                        </defs>
+                        <path d="M 0,48 Q 20,44 40,49 T 80,32 T 120,38 T 145,18 L 160,10 L 160,64 L 0,64 Z" fill="url(#kzt-grad)" />
+                        <path d="M 0,48 Q 20,44 40,49 T 80,32 T 120,38 T 145,18 L 160,10" fill="none" stroke="#10b981" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+                        <circle cx="160" cy="10" r="3.5" fill="#10b981" />
+                      </svg>
+                    </div>
                   </div>
-                  <div class="safari-bento-subtext">KASE ресми биржалық бағамы мен динамикасы</div>
+
                   <div class="safari-bento-footer">
                     <span class="shield-indicator">
                       <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:2px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -355,28 +388,76 @@
                   </div>
                 </div>
 
-                <!-- Right Sub-card: Localized Prayer Schedule -->
+                <!-- Right Sub-card: Localized Prayer Schedule (Twin to Currency Bento) -->
                 <div class="safari-bento-sub prayer-widget" id="cs-prayer" title="Бүгінгі намаз кестесі мен қала таңдау">
                   <div class="safari-bento-header">
                     <div class="safari-bento-badge">
                       <span class="cs-badge badge-prayer">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 6 6 6 6 0 0 0-6-6zm0 0v18M7 14h10"/></svg>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 6 6 6 6 0 0 0-6-6zm0 0v18M7 14h10"/></svg>
                       </span>
-                      <span class="cs-title">Намаз кестесі</span>
+                      <div class="cs-header-texts">
+                        <span class="cs-title">Namaz Uaqyty</span>
+                        <span class="cs-subtitle">ҚМДБ ресми кестесі</span>
+                      </div>
                     </div>
-                    <button type="button" id="btn-city-select" class="city-pill-btn" title="Қаланы өзгерту">
-                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pin-icon-svg" style="vertical-align: -1px; margin-right: 2px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                      <span id="current-city-label">Астана</span>
-                      <span class="arrow-down">▾</span>
-                    </button>
+                    <div class="prayer-header-right">
+                      <button type="button" id="btn-city-select" class="city-pill-btn" title="Қаланы өзгерту">
+                        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pin-icon-svg" style="vertical-align: -1px; margin-right: 2px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        <span id="current-city-label">Астана</span>
+                        <span class="arrow-down">▾</span>
+                      </button>
+                      <span class="cs-trend-pill prayer-next-pill-badge" id="prayer-next-pill">Ақшам 18:32</span>
+                    </div>
                   </div>
-                  <div class="safari-bento-val prayer-highlight-row" id="prayer-display-wrap">
-                    <span class="prayer-next-highlight" id="prayer-next-pill">Құптан 20:02</span>
-                    <span class="prayer-timeline" id="prayer-timeline-list">Таң 05:43 · Екінді 16:02 · Ақшам 18:32</span>
+
+                  <div class="prayer-bento-body">
+                    <!-- 5 Daily Prayer times in structured mini cards -->
+                    <div class="prayer-times-bar" id="prayer-times-bar">
+                      <div class="p-time-item" data-prayer="fajr">
+                        <span class="p-name">Таң</span>
+                        <span class="p-val" id="time-fajr">05:43</span>
+                      </div>
+                      <div class="p-time-item" data-prayer="dhuhr">
+                        <span class="p-name">Бесін</span>
+                        <span class="p-val" id="time-dhuhr">12:48</span>
+                      </div>
+                      <div class="p-time-item" data-prayer="asr">
+                        <span class="p-name">Екінді</span>
+                        <span class="p-val" id="time-asr">16:02</span>
+                      </div>
+                      <div class="p-time-item active-next" data-prayer="maghrib">
+                        <span class="p-name">Ақшам</span>
+                        <span class="p-val" id="time-maghrib">18:32</span>
+                      </div>
+                      <div class="p-time-item" data-prayer="isha">
+                        <span class="p-name">Құптан</span>
+                        <span class="p-val" id="time-isha">20:02</span>
+                      </div>
+                    </div>
+
+                    <!-- Celestial Solar Arc SVG matching Currency Sparkline -->
+                    <div class="prayer-celestial-box">
+                      <svg viewBox="0 0 140 60" class="celestial-arc-svg" preserveAspectRatio="none">
+                        <defs>
+                          <linearGradient id="celestial-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#10b981" stop-opacity="0.25"/>
+                            <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
+                          </linearGradient>
+                        </defs>
+                        <path d="M 10,48 Q 70,8 130,48" fill="none" stroke="rgba(16, 185, 129, 0.4)" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 3"/>
+                        <circle cx="100" cy="22" r="5" fill="#10b981" filter="drop-shadow(0 0 6px #10b981)"/>
+                        <circle cx="100" cy="22" r="2.5" fill="#ffffff"/>
+                        <!-- Crescent moon subtle path -->
+                        <path d="M 124 16 A 5 5 0 1 1 129 23 A 6.5 6.5 0 0 0 124 16 Z" fill="rgba(255, 255, 255, 0.4)"/>
+                      </svg>
+                    </div>
                   </div>
-                  <div class="safari-bento-subtext">Жергілікті күн бату уақытына сәйкес нақты есептелген</div>
+
                   <div class="safari-bento-footer">
-                    <span class="prayer-hint">Қаланы таңдау үшін басыңыз ▾</span>
+                    <span class="prayer-countdown-wrap" id="prayer-countdown-wrap">
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      Келесі намазға: <strong id="prayer-time-remaining" style="color:#10b981;font-weight:700;">есептелуде...</strong>
+                    </span>
                   </div>
                 </div>
               </div>
@@ -612,13 +693,39 @@
       </button>
     </div>
 
+    <div class="customizer-segmented-bar">
+      <button type="button" class="customizer-tab-pill active" data-tab="wallpapers">Тұсқағаз</button>
+      <button type="button" class="customizer-tab-pill" data-tab="video">Видео</button>
+      <button type="button" class="customizer-tab-pill" data-tab="widgets">Виджеттер</button>
+    </div>
+
     <div class="customizer-body">
-      <!-- Section 1: Custom Media (Photo or MP4 Video) -->
-      <div class="customizer-section">
-        <div class="customizer-section-title">
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 5px;"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
-          <span>ӨЗ ФОТОҢЫЗ НЕМЕСЕ MP4 ВИДЕОҢЫЗ</span>
+      <!-- TAB 1: WALLPAPERS (Active by default) -->
+      <div class="customizer-tab-pane active" id="tab-pane-wallpapers">
+        <div class="presets-grid" id="presets-grid">
+          <!-- 3x3 grid rendered by JS -->
         </div>
+
+        <div class="customizer-sliders-wrap">
+          <div class="customizer-control-row">
+            <div class="control-label">
+              <span>Opacity (Күңгірттеу)</span>
+              <span id="dim-level-val" class="control-val">35%</span>
+            </div>
+            <input type="range" id="slider-dim-level" min="0" max="85" value="35" class="custom-range" />
+          </div>
+          <div class="customizer-control-row">
+            <div class="control-label">
+              <span>Blur (Бұлдырату)</span>
+              <span id="blur-level-val" class="control-val">0px</span>
+            </div>
+            <input type="range" id="slider-blur-level" min="0" max="16" value="0" class="custom-range" />
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: VIDEO & CUSTOM MEDIA -->
+      <div class="customizer-tab-pane" id="tab-pane-video" style="display:none;">
         <div class="custom-media-uploader">
           <button type="button" id="btn-upload-custom-wallpaper" class="btn-custom-upload">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -626,10 +733,6 @@
               <line x1="7" y1="2" x2="7" y2="22"></line>
               <line x1="17" y1="2" x2="17" y2="22"></line>
               <line x1="2" y1="12" x2="22" y2="12"></line>
-              <line x1="2" y1="7" x2="7" y2="7"></line>
-              <line x1="2" y1="17" x2="7" y2="17"></line>
-              <line x1="17" y1="17" x2="22" y2="17"></line>
-              <line x1="17" y1="7" x2="22" y2="7"></line>
             </svg>
             <div class="upload-btn-text">
               <span class="upload-main-text">+ Өз фотоңды / MP4 видеоңды таңдау</span>
@@ -648,41 +751,8 @@
         </div>
       </div>
 
-      <!-- Section 2: Dimness & Blur Controls -->
-      <div class="customizer-section">
-        <div class="customizer-section-title">
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 5px;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-          <span>КҮҢГІРТТЕУ ЖӘНЕ БҰЛДЫРАТУ</span>
-        </div>
-        <div class="customizer-control-row">
-          <div class="control-label">
-            <span>Күңгірттеу (Қараңғылау)</span>
-            <span id="dim-level-val" class="control-val">35%</span>
-          </div>
-          <input type="range" id="slider-dim-level" min="0" max="85" value="35" class="custom-range" />
-        </div>
-        <div class="customizer-control-row">
-          <div class="control-label">
-            <span>Шыны бұлдырату (Glass Blur)</span>
-            <span id="blur-level-val" class="control-val">0px</span>
-          </div>
-          <input type="range" id="slider-blur-level" min="0" max="16" value="0" class="custom-range" />
-        </div>
-      </div>
-
-      <!-- Section 3: Built-in 10 Wallpapers Gallery with Name & Location -->
-      <div class="customizer-section">
-        <div class="customizer-section-title">
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 5px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-          <span>ҚАЗАҚСТАН ТҰСҚАҒАЗДАРЫ (10 ТАҢДАУЛЫ ОРЫН)</span>
-        </div>
-        <div class="presets-grid" id="presets-grid">
-          <!-- Generated by JS with full details -->
-        </div>
-      </div>
-
-      <!-- Section 3.5: Widget Design Style (5 Styles) -->
-      <div class="customizer-section">
+      <!-- TAB 3: WIDGETS & STYLES -->
+      <div class="customizer-tab-pane" id="tab-pane-widgets" style="display:none;">
         <div class="customizer-section-title">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 5px;"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
           <span>ВИДЖЕТТЕР ДИЗАЙНЫ (5 СТИЛЬ)</span>
@@ -719,11 +789,8 @@
             <span class="chip-title">Минималистік Горизонт</span>
           </button>
         </div>
-      </div>
 
-      <!-- Section 4: Widget Visibility Toggles -->
-      <div class="customizer-section">
-        <div class="customizer-section-title">
+        <div class="customizer-section-title" style="margin-top: 18px;">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 5px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
           <span>БАСТЫ БЕТ ВИДЖЕТТЕРІ</span>
         </div>
