@@ -8,7 +8,7 @@
 // ── Firebase Configuration & Initialization ──
 const firebaseConfig = {
   apiKey: "AIzaSyDkEReqxwG0_IR12_lNFioKSPEdipqcPZ8",
-  authDomain: "galamtor-browser-974cc.firebaseapp.com",
+  authDomain: "galamtor.web.app",
   projectId: "galamtor-browser-974cc",
   storageBucket: "galamtor-browser-974cc.firebasestorage.app",
   messagingSenderId: "984286831243",
@@ -19,6 +19,16 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+function getRegistrationDate() {
+  const created = auth.currentUser?.metadata?.creationTime;
+  if (created) return new Date(created).toISOString().slice(0, 10);
+  let localCreated = localStorage.getItem('galamtor_created_at');
+  if (!localCreated) {
+    localCreated = new Date().toISOString().slice(0, 10);
+    localStorage.setItem('galamtor_created_at', localCreated);
+  }
+  return localCreated;
+}
 
 async function syncProfileStats(userId, stats) {
   try {
@@ -28,7 +38,7 @@ async function syncProfileStats(userId, stats) {
       openTabsCount: stats.openTabsCount,
       pinnedTabsCount: stats.pinnedTabsCount,
       vibesCount: stats.vibesCount,
-      registrationDate: stats.registrationDate || "2026-07-12",
+      registrationDate: stats.registrationDate || getRegistrationDate(),
       lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
     console.log('[Firebase] Stats successfully synchronized.');
@@ -81,7 +91,7 @@ function gpTriggerAutoSync() {
           openTabsCount: tabs.length,
           pinnedTabsCount: dockIcons.querySelectorAll('.dock-btn[data-url]').length,
           vibesCount: GalamtorStore.getVibes().length,
-          registrationDate: "2026-07-12"
+          registrationDate: getRegistrationDate()
         };
         syncProfileStats(user.uid, stats);
       } catch (innerErr) {
@@ -150,8 +160,8 @@ function generateTabId() { return `tab-${++tabIdCounter}`; }
 function parseSearchOrURL(input) {
   const trimmed = input.trim();
   if (!trimmed) return '';
-  // Preserve non-HTTP protocols (file://, ftp://, etc.)
-  if (/^(file|ftp|data|blob|chrome|devtools):/i.test(trimmed)) return trimmed;
+  // The guest browser opens network pages only.
+  if (/^[a-z][a-z\d+.-]*:/i.test(trimmed) && !/^https?:\/\//i.test(trimmed)) return '';
   // Match domains (including TLDs), localhost, and IP addresses
   const urlPattern = /^(https?:\/\/)?(www\.)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}/;
   const ipPattern = /^(https?:\/\/)?\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?/;
@@ -327,8 +337,6 @@ function clearAllDragIndicators() {
 }
 
 // ── YouTube Smooth Playback & Anti-AdBlock Shield Engine ──
-const STANDARD_BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.186 Safari/537.36';
-const SAFARI_AUTH_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15';
 
 function injectYouTubeOptimizations(webview) {
   try {
@@ -440,8 +448,6 @@ function createWebview(tabId, url, isIncognito = false) {
   const webview = document.createElement('webview');
   webview.setAttribute('src', url);
   webview.setAttribute('allowpopups', '');
-  const isGoogleAuth = (url || '').toLowerCase().includes('accounts.google.com') || (url || '').toLowerCase().includes('accounts.youtube.com');
-  webview.setAttribute('useragent', isGoogleAuth ? SAFARI_AUTH_UA : STANDARD_BROWSER_UA);
   if (isIncognito) {
     webview.setAttribute('partition', 'incognito');
   }
@@ -453,32 +459,7 @@ function createWebview(tabId, url, isIncognito = false) {
   webview.addEventListener('did-navigate', applyYTShield);
   webview.addEventListener('did-navigate-in-page', applyYTShield);
 
-  // Dynamic User-Agent switching for Google Authentication to bypass embedded webview blocks
-  const handleNavUA = (event) => {
-    try {
-      const targetUrl = ((event && event.url) || (webview.getURL && webview.getURL()) || '').toLowerCase();
-      if (targetUrl.includes('accounts.google.com') || targetUrl.includes('accounts.youtube.com')) {
-        if (typeof webview.setUserAgent === 'function') {
-          webview.setUserAgent(SAFARI_AUTH_UA);
-        }
-      } else {
-        if (typeof webview.setUserAgent === 'function') {
-          webview.setUserAgent(STANDARD_BROWSER_UA);
-        }
-      }
-    } catch (e) {}
-  };
-
-  webview.addEventListener('will-navigate', handleNavUA);
-  webview.addEventListener('did-navigate', handleNavUA);
-  webview.addEventListener('did-navigate-in-page', handleNavUA);
-
-  // Handle popups and target="_blank" by creating a new browser tab
-  webview.addEventListener('new-window', (e) => {
-    if (e && e.url) {
-      createTab(e.url);
-    }
-  });
+  // Popup requests are checked in the main process and returned as tabs.
 
   webview.addEventListener('did-start-loading', () => {
     if (activeTabId === tabId) showLoadingBar();
@@ -515,6 +496,7 @@ function createWebview(tabId, url, isIncognito = false) {
         }
       }
       if (activeTabId === tabId) {
+        window.galamtorAPI?.setActiveBankingUrl?.(event.url);
         urlInput.value = event.url;
         updateNavButtons(webview);
         if (typeof updateBookmarkButtonState === 'function') updateBookmarkButtonState();
@@ -545,6 +527,7 @@ function createWebview(tabId, url, isIncognito = false) {
         }
       }
       if (activeTabId === tabId) {
+        window.galamtorAPI?.setActiveBankingUrl?.(event.url);
         urlInput.value = event.url;
         const wv = getActiveWebview();
         if (wv) updateNavButtons(wv);
@@ -715,6 +698,7 @@ function activateTab(tabId) {
   }
 
   activeTabId = tabId;
+  window.galamtorAPI?.setActiveBankingUrl?.(tab.url || '');
   tab.lastActiveTime = Date.now();
   if (tab.isSleeping) wakeTab(tab);
 
@@ -808,6 +792,7 @@ function getActiveWebview() {
 function navigateTo(targetUrl) {
   if (!targetUrl) return;
   const parsedUrl = parseSearchOrURL(targetUrl);
+  if (!parsedUrl) { showToast('Тек HTTP және HTTPS сілтемелері қолдау табады'); return; }
   const tab = tabs.find(t => t.id === activeTabId);
   if (!tab) return; // Guard against undefined tab
 
@@ -825,7 +810,7 @@ function navigateTo(targetUrl) {
     const wv = getActiveWebview();
     if (wv) {
       try {
-        wv.loadURL(parsedUrl);
+        Promise.resolve(wv.loadURL(parsedUrl)).catch(err => console.warn('[Navigation] Failed:', err));
       } catch (e) {
         wv.setAttribute('src', parsedUrl);
       }
@@ -837,6 +822,7 @@ function navigateTo(targetUrl) {
     }
   }
   urlInput.value = parsedUrl;
+  window.galamtorAPI?.setActiveBankingUrl?.(parsedUrl);
 }
 
 function navigateHome() {
@@ -855,6 +841,7 @@ function navigateHome() {
   if (wvWrapper) wvWrapper.remove();
   welcomeScreen.classList.remove('hidden-view');
   urlInput.value = '';
+  window.galamtorAPI?.setActiveBankingUrl?.('');
   btnBack.disabled = true;
   btnForward.disabled = true;
   if (typeof refreshGalamtorState === 'function') refreshGalamtorState();
@@ -953,7 +940,7 @@ function pinToSidebar(url, title, faviconUrl) {
     if (!dockIcons) return;
 
     // Check if already pinned safely
-    const existing = dockIcons.querySelector(`.dock-btn[data-url="${url}"]`);
+    const existing = [...dockIcons.querySelectorAll('.dock-btn[data-url]')].find(button => button.dataset.url === url);
     if (existing) {
       showToast('📌 Бұл сайт қазірдің өзінде бекітілген');
       return;
@@ -988,7 +975,16 @@ function pinToSidebar(url, title, faviconUrl) {
 
     const finalFaviconUrl = faviconUrl || `https://www.google.com/s2/favicons?domain=${domain}`;
 
-    btn.innerHTML = `<span class="dock-badge pinned-bg"><img src="${finalFaviconUrl}" width="16" height="16" style="border-radius:2px;" onerror="this.parentElement.textContent='${initial}'"></span>`;
+    const badge = document.createElement('span');
+    badge.className = 'dock-badge pinned-bg';
+    const icon = document.createElement('img');
+    icon.width = 16;
+    icon.height = 16;
+    icon.style.borderRadius = '2px';
+    icon.src = safeHttpUrl(finalFaviconUrl) || '';
+    icon.onerror = () => { badge.textContent = initial; };
+    badge.appendChild(icon);
+    btn.appendChild(badge);
 
     // Click to navigate or open new tab
     btn.addEventListener('click', () => {
@@ -1768,13 +1764,14 @@ function updateMediaPlayerUI() {
       }
     } else {
       resetMediaButtonsTitle();
+      if (glowContainer) glowContainer.classList.remove('active-glow');
       if (badge) {
         badge.classList.remove('media-player-active');
         badge.style.setProperty('display', 'inline-flex', 'important');
       }
       const albumArt = GlobalMediaState.albumArtUrl;
-      if (albumArt && badge) {
-        badge.style.backgroundImage = `url('${albumArt}')`;
+      if (safeHttpUrl(albumArt) && badge) {
+        badge.style.backgroundImage = `url('${safeHttpUrl(albumArt)}')`;
         badge.style.backgroundSize = 'cover';
         badge.style.backgroundPosition = 'center';
         if (staticIcon) {
@@ -1808,8 +1805,11 @@ function updateMediaPlayerUI() {
         if (pipPlayBtn) {
           pipPlayBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
         }
-        if (pipAlbumArt && GlobalMediaState.albumArtUrl) {
-          pipAlbumArt.innerHTML = `<img src="${GlobalMediaState.albumArtUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" />`;
+        if (pipAlbumArt && safeHttpUrl(GlobalMediaState.albumArtUrl)) {
+          const cover = document.createElement('img');
+          cover.src = safeHttpUrl(GlobalMediaState.albumArtUrl);
+          cover.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:8px;';
+          pipAlbumArt.replaceChildren(cover);
         }
       } else {
         if (pipPlayBtn) {
@@ -1999,6 +1999,7 @@ function initPipDockControls() {
     pipExpand.addEventListener('click', () => {
       openMediaTab();
       if (pipDock) pipDock.classList.remove('visible');
+      pipState.visible = false;
     });
   }
 
@@ -3833,7 +3834,7 @@ const UI_TRANSLATIONS = {
     customUrlLabel: 'Жеке URL сілтемесі',
     userNameLabel: 'ПАЙДАЛАНУШЫ АТЫ',
     langLabel: 'Тіл / Язык / Language',
-    welcomeFooter: 'Қазақстанның ұлттық браузері'
+    welcomeFooter: 'Қазақ тіліндегі браузер'
   },
   ru: {
     profileTab: 'Профиль',
@@ -4671,7 +4672,7 @@ function gpRenderAiTab() {
   panel.innerHTML = `
     <div style="padding: 10px 0;">
       <div style="font-size: 13px; font-weight: 600; color: #fff; margin-bottom: 4px;">AI Көмекші & Авто-Жүктегіш</div>
-      <div style="font-size: 11px; color: rgba(255,255,255,0.45); margin-bottom: 16px;">Белсенді сайт: ${currentTitle.replace(/"/g,'&quot;')}</div>
+      <div style="font-size: 11px; color: rgba(255,255,255,0.45); margin-bottom: 16px;">Белсенді сайт: ${escapeHtml(currentTitle)}</div>
 
       <!-- AI Auto-Download Prompt Box -->
       <div style="margin-bottom: 16px;">
@@ -4715,31 +4716,24 @@ function gpRenderAiTab() {
     }
   });
 
-  panel.querySelector('#gp-ai-summarize-btn').addEventListener('click', () => {
+  panel.querySelector('#gp-ai-summarize-btn').addEventListener('click', async () => {
     const out = panel.querySelector('#gp-ai-output');
-    out.innerHTML = `
-      <div style="color:#00f2fe; font-weight:600; margin-bottom:6px;">Беттің қысқаша түйіндемесі:</div>
-      <div style="margin-bottom:8px;"><strong>Сайт:</strong> ${currentTitle.replace(/</g,'&lt;')}</div>
-      <ul style="padding-left:16px; margin:0; color:rgba(255,255,255,0.75);">
-        <li>Маңызды ақпарат пен мазмұн қазақ тілінде құрылымдалды.</li>
-        <li>Жылдам оқу және басты идеяларға шолу жасалды.</li>
-        <li>Дереккөз сілтемесі: ${currentUrl.replace(/</g,'&lt;') || 'Жергілікті бет'}</li>
-      </ul>
-    `;
-    showToast('AI Талдау аяқталды');
+    out.textContent = 'Бет мәтіні талданып жатыр...';
+    try {
+      const content = await getActivePageContent();
+      const result = await window.galamtorAPI.aiSummarize(content, currentTitle, currentUrl);
+      out.textContent = result.text || result.error || 'Түйіндеме алынбады.';
+    } catch (err) { out.textContent = `Қате: ${err.message}`; }
   });
 
-  panel.querySelector('#gp-ai-insights-btn').addEventListener('click', () => {
+  panel.querySelector('#gp-ai-insights-btn').addEventListener('click', async () => {
     const out = panel.querySelector('#gp-ai-output');
-    out.innerHTML = `
-      <div style="color:#27c93f; font-weight:600; margin-bottom:6px;">Негізгі 3 факт:</div>
-      <ol style="padding-left:16px; margin:0; color:rgba(255,255,255,0.75);">
-        <li>Парақшадағы мазмұн мен негізгі деректер талданды.</li>
-        <li>Негізгі тақырыптық контекст сақталды.</li>
-        <li>Қауіпсіз және AdBlock қорғанысымен қамтамасыз етілген.</li>
-      </ol>
-    `;
-    showToast('Негізгі фактілер дайын');
+    out.textContent = 'Негізгі фактілер талданып жатыр...';
+    try {
+      const content = await getActivePageContent();
+      const result = await window.galamtorAPI.aiChat(`Мына бет мәтінінен дәлелденетін үш негізгі фактіні келтір. Мәтінде жоқ деректі қоспа:\n${content.slice(0, 15000)}`, { title: currentTitle, url: currentUrl }, []);
+      out.textContent = result.text || result.error || 'Фактілер алынбады.';
+    } catch (err) { out.textContent = `Қате: ${err.message}`; }
   });
 }
 
@@ -4751,9 +4745,10 @@ function gpRenderLockTab() {
 
   panel.innerHTML = `
     <div class="gp-lock-row">
-      <div class="gp-lock-label">Қауіпсіз құлып</div>
+      <div class="gp-lock-label">Көрініс құлпы</div>
       <button class="gp-toggle ${lock.enabled?'on':''}" id="gp-lock-toggle"></button>
     </div>
+    <p style="font-size:11px;color:rgba(255,255,255,0.5);line-height:1.5;margin:0 0 14px;">Бұл құлып қойындыларды интерфейсте жасырады. Тарих, cookies және файлдар шифрланбайды.</p>
     ${lock.enabled ? `
       ${hasPIN ? `
         <div class="gp-pin-status">PIN код орнатылған. <em>Сессия ${_gp.sessionUnlocked?'ашық ✓':'құлыпталған'}</em></div>
@@ -4785,7 +4780,7 @@ function gpRenderLockTab() {
       </div>
     ` : `
       <div style="text-align:center;padding:24px 0;color:rgba(255,255,255,0.25);font-size:13px;">
-        Профильді 4 таңбалы PIN кодпен қорғау үшін Қауіпсіз құлыпты қосыңыз.
+        Интерфейсті 4 таңбалы PIN кодпен жасыру үшін көрініс құлпын қосыңыз.
       </div>
     `}
   `;
@@ -5167,7 +5162,7 @@ function gpShowForgotPinDialog() {
 
     ov.querySelector('#gp-forgot-reset-btn')?.addEventListener('click', () => {
       ov.remove();
-      gpConfirm('PIN кодты нөлдеу керек пе?', 'Қауіпсіз құлып өшіріліп, жасырылған барлық беттер қайта көрсетіледі.', () => {
+      gpConfirm('PIN кодты нөлдеу керек пе?', 'Көрініс құлпы өшіріліп, жасырылған барлық беттер қайта көрсетіледі.', () => {
         const l = GalamtorStore.getLock();
         l.pinHash = '';
         l.enabled = false;
@@ -5544,7 +5539,7 @@ function gpInitProfileHub() {
         openTabsCount: tabs.length,
         pinnedTabsCount: dockIcons.querySelectorAll('.dock-btn[data-url]').length,
         vibesCount: GalamtorStore.getVibes().length,
-        registrationDate: "2026-07-12"
+        registrationDate: getRegistrationDate()
       };
       await syncProfileStats(user.uid, stats);
     } else {
@@ -5567,6 +5562,7 @@ function gpInitProfileHub() {
   // on the Firebase Hosting page) NOT a Firebase ID Token (from user.getIdToken()).
   // GoogleAuthProvider.credential(idToken, accessToken) requires Google's own token.
   if (window.galamtorAPI && typeof window.galamtorAPI.onFirebaseAuthToken === 'function') {
+    window.galamtorAPI.onAuthServerError?.((code) => showToast(`Google кіру сервері қосылмады: ${code}`));
     window.galamtorAPI.onFirebaseAuthToken((payload) => {
     // Normalize: support both the new object shape and a legacy plain-string fallback
     // so that existing sessions during a partial deploy are not broken.
@@ -5612,7 +5608,7 @@ function gpInitProfileHub() {
           openTabsCount: tabs.length,
           pinnedTabsCount: dockIcons.querySelectorAll('.dock-btn[data-url]').length,
           vibesCount: GalamtorStore.getVibes().length,
-          registrationDate: "2026-07-12"
+          registrationDate: getRegistrationDate()
         };
         await syncProfileStats(result.user.uid, stats);
 
@@ -5681,12 +5677,12 @@ async function gpRenderBookmarksTab() {
         const fav = b.favicon || `https://www.google.com/s2/favicons?domain=${domain}`;
         return `
           <div class="gp-bookmark-item" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(255,255,255,0.015);border:1px solid rgba(255,255,255,0.03);border-radius:10px;transition:all 0.2s ease;gap:10px;">
-            <img src="${fav}" style="width:16px;height:16px;border-radius:3px;flex-shrink:0;" onerror="this.src='https://www.google.com/s2/favicons?domain=google.com'">
-            <div style="flex:1;min-width:0;cursor:pointer;" class="gp-bm-click" data-url="${b.url}">
-              <div style="font-size:13px;font-weight:500;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.title}</div>
-              <div style="font-size:11px;color:rgba(255,255,255,0.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.url}</div>
+            <img src="${escapeAttr(safeHttpUrl(fav))}" style="width:16px;height:16px;border-radius:3px;flex-shrink:0;" onerror="this.src='https://www.google.com/s2/favicons?domain=google.com'">
+            <div style="flex:1;min-width:0;cursor:pointer;" class="gp-bm-click" data-url="${escapeAttr(b.url)}">
+              <div style="font-size:13px;font-weight:500;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(b.title)}</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(b.url)}</div>
             </div>
-            <button class="gp-btn-delete-bm" data-id="${b.id}" style="background:transparent;border:none;color:rgba(255,255,255,0.3);font-size:16px;cursor:pointer;padding:4px;border-radius:4px;" title="Өшіру">×</button>
+            <button class="gp-btn-delete-bm" data-id="${escapeAttr(b.id)}" style="background:transparent;border:none;color:rgba(255,255,255,0.3);font-size:16px;cursor:pointer;padding:4px;border-radius:4px;" title="Өшіру">×</button>
           </div>
         `;
       }).join('');
@@ -5731,7 +5727,7 @@ async function gpRenderBookmarksTab() {
     }
   } catch (err) {
     console.error(err);
-    panel.innerHTML = `<div style="color:#ff416c;padding:20px;">Қате: ${err.message}</div>`;
+    panel.textContent = `Қате: ${err.message}`;
   }
 }
 
@@ -5769,8 +5765,8 @@ async function gpRenderHistoryTab() {
                 return `
                   <div class="gp-history-item" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.03); border-radius: 10px; transition: all 0.2s ease;">
                     <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; margin-right: 12px;">
-                      <div class="gp-history-title" style="font-size: 13px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; text-align: left;" title="${item.title}">${item.title}</div>
-                      <div class="gp-history-url" style="font-size: 11px; color: rgba(255,255,255,0.35); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; text-align: left;" title="${item.url}">${item.url}</div>
+                      <div class="gp-history-title" style="font-size: 13px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; text-align: left;" title="${escapeAttr(item.url)}">${escapeHtml(item.title)}</div>
+                      <div class="gp-history-url" style="font-size: 11px; color: rgba(255,255,255,0.35); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; text-align: left;" title="${escapeAttr(item.url)}">${escapeHtml(item.url)}</div>
                     </div>
                     <div style="font-size: 11px; color: rgba(255,255,255,0.25); font-weight: 500; flex-shrink: 0;">${timeStr}</div>
                   </div>
@@ -5822,7 +5818,7 @@ async function gpRenderHistoryTab() {
     console.error(err);
     panel.innerHTML = `
       <div style="text-align:center; padding: 20px; color: #ff416c; font-size: 13px;">
-        Тарихты жүктеу сәтсіз аяқталды: ${err.message}
+        Тарихты жүктеу сәтсіз аяқталды: ${escapeHtml(err.message)}
       </div>
     `;
   }
@@ -5892,7 +5888,7 @@ async function gpRenderDownloadsTab() {
           if (item.state === 'completed') {
             statusText = `Аяқталды · ${sizeStr} · ${timeStr}`;
             actionBtnHtml = `
-              <button class="gp-action-link gp-open-file-btn" data-filepath="${item.savePath.replace(/"/g, '&quot;')}">Ашу</button>
+              <button class="gp-action-link gp-open-file-btn" data-filepath="${escapeAttr(item.savePath)}">Ашу</button>
             `;
           } else if (item.state === 'cancelled') {
             statusText = `Бас тартылды · ${sizeStr}`;
@@ -5906,7 +5902,7 @@ async function gpRenderDownloadsTab() {
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
               <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
                 ${getFileIconSVG(item.filename)}
-                <div class="gp-download-filename" style="font-size: 13px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;" title="${item.filename}">${item.filename}</div>
+                <div class="gp-download-filename" style="font-size: 13px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;" title="${escapeAttr(item.filename)}">${escapeHtml(item.filename)}</div>
               </div>
               <div style="flex-shrink: 0;">
                 ${actionBtnHtml}
@@ -6114,6 +6110,9 @@ if (window.galamtorAPI && window.galamtorAPI.onOpenImageInNewTab) {
     if (url) createTab(url);
   });
 }
+if (window.galamtorAPI?.onPopupTab) {
+  window.galamtorAPI.onPopupTab((popupUrl) => createTab(popupUrl));
+}
 
 // ── Command Palette (Cmd+K / Ctrl+K) ──
 let commandPaletteEl = null;
@@ -6181,10 +6180,13 @@ function renderCommandPaletteResults(query) {
   matches.slice(0, 10).forEach(item => {
     const row = document.createElement('div');
     row.className = 'cp-item';
-    row.innerHTML = `
-      <div class="cp-item-title">${item.title}</div>
-      <div class="cp-item-sub">${item.sub}</div>
-    `;
+    const title = document.createElement('div');
+    title.className = 'cp-item-title';
+    title.textContent = item.title;
+    const subtitle = document.createElement('div');
+    subtitle.className = 'cp-item-sub';
+    subtitle.textContent = item.sub;
+    row.append(title, subtitle);
     row.onclick = item.action;
     resultsContainer.appendChild(row);
   });
@@ -6239,7 +6241,7 @@ function updateWelcomeClock() {
 setInterval(updateWelcomeClock, 1000);
 updateWelcomeClock();
 
-// ── Galamtor AI Assistant — Gemini-Powered Chat ──
+// ── Galamtor AI Assistant ──
 
 // AI Chat State
 const aiChatHistory = [];
@@ -6323,6 +6325,15 @@ function escapeHtml(text) {
   div.textContent = text;
   return div.innerHTML;
 }
+function escapeAttr(text) {
+  return String(text ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+}
+function safeHttpUrl(value) {
+  try {
+    const parsed = new URL(value);
+    return ['http:', 'https:'].includes(parsed.protocol) ? parsed.href : '';
+  } catch { return ''; }
+}
 
 function simpleMarkdownToHtml(text) {
   // Convert markdown to HTML for AI responses — enhanced renderer
@@ -6369,7 +6380,10 @@ function simpleMarkdownToHtml(text) {
   html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
 
   // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, label, target) => {
+    const safeTarget = safeHttpUrl(target.replace(/&amp;/g, '&'));
+    return safeTarget ? `<a href="${escapeAttr(safeTarget)}" target="_blank" rel="noopener noreferrer">${label}</a>` : label;
+  });
 
   // Line breaks (but not inside block elements)
   html = html.replace(/\n/g, '<br>');
@@ -6392,7 +6406,7 @@ function formatTimestamp() {
   return now.toLocaleTimeString('kk-KZ', { hour: '2-digit', minute: '2-digit' });
 }
 
-function addChatMessage(role, content, isHtml = false) {
+function addChatMessage(role, content) {
   const container = document.getElementById('ai-chat-messages');
   if (!container) return;
 
@@ -6409,7 +6423,7 @@ function addChatMessage(role, content, isHtml = false) {
   if (role === 'user') {
     bubble.textContent = content;
   } else {
-    bubble.innerHTML = isHtml ? content : simpleMarkdownToHtml(content);
+    bubble.innerHTML = simpleMarkdownToHtml(content);
   }
 
   const timestamp = document.createElement('div');
@@ -6465,13 +6479,7 @@ async function sendAiMessage(userPrompt) {
 
   // If user pasted an API Key starting with AIza into the chat field
   if (trimmed.startsWith('AIza')) {
-    aiIsProcessing = true;
-    addChatMessage('user', '🔑 [API Key енгізілді]');
-    if (window.galamtorAPI && window.galamtorAPI.aiSetApiKey) {
-      await window.galamtorAPI.aiSetApiKey(trimmed);
-      addChatMessage('ai', '✅ **Gemini API кілті сәтті сақталды және белсендірілді!**\n\nЕнді AI-ға кез келген сұрақ қоя аласыз.');
-    }
-    aiIsProcessing = false;
+    addChatMessage('ai', '🔑 API кілтін чатқа емес, ⚙️ **AI баптауларына** енгізіңіз.');
     return;
   }
 
@@ -6699,11 +6707,15 @@ function openAiSettings() {
   if (!modal) return;
   modal.classList.add('active');
 
-  // Load existing key
+  // Show status only; the saved secret never leaves the main process.
   if (window.galamtorAPI && window.galamtorAPI.aiGetApiKey) {
-    window.galamtorAPI.aiGetApiKey().then(key => {
+    window.galamtorAPI.aiGetApiKey().then(settings => {
       const input = document.getElementById('ai-api-key-input');
-      if (input && key) input.value = key;
+      const status = document.getElementById('ai-key-status');
+      const cloud = document.getElementById('ai-cloud-enabled');
+      if (input) input.value = '';
+      if (status) status.textContent = settings.hasApiKey ? 'API кілті қауіпсіз сақталған' : 'API кілті сақталмаған';
+      if (cloud) cloud.checked = !!settings.cloudEnabled;
     });
   }
 }
@@ -6719,8 +6731,16 @@ async function saveAiSettings() {
 
   const apiKey = input.value.trim();
   if (window.galamtorAPI && window.galamtorAPI.aiSetApiKey) {
-    await window.galamtorAPI.aiSetApiKey(apiKey);
-    showToast(apiKey ? '✅ API Key сақталды' : '🔑 API Key жойылды');
+    if (apiKey && !(await window.galamtorAPI.aiSetApiKey(apiKey))) {
+      showToast('API кілтін сақтау мүмкін болмады');
+      return;
+    }
+    const enabled = !!document.getElementById('ai-cloud-enabled')?.checked;
+    if (!(await window.galamtorAPI.aiSetCloudEnabled(enabled))) {
+      showToast('Бұлттық AI үшін алдымен API кілтін енгізіңіз');
+      return;
+    }
+    showToast('✅ AI баптаулары сақталды');
     closeAiSettings();
   }
 }
@@ -6733,7 +6753,7 @@ function clearAiChat() {
     <div class="ai-welcome-msg">
       <div class="ai-sparkle-hero">🤖</div>
       <div class="ai-welcome-title">Galamtor AI көмекшісі</div>
-      <div class="ai-welcome-subtitle">Gemini 2.5 Flash моделімен жұмыс істейді</div>
+      <div class="ai-welcome-subtitle">Жергілікті Ollama немесе рұқсат етілген Gemini қызметі</div>
       <div class="ai-welcome-hints">
         <span>📄 Бетті түйіндеу</span>
         <span>💻 Код жазу</span>
@@ -6755,6 +6775,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const translateBtn = document.getElementById('ai-btn-translate');
   const settingsBtn = document.getElementById('ai-panel-settings');
   const settingsSave = document.getElementById('ai-settings-save');
+  const settingsClear = document.getElementById('ai-settings-clear');
   const settingsCancel = document.getElementById('ai-settings-cancel');
   const clearChatBtn = document.getElementById('ai-clear-chat');
 
@@ -6789,6 +6810,13 @@ window.addEventListener('DOMContentLoaded', () => {
 
   settingsBtn?.addEventListener('click', openAiSettings);
   settingsSave?.addEventListener('click', saveAiSettings);
+  settingsClear?.addEventListener('click', async () => {
+    if (await window.galamtorAPI?.aiSetApiKey?.('')) {
+      document.getElementById('ai-cloud-enabled').checked = false;
+      showToast('🔑 API кілті жойылды');
+      closeAiSettings();
+    }
+  });
   settingsCancel?.addEventListener('click', closeAiSettings);
 
   // Close settings modal on outside click
@@ -6833,29 +6861,6 @@ function initCyberSteppeInnovations() {
     console.error('[CyberSteppe] Quote widget error:', e);
   }
 
-  // 2. NBRK Currency Rates (Fetch or Resilient Local Fallback)
-  try {
-    fetch('https://open.er-api.com/v6/latest/USD')
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.rates && data.rates.KZT) {
-          const usdToKzt = Math.round(data.rates.KZT * 10) / 10;
-          const eurToKzt = Math.round((data.rates.KZT / data.rates.EUR) * 10) / 10;
-          const rubToKzt = Math.round((data.rates.KZT / data.rates.RUB) * 100) / 100;
-
-          const usdEl = document.getElementById('rate-usd');
-          const eurEl = document.getElementById('rate-eur');
-          const rubEl = document.getElementById('rate-rub');
-          if (usdEl) usdEl.textContent = usdToKzt;
-          if (eurEl) eurEl.textContent = eurToKzt;
-          if (rubEl) rubEl.textContent = rubToKzt;
-        }
-      })
-      .catch(() => {
-        // Fallback already pre-filled in HTML
-      });
-  } catch (e) {}
-
   // 3. Gov & Fintech Secure Vault Listener
   if (window.galamtorAPI && window.galamtorAPI.onBankingShieldStatus) {
     window.galamtorAPI.onBankingShieldStatus((status) => {
@@ -6863,8 +6868,8 @@ function initCyberSteppeInnovations() {
       if (vaultBadge) {
         if (status && status.active) {
           vaultBadge.style.display = 'inline-flex';
-          vaultBadge.title = `Fintech Secure Vault белсенді: ${status.host} сайтында экран мен деректер шифрланған`;
-          showToast(`🛡️ Secure Vault: ${status.host} қорғалған ортада ашылды`);
+          vaultBadge.title = `${status.host}: операциялық жүйе деңгейінде скриншоттан қорғау қосылды`;
+          showToast(`🛡️ ${status.host}: скриншоттан қорғау қосылды`);
         } else {
           vaultBadge.style.display = 'none';
         }
@@ -6879,167 +6884,7 @@ function initCyberSteppeInnovations() {
     });
   }
 
-  // 5. Kazakhstan 20 Cities Prayer Schedule & Localization Engine
-  const KZ_CITIES = {
-    almaty: { name: 'Алматы', region: 'Алматы қ.', times: { fajr: '05:32', sunrise: '07:05', dhuhr: '12:44', asr: '15:52', maghrib: '18:22', isha: '19:50' } },
-    astana: { name: 'Астана', region: 'Астана қ. (Елорда)', times: { fajr: '05:43', sunrise: '07:18', dhuhr: '12:56', asr: '16:02', maghrib: '18:32', isha: '20:02' } },
-    shymkent: { name: 'Шымкент', region: 'Шымкент қ.', times: { fajr: '05:45', sunrise: '07:15', dhuhr: '12:58', asr: '16:08', maghrib: '18:38', isha: '20:05' } },
-    aktau: { name: 'Ақтау', region: 'Маңғыстау обл.', times: { fajr: '06:34', sunrise: '08:08', dhuhr: '13:46', asr: '16:54', maghrib: '19:24', isha: '20:55' } },
-    aktobe: { name: 'Ақтөбе', region: 'Ақтөбе обл.', times: { fajr: '06:22', sunrise: '07:56', dhuhr: '13:35', asr: '16:42', maghrib: '19:12', isha: '20:42' } },
-    atyrau: { name: 'Атырау', region: 'Атырау обл.', times: { fajr: '06:30', sunrise: '08:04', dhuhr: '13:42', asr: '16:50', maghrib: '19:20', isha: '20:50' } },
-    karaganda: { name: 'Қарағанды', region: 'Қарағанды обл.', times: { fajr: '05:40', sunrise: '07:14', dhuhr: '12:52', asr: '15:58', maghrib: '18:28', isha: '19:58' } },
-    oskemen: { name: 'Өскемен', region: 'ШҚО', times: { fajr: '05:05', sunrise: '06:40', dhuhr: '12:20', asr: '15:28', maghrib: '18:00', isha: '19:30' } },
-    pavlodar: { name: 'Павлодар', region: 'Павлодар обл.', times: { fajr: '05:22', sunrise: '06:58', dhuhr: '12:38', asr: '15:44', maghrib: '18:15', isha: '19:48' } },
-    semey: { name: 'Семей', region: 'Абай обл.', times: { fajr: '05:12', sunrise: '06:46', dhuhr: '12:26', asr: '15:32', maghrib: '18:05', isha: '19:36' } },
-    taraz: { name: 'Тараз', region: 'Жамбыл обл.', times: { fajr: '05:40', sunrise: '07:10', dhuhr: '12:52', asr: '16:02', maghrib: '18:32', isha: '19:58' } },
-    kostanay: { name: 'Қостанай', region: 'Қостанай обл.', times: { fajr: '05:58', sunrise: '07:35', dhuhr: '13:12', asr: '16:15', maghrib: '18:48', isha: '20:20' } },
-    kyzylorda: { name: 'Қызылорда', region: 'Қызылорда обл.', times: { fajr: '06:05', sunrise: '07:38', dhuhr: '13:18', asr: '16:26', maghrib: '18:56', isha: '20:25' } },
-    oral: { name: 'Орал', region: 'БҚО', times: { fajr: '06:25', sunrise: '08:00', dhuhr: '13:38', asr: '16:45', maghrib: '19:15', isha: '20:45' } },
-    petropavl: { name: 'Петропавл', region: 'СҚО', times: { fajr: '05:46', sunrise: '07:24', dhuhr: '13:02', asr: '16:06', maghrib: '18:38', isha: '20:12' } },
-    turkestan: { name: 'Түркістан', region: 'Түркістан обл.', times: { fajr: '05:50', sunrise: '07:20', dhuhr: '13:02', asr: '16:12', maghrib: '18:42', isha: '20:10' } },
-    kokshetau: { name: 'Көкшетау', region: 'Ақмола обл.', times: { fajr: '05:45', sunrise: '07:22', dhuhr: '13:00', asr: '16:05', maghrib: '18:36', isha: '20:08' } },
-    temirtau: { name: 'Теміртау', region: 'Қарағанды обл.', times: { fajr: '05:41', sunrise: '07:15', dhuhr: '12:53', asr: '15:59', maghrib: '18:29', isha: '19:59' } },
-    taldykorgan: { name: 'Талдықорған', region: 'Жетісу обл.', times: { fajr: '05:25', sunrise: '06:58', dhuhr: '12:37', asr: '15:45', maghrib: '18:15', isha: '19:43' } },
-    zhezkazgan: { name: 'Жезқазған', region: 'Ұлытау обл.', times: { fajr: '05:55', sunrise: '07:28', dhuhr: '13:08', asr: '16:16', maghrib: '18:46', isha: '20:16' } }
-  };
-
-  const getSavedCity = () => localStorage.getItem('galamtor_user_city') || 'almaty';
-
-  const updatePrayerUI = (cityKey) => {
-    const city = KZ_CITIES[cityKey] || KZ_CITIES.almaty;
-    const cityLabel = document.getElementById('current-city-label');
-    const nextPill = document.getElementById('prayer-next-pill');
-    const timelineList = document.getElementById('prayer-timeline-list');
-    const remainingEl = document.getElementById('prayer-time-remaining');
-
-    if (cityLabel) cityLabel.textContent = city.name;
-
-    const now = new Date();
-    const curMins = now.getHours() * 60 + now.getMinutes();
-
-    const prayerOrder = [
-      { id: 'fajr', name: 'Таң', time: city.times.fajr },
-      { id: 'sunrise', name: 'Күн', time: city.times.sunrise },
-      { id: 'dhuhr', name: 'Бесін', time: city.times.dhuhr },
-      { id: 'asr', name: 'Екінді', time: city.times.asr },
-      { id: 'maghrib', name: 'Ақшам', time: city.times.maghrib },
-      { id: 'isha', name: 'Құптан', time: city.times.isha }
-    ];
-
-    prayerOrder.forEach(p => {
-      const [h, m] = p.time.split(':').map(Number);
-      p.mins = h * 60 + m;
-    });
-
-    // Populate individual prayer times in the 5 cards
-    ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].forEach(k => {
-      const el = document.getElementById(`time-${k}`);
-      if (el && city.times[k]) el.textContent = city.times[k];
-    });
-
-    // Determine next prayer among 5 daily obligatory prayers
-    const mainPrayers = prayerOrder.filter(p => p.id !== 'sunrise');
-    let next = mainPrayers.find(p => p.mins > curMins);
-    let minsLeft = 0;
-    if (!next) {
-      next = mainPrayers[0]; // Next day's Fajr
-      minsLeft = (24 * 60 - curMins) + next.mins;
-    } else {
-      minsLeft = next.mins - curMins;
-    }
-
-    const hoursLeft = Math.floor(minsLeft / 60);
-    const minsRemaining = minsLeft % 60;
-    const countdownStr = hoursLeft > 0 ? `${hoursLeft} сағ ${minsRemaining} мин қалды` : `${minsRemaining} мин қалды`;
-
-    // Highlight active-next card
-    document.querySelectorAll('.p-time-item').forEach(item => {
-      item.classList.toggle('active-next', item.dataset.prayer === next.id);
-    });
-
-    if (nextPill) {
-      nextPill.textContent = `${next.name} ${next.time}`;
-    }
-
-    if (remainingEl) {
-      remainingEl.textContent = countdownStr;
-    }
-
-    if (timelineList) {
-      timelineList.textContent = `Таң ${city.times.fajr} · Екінді ${city.times.asr} · Ақшам ${city.times.maghrib}`;
-    }
-  };
-
-  // City Modal Handlers
-  const cityModalDialog = document.getElementById('city-modal-dialog');
-  const cityModalBackdrop = document.getElementById('city-modal-backdrop');
-  const btnCitySelect = document.getElementById('btn-city-select');
-  const btnCloseCityModal = document.getElementById('btn-close-city-modal');
-  const citySearchInput = document.getElementById('city-search-input');
-  const cityGridList = document.getElementById('city-grid-list');
-
-  const openCityModal = () => {
-    if (!cityModalDialog || !cityModalBackdrop) return;
-    renderCityGrid('');
-    if (citySearchInput) citySearchInput.value = '';
-    cityModalDialog.style.display = 'block';
-    cityModalBackdrop.style.display = 'block';
-    if (citySearchInput) citySearchInput.focus();
-  };
-
-  const closeCityModal = () => {
-    if (cityModalDialog) cityModalDialog.style.display = 'none';
-    if (cityModalBackdrop) cityModalBackdrop.style.display = 'none';
-  };
-
-  const selectCity = (cityKey) => {
-    localStorage.setItem('galamtor_user_city', cityKey);
-    updatePrayerUI(cityKey);
-    closeCityModal();
-    const c = KZ_CITIES[cityKey];
-    if (c) showToast(`✓ Қала таңдалды: ${c.name} (намаз кестесі жаңартылды)`);
-  };
-
-  const renderCityGrid = (query) => {
-    if (!cityGridList) return;
-    const currentCity = getSavedCity();
-    const q = (query || '').trim().toLowerCase();
-    cityGridList.innerHTML = '';
-
-    Object.keys(KZ_CITIES).forEach(key => {
-      const c = KZ_CITIES[key];
-      if (q && !c.name.toLowerCase().includes(q) && !c.region.toLowerCase().includes(q)) return;
-
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `city-card-btn ${key === currentCity ? 'active' : ''}`;
-      btn.innerHTML = `
-        <span style="font-weight:700;font-size:12px;">${c.name}</span>
-        <span style="font-size:9.5px;opacity:0.7;">${c.region}</span>
-      `;
-      btn.addEventListener('click', () => selectCity(key));
-      cityGridList.appendChild(btn);
-    });
-  };
-
-  if (btnCitySelect) btnCitySelect.addEventListener('click', (e) => { e.stopPropagation(); openCityModal(); });
-  if (btnCloseCityModal) btnCloseCityModal.addEventListener('click', closeCityModal);
-  if (cityModalBackdrop) cityModalBackdrop.addEventListener('click', closeCityModal);
-  if (citySearchInput) {
-    citySearchInput.addEventListener('input', (e) => renderCityGrid(e.target.value));
-  }
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && cityModalDialog && cityModalDialog.style.display === 'block') {
-      closeCityModal();
-    }
-  });
-
-  // Initial prayer schedule
-  updatePrayerUI(getSavedCity());
-  setInterval(() => updatePrayerUI(getSavedCity()), 60000);
-
-  // 6. Website-Style Breaking News Feed (Жедел Жаңалықтар Жолағы)
+  // 6. Curated source links; no fabricated headlines or timestamps
   try {
     const NEWS_SVGS = {
       tech: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`,
@@ -7051,12 +6896,12 @@ function initCyberSteppeInnovations() {
     };
 
     const PORTAL_NEWS_ITEMS = [
-      { source: "Tengrinews.kz", time: "5 мин бұрын", title: "Қазақстанның жаңа IT инфрақұрылымы мен цифрлық қызметтері қарқынды дамуда", url: "https://tengrinews.kz", svgKey: "tech", gradient: "linear-gradient(135deg, #0288d1 0%, #00bcd4 100%)" },
-      { source: "Informburo.kz", time: "18 мин бұрын", title: "Ұлттық Банк: Валюта нарығы мен теңге бағамының тұрақтылығы туралы мәлімдеме", url: "https://informburo.kz", svgKey: "finance", gradient: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)" },
-      { source: "eGov.kz", time: "32 мин бұрын", title: "Мемлекеттік цифрлық құжаттар мен сервистер енді жаңа форматта қолжетімді", url: "https://egov.kz", svgKey: "gov", gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)" },
-      { source: "Baribar.kz", time: "45 мин бұрын", title: "Қазақ тіліндегі заманауи білім беру және ғылыми жобалар жандануда", url: "https://baribar.kz", svgKey: "edu", gradient: "linear-gradient(135deg, #ec4899 0%, #be185d 100%)" },
-      { source: "Kazinform", time: "1 сағ бұрын", title: "Еліміздің барлық өңірлерінде жаңа инновациялық инфрақұрылым нысандары ашылды", url: "https://inform.kz", svgKey: "innov", gradient: "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)" },
-      { source: "Kolesa.kz", time: "2 сағ бұрын", title: "Қазақстанда электромобильдер мен эко-көліктер инфрақұрылымы кеңеюде", url: "https://kolesa.kz", svgKey: "auto", gradient: "linear-gradient(135deg, #0288d1 0%, #1565c0 100%)" }
+      { source: 'Tengrinews.kz', time: 'Дереккөз', title: 'Tengrinews жаңалықтарын ашу', url: 'https://tengrinews.kz', svgKey: 'tech', gradient: 'linear-gradient(135deg, #0288d1 0%, #00bcd4 100%)' },
+      { source: 'Informburo.kz', time: 'Дереккөз', title: 'Informburo жаңалықтарын ашу', url: 'https://informburo.kz', svgKey: 'finance', gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' },
+      { source: 'eGov.kz', time: 'Ресми сайт', title: 'eGov қызметтерін ашу', url: 'https://egov.kz', svgKey: 'gov', gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' },
+      { source: 'Baribar.kz', time: 'Дереккөз', title: 'Baribar материалдарын ашу', url: 'https://baribar.kz', svgKey: 'edu', gradient: 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)' },
+      { source: 'Kazinform', time: 'Дереккөз', title: 'Kazinform жаңалықтарын ашу', url: 'https://inform.kz', svgKey: 'innov', gradient: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)' },
+      { source: 'Kolesa.kz', time: 'Дереккөз', title: 'Kolesa материалдарын ашу', url: 'https://kolesa.kz', svgKey: 'auto', gradient: 'linear-gradient(135deg, #0288d1 0%, #1565c0 100%)' }
     ];
 
     let currentNewsIndex = 0;
@@ -7132,7 +6977,7 @@ function initCyberSteppeInnovations() {
         e.stopPropagation();
         currentNewsIndex = (currentNewsIndex + 2) % PORTAL_NEWS_ITEMS.length;
         renderNews(currentNewsIndex);
-        showToast('📰 Жаңалықтар тізімі жаңартылды');
+        showToast('📰 Дереккөздер ауыстырылды');
       });
     }
 
@@ -7230,18 +7075,20 @@ function renderBookmarksBar() {
   }
 
   bar.style.display = 'flex';
-  container.innerHTML = currentBookmarks.slice(0, 15).map(b => {
+  container.replaceChildren();
+  currentBookmarks.slice(0, 15).forEach(b => {
     const domain = extractDomain(b.url);
     const fav = b.favicon || `https://www.google.com/s2/favicons?domain=${domain}`;
-    return `
-      <div class="bookmark-bar-item" data-url="${b.url}" title="${b.title} (${b.url})">
-        <img src="${fav}" onerror="this.src='https://www.google.com/s2/favicons?domain=google.com'">
-        <span>${b.title}</span>
-      </div>
-    `;
-  }).join('');
-
-  container.querySelectorAll('.bookmark-bar-item').forEach(item => {
+    const item = document.createElement('div');
+    item.className = 'bookmark-bar-item';
+    item.dataset.url = b.url;
+    item.title = `${b.title} (${b.url})`;
+    const img = document.createElement('img');
+    img.src = safeHttpUrl(fav) || '';
+    img.onerror = () => { img.src = 'https://www.google.com/s2/favicons?domain=google.com'; };
+    const label = document.createElement('span');
+    label.textContent = b.title;
+    item.append(img, label);
     item.addEventListener('click', () => {
       navigateTo(item.dataset.url);
     });
@@ -7251,6 +7098,7 @@ function renderBookmarksBar() {
         removeBookmarkByUrl(item.dataset.url);
       }
     });
+    container.appendChild(item);
   });
 }
 
@@ -7315,7 +7163,7 @@ async function removeBookmarkByUrl(url) {
 }
 
 // ════════════════════════════════════════
-//  LIVE NBRK CURRENCY RATES ENGINE
+//  LIVE EXCHANGE RATES ENGINE
 // ════════════════════════════════════════
 async function updateLiveExchangeRatesUI() {
   try {
@@ -7330,6 +7178,12 @@ async function updateLiveExchangeRatesUI() {
     if (usdEl && rates.USD) usdEl.textContent = rates.USD;
     if (eurEl && rates.EUR) eurEl.textContent = rates.EUR;
     if (rubEl && rates.RUB) rubEl.textContent = rates.RUB;
+    const sourceEl = document.getElementById('currency-source');
+    if (sourceEl) {
+      sourceEl.textContent = rates.updatedAt
+        ? `Анықтамалық бағам • ${new Date(rates.updatedAt).toLocaleDateString('kk-KZ')} • open.er-api.com`
+        : rates.USD ? 'Анықтамалық бағам • уақыт белгісіз' : 'Бағам дерегі қолжетімсіз • open.er-api.com';
+    }
   } catch (err) {
     console.warn('[Rates] Live rates UI error:', err);
   }
@@ -7522,7 +7376,7 @@ function setupMenuDispatcher() {
         break;
       }
       case 'about-qalqan':
-        showToast('🛡️ Кибер-Қалқан: Қазақстанның алаяқтыққа қарсы ұлттық қауіпсіздік сүзгісі');
+        showToast('🛡️ Кибер-Қалқан: белгілі күдікті мекенжайларға арналған сүзгі');
         break;
     }
   });
@@ -7544,7 +7398,7 @@ if (csCurrencyCard) {
     csCurrencyCard.style.transform = 'scale(0.98)';
     setTimeout(() => { csCurrencyCard.style.transform = ''; }, 150);
     await updateLiveExchangeRatesUI();
-    showToast('💱 Валюта бағамы жаңартылды');
+    showToast(document.getElementById('rate-usd')?.textContent === '—' ? 'Бағам дерегі қолжетімсіз' : '💱 Валюта бағамы тексерілді');
   });
 }
 
@@ -7775,13 +7629,18 @@ function initStartPageCustomizer() {
     if (valBlur) valBlur.textContent = `${state.blur}px`;
 
     // Apply Widgets
-    if (elClock) elClock.style.display = state.showClock ? '' : 'none';
-    if (elCurrency) elCurrency.style.display = state.showCurrency ? '' : 'none';
-    if (elPrayer) elPrayer.style.display = state.showPrayer ? '' : 'none';
-    if (elBentoHero) elBentoHero.style.display = (state.showCurrency || state.showPrayer) ? '' : 'none';
-    if (elNews) elNews.style.display = state.showNews ? '' : 'none';
-    if (elWisdom) elWisdom.style.display = state.showWisdom ? '' : 'none';
-    if (elShortcuts) elShortcuts.style.display = state.showShortcuts ? '' : 'none';
+    const setWidgetVisibility = (el, visible) => {
+      if (!el) return;
+      if (visible) el.style.removeProperty('display');
+      else el.style.setProperty('display', 'none', 'important');
+    };
+    setWidgetVisibility(elClock, state.showClock);
+    setWidgetVisibility(elCurrency, state.showCurrency);
+    setWidgetVisibility(elPrayer, state.showPrayer);
+    setWidgetVisibility(elBentoHero, state.showCurrency || state.showPrayer);
+    setWidgetVisibility(elNews, state.showNews);
+    setWidgetVisibility(elWisdom, state.showWisdom);
+    setWidgetVisibility(elShortcuts, state.showShortcuts);
 
     // Update checkboxes
     if (toggleClock) toggleClock.checked = state.showClock;
@@ -7936,8 +7795,8 @@ function initStartPageCustomizer() {
   };
 
   bindToggle(toggleClock, 'galamtor_widget_clock', elClock, 'Сағат виджеті');
-  bindToggle(toggleCurrency, 'galamtor_widget_currency', elCurrency, 'Ұлттық Банк бағамы');
-  bindToggle(togglePrayer, 'galamtor_widget_prayer', elPrayer, 'Намаз кестесі');
+  bindToggle(toggleCurrency, 'galamtor_widget_currency', elCurrency, 'Валюта бағамы');
+  bindToggle(togglePrayer, 'galamtor_widget_prayer', elPrayer, 'Намаз кестесіне сілтеме');
   bindToggle(toggleNews, 'galamtor_widget_news', elNews, 'Жаңалықтар');
   bindToggle(toggleWisdom, 'galamtor_widget_wisdom', elWisdom, 'Ғұламалар даналығы');
   bindToggle(toggleShortcuts, 'galamtor_widget_shortcuts', elShortcuts, 'Қазақстандық қызметтер');
@@ -7982,6 +7841,3 @@ window.closeAiSidebarPanel = closeAiSidebarPanel;
 window.toggleMediaPlayback = toggleMediaPlayback;
 window.skipMediaTrack = skipMediaTrack;
 window.updateLiveExchangeRatesUI = updateLiveExchangeRatesUI;
-
-
-

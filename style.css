@@ -3384,6 +3384,23 @@ button:focus-visible, input:focus-visible {
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
 }
 
+.prayer-widget strong {
+  color: #f8fafc;
+  font-size: 16px;
+}
+.prayer-widget p {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.prayer-widget a {
+  color: #86efac;
+  font-size: 12px;
+  font-weight: 650;
+  text-decoration: none;
+}
+.prayer-widget a:hover { text-decoration: underline; }
+
 .safari-bento-header {
   display: flex !important;
   align-items: center !important;
@@ -3512,7 +3529,7 @@ button:focus-visible, input:focus-visible {
   display: flex !important;
   flex-direction: column !important;
   gap: 7px !important;
-  flex-shrink: 0 !important;
+  width: 100% !important;
 }
 
 .valuta-rate-row {
@@ -3541,7 +3558,7 @@ button:focus-visible, input:focus-visible {
   font-weight: 700 !important;
   color: #f8fafc !important;
   min-width: 65px !important;
-  margin-right: 6px !important;
+  margin-left: auto !important;
   font-variant-numeric: tabular-nums !important;
 }
 
@@ -3792,4 +3809,3 @@ button:focus-visible, input:focus-visible {
 .safari-time-tag {
   color: rgba(255, 255, 255, 0.5) !important;
 }
-

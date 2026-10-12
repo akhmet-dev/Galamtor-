@@ -5,8 +5,8 @@
   <title>Galamtor бұлттық жүйесі — Синхрондау</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" href="assets/icon.png">
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-auth-compat.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -105,6 +105,10 @@
   </div>
 
   <script>
+    const loginState = new URLSearchParams(window.location.search).get('state');
+    if (loginState && /^[a-f0-9]{64}$/.test(loginState)) {
+      sessionStorage.setItem('galamtor-login-state', loginState);
+    }
     function log(msg, level = 'info') {
       const prefix = level === 'error' ? '❌' : level === 'warn' ? '⚠️' : '✅';
       const line = `\n[${new Date().toLocaleTimeString()}] ${prefix} ${msg}`;
@@ -124,7 +128,7 @@
 
     const firebaseConfig = {
       apiKey:            "AIzaSyDkEReqxwG0_IR12_lNFioKSPEdipqcPZ8",
-      authDomain:        "galamtor-browser-974cc.web.app",
+      authDomain:        "galamtor.web.app",
       projectId:         "galamtor-browser-974cc",
       storageBucket:     "galamtor-browser-974cc.firebasestorage.app",
       messagingSenderId: "984286831243",
@@ -151,7 +155,6 @@
                                  
           if (isNetworkError && retries > 0) {
             log(`Retrying getRedirectResult in ${delay}ms... (${retries} attempts left)`, 'warn');
-            await auth.signOut().catch(() => {});
             await new Promise(resolve => setTimeout(resolve, delay));
             return getRedirectResultWithRetry(retries - 1, delay);
           }
@@ -200,7 +203,7 @@
         if (hasRedirectUser) {
           window.history.replaceState({}, document.title, window.location.pathname);
 
-          const credential        = result.credential;
+          const credential        = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
           const googleIdToken     = credential ? credential.idToken     : null;
           const googleAccessToken = credential ? credential.accessToken : null;
 
@@ -228,6 +231,7 @@
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                  state: sessionStorage.getItem('galamtor-login-state'),
                   googleIdToken,
                   googleAccessToken,
                   email:       result.user.email,
@@ -238,6 +242,7 @@
               });
 
               if (response.ok) {
+                sessionStorage.removeItem('galamtor-login-state');
                 log("POST to loopback server succeeded (HTTP 200).");
                 setStatus("✅ Galamtor синхрондалды! Бұл терезені жабуға болады.");
                 showSpinner(false);

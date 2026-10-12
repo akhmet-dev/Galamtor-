@@ -2,6 +2,7 @@
 <html lang="kk">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' https: blob: data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.googleapis.com wss://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebaseapp.com https://open.er-api.com wss://127.0.0.1:13579; frame-src 'none'; object-src 'none'; base-uri 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Galamtor</title>
   <link rel="stylesheet" href="style.css">
@@ -62,7 +63,7 @@
 
         <div class="nav-actions">
           <!-- Gov & Fintech Secure Vault Status Badge -->
-          <div id="badge-banking-vault" class="vault-status-pill" title="Gov & Fintech Secure Vault белсенді: Экран мен кэш шифрланған" style="display:none;">
+          <div id="badge-banking-vault" class="vault-status-pill" title="Банк бетін ашқанда скриншоттан қорғау қосылады" style="display:none;">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             <span>VAULT</span>
           </div>
@@ -211,8 +212,8 @@
           <div class="welcome-content">
             <!-- Dynamic Clock & Date Widget -->
             <div id="welcome-clock-widget" class="welcome-clock-widget">
-              <div class="clock-time" id="clock-time-display">12:00</div>
-              <div class="clock-date" id="clock-date-display">25 шілде</div>
+              <div class="clock-time" id="clock-time-display">--:--</div>
+              <div class="clock-date" id="clock-date-display"></div>
             </div>
 
             <h1 class="welcome-logo">Galamtor</h1>
@@ -329,13 +330,12 @@
             <section class="safari-section" id="section-bento-hero">
               <div id="cyber-steppe-hub" class="valuta-card-container">
                 <!-- Valuta Baǵamy Card (Ultra-delicate from Screenshot 3) -->
-                <div class="valuta-card-delicate" id="cs-currency" title="KASE ресми биржалық бағамы">
+                <div class="valuta-card-delicate" id="cs-currency" title="Бағамды жаңарту">
                   <div class="valuta-card-header">
                     <div class="valuta-title-col">
                       <h4 class="valuta-title">Valuta Baǵamy</h4>
-                      <p class="valuta-subtitle">Real-time Kazakkine exchange:</p>
+                      <p class="valuta-subtitle" id="currency-source">Анықтамалық бағам • open.er-api.com</p>
                     </div>
-                    <span class="valuta-trend-badge" id="kzt-trend-pill">+1.2%</span>
                   </div>
 
                   <div class="valuta-card-body">
@@ -343,60 +343,38 @@
                       <div class="valuta-rate-row">
                         <span class="v-flag">🇺🇸</span>
                         <span class="v-code">USD</span>
-                        <span class="v-val"><span id="rate-usd">449.9</span> ₸</span>
-                        <span class="v-diff">+1.01 ₸</span>
+                        <span class="v-val"><span id="rate-usd">—</span> ₸</span>
                       </div>
                       <div class="valuta-rate-row">
                         <span class="v-flag">🇪🇺</span>
                         <span class="v-code">EUR</span>
-                        <span class="v-val"><span id="rate-eur">504.1</span> ₸</span>
-                        <span class="v-diff">+0.35 ₸</span>
+                        <span class="v-val"><span id="rate-eur">—</span> ₸</span>
                       </div>
                       <div class="valuta-rate-row">
                         <span class="v-flag">🇷🇺</span>
                         <span class="v-code">RUB</span>
-                        <span class="v-val"><span id="rate-rub">5.29</span> ₸</span>
-                        <span class="v-diff">+0.04 ₸</span>
+                        <span class="v-val"><span id="rate-rub">—</span> ₸</span>
                       </div>
                     </div>
 
-                    <div class="valuta-sparkline-box">
-                      <svg viewBox="0 0 160 56" class="valuta-sparkline-svg" preserveAspectRatio="none">
-                        <defs>
-                          <linearGradient id="v-green-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.32"/>
-                            <stop offset="100%" stop-color="#ffffff" stop-opacity="0.0"/>
-                          </linearGradient>
-                        </defs>
-                        <path d="M 0,42 Q 18,48 35,40 T 70,32 T 105,26 T 130,22 L 160,8 L 160,56 L 0,56 Z" fill="url(#v-green-grad)"/>
-                        <path d="M 0,42 Q 18,48 35,40 T 70,32 T 105,26 T 130,22 L 160,8" fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-                        <circle cx="160" cy="8" r="3" fill="#ffffff"/>
-                      </svg>
-                    </div>
                   </div>
                 </div>
 
-                <!-- Hidden Prayer Sub-card preserved for toggle/script compatibility -->
-                <div class="safari-bento-sub prayer-widget" id="cs-prayer" style="display: none !important;">
-                  <button type="button" id="btn-city-select" class="city-pill-btn" style="display:none;"><span id="current-city-label">Астана</span></button>
-                  <span id="prayer-next-pill" style="display:none;"></span>
-                  <span id="prayer-time-remaining" style="display:none;"></span>
-                  <span id="time-fajr" style="display:none;"></span>
-                  <span id="time-dhuhr" style="display:none;"></span>
-                  <span id="time-asr" style="display:none;"></span>
-                  <span id="time-maghrib" style="display:none;"></span>
-                  <span id="time-isha" style="display:none;"></span>
+                <div class="safari-bento-sub prayer-widget" id="cs-prayer">
+                  <strong>Намаз уақыты</strong>
+                  <p>Қалаңыздың кестесін ҚМДБ сайтынан қараңыз.</p>
+                  <a href="https://www.muftyat.kz/kk/namaz_times/" target="_blank" rel="noopener">Ресми кестені ашу ↗</a>
                 </div>
               </div>
             </section>
 
-            <!-- ── SECTION 3: Safari Reading List Style News Cards (Ел жаңалықтары) ── -->
+            <!-- ── SECTION 3: Curated source links ── -->
             <section class="safari-section" id="section-reading-news">
               <div class="safari-section-heading">
-                <span>Ел жаңалықтары</span>
-                <span class="safari-section-action" id="btn-refresh-news" title="Жаңалықтарды жаңарту">
+                <span>Пайдалы дереккөздер</span>
+                <span class="safari-section-action" id="btn-refresh-news" title="Басқа дереккөздер">
                   <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;vertical-align:middle;"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                  Жаңарту
+                  Басқа
                 </span>
               </div>
               <div class="safari-reading-grid" id="portal-news-bar">
@@ -406,10 +384,10 @@
                     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                   </div>
                   <div class="safari-reading-meta">
-                    <span class="safari-reading-title" id="safari-news-title-0">Қазақстанның цифрлық экожүйесінде жаңа AI жобалар іске қосылды</span>
+                    <span class="safari-reading-title" id="safari-news-title-0">Tengrinews жаңалықтарын ашу</span>
                     <div class="safari-reading-subline">
                       <span class="safari-source-tag" id="safari-news-src-0">Tengrinews.kz</span>
-                      <span class="safari-time-tag" id="safari-news-time-0">15 мин бұрын</span>
+                      <span class="safari-time-tag" id="safari-news-time-0">Дереккөз</span>
                     </div>
                   </div>
                 </div>
@@ -420,10 +398,10 @@
                     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                   </div>
                   <div class="safari-reading-meta">
-                    <span class="safari-reading-title" id="safari-news-title-1">Мемлекеттік электронды құжаттар реформасы жаңа форматта қолжетімді</span>
+                    <span class="safari-reading-title" id="safari-news-title-1">eGov қызметтерін ашу</span>
                     <div class="safari-reading-subline">
                       <span class="safari-source-tag" id="safari-news-src-1">eGov.kz</span>
-                      <span class="safari-time-tag" id="safari-news-time-1">30 мин бұрын</span>
+                      <span class="safari-time-tag" id="safari-news-time-1">Ресми сайт</span>
                     </div>
                   </div>
                 </div>
@@ -438,7 +416,7 @@
               <div id="daily-quote-author" class="daily-quote-author">— Абай Құнанбайұлы</div>
             </div>
 
-            <footer class="welcome-footer"><span>Қазақстанның ұлттық браузері</span></footer>
+            <footer class="welcome-footer"><span>Қазақ тіліндегі браузер</span></footer>
           </div>
         </div>
 
@@ -502,7 +480,7 @@
       <div class="ai-panel-header">
         <div class="ai-panel-title-group">
           <span class="ai-panel-title">Galamtor AI</span>
-          <span class="ai-model-badge">Gemini 2.5 Flash</span>
+          <span class="ai-model-badge">Жергілікті Ollama</span>
         </div>
         <div class="ai-header-actions">
           <button id="ai-panel-settings" class="ai-panel-settings-btn" title="AI Баптаулары" aria-label="AI Settings">
@@ -543,7 +521,7 @@
           <div class="ai-welcome-msg">
             <div class="ai-sparkle-hero">🤖</div>
             <div class="ai-welcome-title">Galamtor AI көмекшісі</div>
-            <div class="ai-welcome-subtitle">Gemini 2.5 Flash моделімен жұмыс істейді</div>
+            <div class="ai-welcome-subtitle">Жергілікті Ollama, қосымша рұқсатпен Gemini</div>
             <div class="ai-welcome-hints">
               <span>📄 Бетті түйіндеу</span>
               <span>💻 Код жазу</span>
@@ -587,10 +565,13 @@
         <div class="ai-settings-card">
           <div class="ai-settings-title">AI Баптаулары</div>
           <label class="ai-settings-label" for="ai-api-key-input">Gemini API Key</label>
-          <input type="password" id="ai-api-key-input" class="ai-settings-input" placeholder="AIza...">
-          <p class="ai-settings-hint">Тегін алу: <a href="https://aistudio.google.com/apikey" target="_blank" id="ai-key-link">Google AI Studio</a></p>
+          <input type="password" id="ai-api-key-input" class="ai-settings-input" placeholder="Жаңа API кілтін енгізіңіз">
+          <p id="ai-key-status" class="ai-settings-hint"></p>
+          <label class="ai-settings-hint"><input type="checkbox" id="ai-cloud-enabled"> Жергілікті Ollama қолжетімсіз болса, сұрағым мен бет мәтінін Gemini қызметіне жіберуге рұқсат етемін</label>
+          <p class="ai-settings-hint">Кілт алу: <a href="https://aistudio.google.com/apikey" target="_blank" id="ai-key-link">Google AI Studio</a> · <a href="https://galamtor.web.app/privacy.html" target="_blank">Құпиялылық</a></p>
           <div class="ai-settings-actions">
             <button id="ai-settings-save" class="ai-settings-save-btn">Сақтау</button>
+            <button id="ai-settings-clear" class="ai-settings-cancel-btn">Кілтті өшіру</button>
             <button id="ai-settings-cancel" class="ai-settings-cancel-btn">Жабу</button>
           </div>
         </div>
@@ -721,12 +702,12 @@
             <span class="toggle-switch"></span>
           </label>
           <label class="toggle-row">
-            <span class="toggle-name">Ұлттық Банк бағамы (USD / EUR / RUB)</span>
+            <span class="toggle-name">Валюта бағамы (USD / EUR / RUB)</span>
             <input type="checkbox" id="toggle-widget-currency" checked />
             <span class="toggle-switch"></span>
           </label>
           <label class="toggle-row">
-            <span class="toggle-name">Намаз уақыты (ҚМДБ)</span>
+            <span class="toggle-name">ҚМДБ намаз кестесіне сілтеме</span>
             <input type="checkbox" id="toggle-widget-prayer" checked />
             <span class="toggle-switch"></span>
           </label>
@@ -750,33 +731,8 @@
     </div>
   </aside>
 
-  <!-- ═══════════════════════════════════════════════
-       CITY SELECTION MODAL (Локализация / Қала таңдау)
-       ═══════════════════════════════════════════════ -->
-  <div id="city-modal-backdrop" class="city-modal-backdrop" style="display:none;"></div>
-  <div id="city-modal-dialog" class="city-modal-dialog" style="display:none;">
-    <div class="city-modal-header">
-      <div class="city-modal-title">
-        <h4>
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          Қазақстан қаласын таңдаңыз
-        </h4>
-        <p>Намаз кестесі мен жергілікті ақпарат таңдалған қалаға қарай дәл есептеледі</p>
-      </div>
-      <button type="button" id="btn-close-city-modal" class="city-modal-close" title="Жабу">✕</button>
-    </div>
-    <div class="city-search-box">
-      <input type="text" id="city-search-input" placeholder="Қаланы іздеу (Астана, Алматы, Шымкент, Ақтау...)" autocomplete="off" />
-    </div>
-    <div class="city-grid-list" id="city-grid-list">
-      <!-- Generated by JS for all 20 Kazakhstan cities -->
-    </div>
-  </div>
-
   <!-- Firebase SDK Compatibility Libraries -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="vendor/firebase-compat.js"></script>
   
   <script src="renderer.js"></script>
 </body>

@@ -72,40 +72,8 @@
     }
   }
 
-  function detectOSInfo() {
-    const ua = navigator.userAgent.toLowerCase();
-    const plat = navigator.platform?.toLowerCase() || '';
-    
-    let isMac = plat.includes('mac') || ua.includes('macintosh') || ua.includes('mac os');
-    let isWin = plat.includes('win') || ua.includes('windows');
-    let isLinux = plat.includes('linux') || ua.includes('x11');
-    
-    let isArm = false;
-    if (navigator.userAgentData && navigator.userAgentData.architecture === 'arm') {
-      isArm = true;
-    } else if (isMac && (navigator.maxTouchPoints > 2 || ua.includes('arm'))) {
-      isArm = true;
-    }
-
-    if (isMac) {
-      return {
-        os: 'mac',
-        label: isArm ? 'macOS (Apple Silicon) үшін жүктеу' : 'macOS (Intel) үшін жүктеу',
-        assetMatcher: isArm ? (a) => a.name.endsWith('.dmg') && a.name.includes('arm64') : (a) => a.name.endsWith('.dmg') && (a.name.includes('x64') || a.name.includes('x86_64'))
-      };
-    } else if (isWin) {
-      return {
-        os: 'windows',
-        label: 'Windows үшін жүктеу',
-        assetMatcher: (a) => a.name.endsWith('.exe')
-      };
-    } else {
-      return {
-        os: 'linux',
-        label: 'Linux үшін жүктеу',
-        assetMatcher: (a) => a.name.endsWith('.deb') || a.name.endsWith('.AppImage')
-      };
-    }
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
   }
 
   function updateUI(release) {
@@ -113,31 +81,14 @@
 
     const version = release.tag_name || FALLBACK_VERSION;
     const dateStr = release.published_at ? formatKazakhDate(release.published_at) : '';
-    const osInfo = detectOSInfo();
-    
-    // Find optimal asset for detected OS
-    let primaryAsset = null;
-    let fallbackAsset = null;
-    
-    if (release.assets && release.assets.length > 0) {
-      primaryAsset = release.assets.find(osInfo.assetMatcher);
-      if (!primaryAsset) {
-        // Find any asset if specific architecture not found
-        if (osInfo.os === 'mac') primaryAsset = release.assets.find(a => a.name.endsWith('.dmg'));
-        else if (osInfo.os === 'windows') primaryAsset = release.assets.find(a => a.name.endsWith('.exe'));
-      }
-      fallbackAsset = release.assets[0];
-    }
-    
-    const downloadUrl = primaryAsset ? primaryAsset.browser_download_url : release.html_url;
-    const downloadSize = primaryAsset ? formatBytes(primaryAsset.size) : '';
+    const downloadUrl = release.html_url;
 
     // 1. Update version texts
     const versionRegex = /v\d+\.\d+\.\d+/g;
     
     const dlVer = document.getElementById('dl-version-info');
     if (dlVer) {
-      dlVer.innerHTML = `Нұсқа ${version} &nbsp;·&nbsp; ${dateStr ? dateStr + ' &nbsp;·&nbsp; ' : ''}macOS 13+ &nbsp;·&nbsp; Тегін`;
+      dlVer.textContent = `Нұсқа ${version} · ${dateStr ? dateStr + ' · ' : ''}Шығарылым файлдары · Тегін`;
     } else {
       document.querySelectorAll('.dl-ver').forEach(el => {
         el.innerHTML = el.innerHTML.replace(versionRegex, version);
@@ -150,10 +101,7 @@
       mainBtn.href = downloadUrl;
       const textSpan = mainBtn.querySelector('.btn-text');
       if (textSpan) {
-        textSpan.textContent = osInfo.label + (downloadSize ? ` (${downloadSize})` : '');
-      } else {
-        // Fallback if span is missing
-        mainBtn.innerHTML = mainBtn.innerHTML.replace(/macOS үшін жүктеу|Windows үшін жүктеу|Linux үшін жүктеу/i, osInfo.label + (downloadSize ? ` (${downloadSize})` : ''));
+        textSpan.textContent = 'Жүктеу нұсқаларын көру';
       }
     }
 
@@ -170,9 +118,9 @@
     });
 
     // Update all elements containing specific classes with the version
-    document.querySelectorAll('.cert-ver, .vb-v, .st-m').forEach(el => {
+    document.querySelectorAll('.cert-ver, .vb-v, .st-m, .ftr-ed, .sc-arc-bot, .byline span').forEach(el => {
       if (el.textContent.includes('v1.')) {
-        el.textContent = version;
+        el.textContent = el.textContent.replace(versionRegex, version);
       }
     });
 
@@ -198,10 +146,11 @@
       `;
       
       release.assets.forEach(asset => {
+        if (!/^https:\/\/github\.com\//.test(asset.browser_download_url)) return;
         dropdownHTML += `
           <li style="margin-bottom: 8px;">
-            <a href="${asset.browser_download_url}" style="text-decoration: none; color: inherit; border-bottom: 1px dotted currentColor;">
-              ${asset.name} (${formatBytes(asset.size)})
+            <a href="${escapeHtml(asset.browser_download_url)}" style="text-decoration: none; color: inherit; border-bottom: 1px dotted currentColor;">
+              ${escapeHtml(asset.name)} (${formatBytes(asset.size)})
             </a>
           </li>
         `;
@@ -211,7 +160,7 @@
       if (hashes) {
         dropdownHTML += `<li style="margin-top:15px; font-weight:bold;">SHA256 Checksums:</li>`;
         for (const [filename, hash] of Object.entries(hashes)) {
-          dropdownHTML += `<li style="font-family: monospace; font-size: 0.8em; word-break: break-all; margin-top: 4px;">${filename}: ${hash}</li>`;
+          dropdownHTML += `<li style="font-family: monospace; font-size: 0.8em; word-break: break-all; margin-top: 4px;">${escapeHtml(filename)}: ${escapeHtml(hash)}</li>`;
         }
       }
 

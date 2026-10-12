@@ -3,27 +3,54 @@
   "productName": "Galamtor",
   "version": "1.0.2",
   "description": "Galamtor - Kazakhstani Browser",
+  "author": "Galamtor contributors",
+  "license": "MIT",
+  "homepage": "https://galamtor.web.app",
+  "repository": "https://github.com/akhmet-dev/Galamtor-",
   "main": "index.js",
   "scripts": {
+    "build:assets": "node scripts/build-firebase.js",
+    "prestart": "npm run build:assets",
     "start": "electron .",
+    "predist": "npm run build:assets",
     "dist": "electron-builder --mac --dir",
+    "prepack": "npm run build:assets",
     "pack": "electron-builder --mac",
-    "release": "electron-builder --publish always"
+    "prerelease": "npm run build:assets",
+    "release": "electron-builder --publish onTag",
+    "serve": "node server.js",
+    "check": "node --check index.js && node --check preload.js && node --check renderer.js && node --check server.js && npm run build:assets"
   },
   "dependencies": {
     "electron-log": "^5.4.4",
     "electron-updater": "^6.8.9"
   },
   "devDependencies": {
-    "electron": "^32.3.3",
+    "electron": "^44.7.0",
     "electron-builder": "^26.15.3",
-    "electron-reload": "^2.0.0-alpha.1"
+    "esbuild": "^0.28.2",
+    "firebase": "^13.0.0"
   },
   "allowScripts": {
-    "electron@32.3.3": true
+    "electron@44.7.0": true,
+    "esbuild@0.28.2": true
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.6"
   },
   "build": {
     "appId": "com.galamtor.app",
+    "files": [
+      "index.js",
+      "preload.js",
+      "renderer.js",
+      "index.html",
+      "style.css",
+      "assets/**",
+      "vendor/firebase-compat.js",
+      "LICENSE",
+      "package.json"
+    ],
     "publish": [
       {
         "provider": "github",
@@ -33,6 +60,7 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
+      "minimumSystemVersion": "13.0",
       "icon": "build/icon.png",
       "target": [
         {

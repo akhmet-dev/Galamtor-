@@ -1,4 +1,7 @@
 {
+  "firestore": {
+    "rules": "firestore.rules"
+  },
   "hosting": [
     {
       "target": "galamtor",
@@ -45,18 +48,5 @@
         }
       ]
     }
-  ],
-  "auth": {
-    "providers": {
-      "googleSignIn": {
-        "oAuthBrandDisplayName": "Galamtor",
-        "supportEmail": "s.akhmet198@gmail.com",
-        "authorizedRedirectUris": [
-          "https://galamtor.web.app",
-          "https://galamtor.firebaseapp.com",
-          "http://localhost"
-        ]
-      }
-    }
-  }
+  ]
 }

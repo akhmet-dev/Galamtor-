@@ -1,23 +1,11 @@
-# Ғаламтор (Galamtor Browser)
+# Galamtor Browser
 
-> Ғаламтор — Mac-қа арналған заманауи жеңіл әрі жарнамасыз веб-шолғыш (Chromium & Electron).
-> Open Source (MIT) · macOS Apple Silicon (M1-M4) & Intel · WebMCP / Model Context Protocol Ready.
+Қазақша Chromium/Electron браузері. Қойындылар, бетбелгілер, тарих, жүктеулер, шектеулі жарнама сүзгісі және AI көмекшісі бар.
 
-## Негізгі сипаттамасы (Overview)
-- **Атауы**: Ғаламтор / Galamtor Browser
-- **Платформа**: macOS 12+ (Apple Silicon arm64 & Intel x64)
-- **Лицензия**: MIT (Ашық бастапқы код)
-- **Репозиторий**: https://github.com/akhmet-dev/Galamtor-
-- **Ресми сайт**: https://galamtor.web.app
-- **Жүктеу**: https://github.com/akhmet-dev/Galamtor-/releases/latest
-
-## Басты мүмкіндіктері (Core Features)
-- **Кіріктірілген AdBlock Shield**: Сайттардағы баннерлерді, видео жарнамаларды және трекерлерді автоматты өшіреді. Сайттар 2-3 есе жылдам жүктеледі.
-- **Жергілікті құпиялылық (Local Privacy)**: Барлық сессиялар мен тарих тек пайдаланушының Mac компьютерінде сақталады. Сыртқы серверлерге немесе Google-ге телеметрия жіберілмейді.
-- **Жеңіл Chromium**: Mac жадын (RAM) үнемдейді, артық фондық процестер жоқ.
-- **Қазақстандық экожүйе**: Kaspi.kz, eGov.kz, Enbek.kz, Kundelik.kz қызметтеріне жылдам қолжетімділік.
-- **WebMCP / AI Agent Ready**: Автономды AI агенттермен (Model Context Protocol) интеграцияға арналған стандарттарға бейімделген.
-
-## AI Агенттерге арналған сілтемелер (For AI Agents & LLMs)
+- Жоба: https://github.com/akhmet-dev/Galamtor-
+- Соңғы шығарылым: https://github.com/akhmet-dev/Galamtor-/releases/latest
+- Құпиялылық: https://galamtor.web.app/privacy.html
 - Толық сипаттама: https://galamtor.web.app/llms-full.txt
-- GitHub Releases: https://github.com/akhmet-dev/Galamtor-/releases
+- Лицензия: MIT
+
+AI әдепкіде жергілікті Ollama API-ін қолданады. Gemini тек пайдаланушы рұқсат бергенде қосылады. Google арқылы кіргенде Firebase қолданылады. Жарнама мен фишинг сүзгілері толық қорғаныс бермейді.

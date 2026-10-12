@@ -9,6 +9,11 @@ contextBridge.exposeInMainWorld('galamtorAPI', {
     ipcRenderer.on('firebase-auth-token', listener);
     return () => ipcRenderer.removeListener('firebase-auth-token', listener);
   },
+  onAuthServerError: (callback) => {
+    const listener = (_event, code) => callback(code);
+    ipcRenderer.on('auth-server-error', listener);
+    return () => ipcRenderer.removeListener('auth-server-error', listener);
+  },
   setLanguage: (lang) => ipcRenderer.send('language:set', lang),
 
   // History API
@@ -54,6 +59,7 @@ contextBridge.exposeInMainWorld('galamtorAPI', {
   aiSummarize: (pageContent, pageTitle, pageUrl) => ipcRenderer.invoke('ai:summarize', { pageContent, pageTitle, pageUrl }),
   aiSetApiKey: (apiKey) => ipcRenderer.invoke('ai:set-api-key', apiKey),
   aiGetApiKey: () => ipcRenderer.invoke('ai:get-api-key'),
+  aiSetCloudEnabled: (enabled) => ipcRenderer.invoke('ai:set-cloud-enabled', enabled),
 
   // ── Touch ID / Biometrics API (macOS) ──
   touchIdCanPrompt: () => ipcRenderer.invoke('touchid:can-prompt'),
@@ -64,6 +70,11 @@ contextBridge.exposeInMainWorld('galamtorAPI', {
     const listener = (event, url) => callback(url);
     ipcRenderer.on('open-image-in-new-tab', listener);
     return () => ipcRenderer.removeListener('open-image-in-new-tab', listener);
+  },
+  onPopupTab: (callback) => {
+    const listener = (_event, popupUrl) => callback(popupUrl);
+    ipcRenderer.on('open-popup-tab', listener);
+    return () => ipcRenderer.removeListener('open-popup-tab', listener);
   },
 
   // Auto-Update API
@@ -99,6 +110,7 @@ contextBridge.exposeInMainWorld('galamtorAPI', {
     return () => ipcRenderer.removeListener('qalqan-blocked', listener);
   },
   getBankingShieldStatus: () => ipcRenderer.invoke('banking:get-status'),
+  setActiveBankingUrl: (activeUrl) => ipcRenderer.send('banking:active-url', activeUrl),
   onBankingShieldStatus: (callback) => {
     const listener = (event, payload) => callback(payload);
     ipcRenderer.on('banking-shield-status', listener);
@@ -128,4 +140,3 @@ contextBridge.exposeInMainWorld('galamtorAPI', {
   pickCustomWallpaper: () => ipcRenderer.invoke('wallpaper:pick-media'),
   clearCustomWallpaper: () => ipcRenderer.invoke('wallpaper:clear-custom')
 });
-
