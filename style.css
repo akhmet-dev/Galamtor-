@@ -1525,32 +1525,33 @@ body.ai-panel-active #pip-dock {
 
 .pip-dock {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 280px;
-  background: rgba(14, 15, 20, 0.92);
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-lg);
+  bottom: 24px;
+  right: 24px;
+  width: 290px;
+  background: rgba(18, 18, 22, 0.85) !important;
+  backdrop-filter: blur(36px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(36px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  outline: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 18px !important;
   z-index: 9000;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.04);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75), 0 0 24px rgba(255, 255, 255, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
   display: none;
   flex-direction: column;
   overflow: hidden;
-  transform: translateY(20px);
+  transform: translateY(16px) scale(0.97);
   opacity: 0;
-  transition: transform 0.35s var(--ease-spring), opacity 0.25s ease;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
 }
 .pip-dock.visible {
   display: flex;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
   opacity: 1;
 }
 
 /* animate show */
 .pip-dock.animate-in {
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
   opacity: 1;
 }
 

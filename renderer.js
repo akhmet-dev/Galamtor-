@@ -22,6 +22,7 @@ const db = firebase.firestore();
 
 async function syncProfileStats(userId, stats) {
   try {
+    if (!userId || !auth.currentUser) return;
     const profileRef = db.collection('users').doc(userId).collection('profileData').doc('stats');
     await profileRef.set({
       openTabsCount: stats.openTabsCount,
@@ -32,7 +33,7 @@ async function syncProfileStats(userId, stats) {
     }, { merge: true });
     console.log('[Firebase] Stats successfully synchronized.');
   } catch (err) {
-    console.error('[Firebase] Sync failed:', err);
+    console.warn('[Firebase] Sync skipped or failed:', err?.message || err);
   }
 }
 
@@ -634,7 +635,11 @@ function createWebview(tabId, url, isIncognito = false) {
       .err button{background:linear-gradient(135deg,#00f2fe,#648cff);border:none;color:#fff;padding:10px 28px;border-radius:10px;font-size:14px;cursor:pointer;font-weight:600;transition:transform 0.2s,box-shadow 0.2s;}
       .err button:hover{transform:translateY(-2px);box-shadow:0 4px 20px rgba(0,242,254,0.3);}
     </style></head><body><div class='err'><div class='err-icon'>🌐</div><h2>${errInfo.title}</h2><p>${errInfo.desc}</p><button onclick='location.reload()'>Қайта жүктеу</button></div></body></html>`;
-    webview.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHTML)}`);
+    try {
+      webview.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHTML)}`);
+    } catch (e) {
+      webview.setAttribute('src', `data:text/html;charset=utf-8,${encodeURIComponent(errorHTML)}`);
+    }
   });
 
   // Handle renderer process crash
@@ -819,7 +824,11 @@ function navigateTo(targetUrl) {
     if (tab.isSleeping) wakeTab(tab);
     const wv = getActiveWebview();
     if (wv) {
-      wv.loadURL(parsedUrl);
+      try {
+        wv.loadURL(parsedUrl);
+      } catch (e) {
+        wv.setAttribute('src', parsedUrl);
+      }
       tab.url = parsedUrl;
     } else {
       // Webview missing — recreate it
@@ -1557,6 +1566,8 @@ styleEl.innerHTML = `
 document.head.appendChild(styleEl);
 
 // ── Centralized Media State ──
+let activeMediaTabId = null;
+let isMediaPlaying = false;
 const GlobalMediaState = {
   activeTabId: null,      // Source of truth for the active media tab
   isPlaying: false,       // Play state
@@ -1761,10 +1772,9 @@ function updateMediaPlayerUI() {
         badge.classList.remove('media-player-active');
         badge.style.setProperty('display', 'inline-flex', 'important');
       }
-      mediaPlayer.style.setProperty('display', 'flex', 'important');
-      
-      if (lastPlayedAlbumArtUrl && badge) {
-        badge.style.backgroundImage = `url('${lastPlayedAlbumArtUrl}')`;
+      const albumArt = GlobalMediaState.albumArtUrl;
+      if (albumArt && badge) {
+        badge.style.backgroundImage = `url('${albumArt}')`;
         badge.style.backgroundSize = 'cover';
         badge.style.backgroundPosition = 'center';
         if (staticIcon) {
@@ -1777,13 +1787,34 @@ function updateMediaPlayerUI() {
         }
       }
 
-      if (glowContainer) glowContainer.classList.remove('active-glow');
       if (overlayIcon) {
         overlayIcon.outerHTML = `
           <svg class="overlay-icon" viewBox="0 0 24 24" width="6" height="6" fill="currentColor">
             <polygon points="5 3 19 12 5 21 5 3"/>
           </svg>
         `;
+      }
+    }
+
+    // Sync Floating PIP Dock UI
+    if (pipDock) {
+      const pipTrackName = pipDock.querySelector('.pip-track-name');
+      const pipTrackArtist = pipDock.querySelector('.pip-track-artist');
+      const pipPlayBtn = document.getElementById('pip-play');
+      const pipAlbumArt = pipDock.querySelector('.pip-album-art');
+      if (GlobalMediaState.isPlaying && GlobalMediaState.trackTitle) {
+        if (pipTrackName) pipTrackName.textContent = GlobalMediaState.trackTitle;
+        if (pipTrackArtist) pipTrackArtist.textContent = (GlobalMediaState.serviceUrl && GlobalMediaState.serviceUrl.includes('youtube')) ? 'YouTube Music' : 'Медиа ойнатылуда';
+        if (pipPlayBtn) {
+          pipPlayBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+        }
+        if (pipAlbumArt && GlobalMediaState.albumArtUrl) {
+          pipAlbumArt.innerHTML = `<img src="${GlobalMediaState.albumArtUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" />`;
+        }
+      } else {
+        if (pipPlayBtn) {
+          pipPlayBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+        }
       }
     }
   } catch (err) {
@@ -1853,17 +1884,18 @@ function toggleMediaPlaybackForTab(tabId) {
 function toggleMediaPlayback() {
   if (!activeMediaTabId) {
     const mediaUrl = getMediaServiceUrl();
-    const musicTab = tabs.find(t => {
+    const musicTab = (tabs || []).find(t => {
       if (!t.url) return false;
       if (mediaUrl.includes('music.youtube.com') && t.url.includes('music.youtube.com')) return true;
       if (mediaUrl.includes('music.yandex.ru') && t.url.includes('music.yandex.ru')) return true;
       if (mediaUrl.includes('open.spotify.com') && t.url.includes('open.spotify.com')) return true;
       return t.url.startsWith(mediaUrl) || mediaUrl.startsWith(t.url);
-    }) || tabs.find(t => t.url && (t.url.includes('music.youtube.com') || t.url.includes('youtube.com') || t.url.includes('music.yandex.ru') || t.url.includes('spotify.com')));
+    }) || (tabs || []).find(t => t.url && (t.url.includes('music.youtube.com') || t.url.includes('youtube.com') || t.url.includes('music.yandex.ru') || t.url.includes('spotify.com')));
 
     if (musicTab) {
       activeMediaTabId = musicTab.id;
     } else {
+      openMediaTab();
       return;
     }
   }
@@ -1919,6 +1951,76 @@ function pipUpdateFromYTMusic(title) {
     console.error("Error in pipUpdateFromYTMusic:", err);
   }
 }
+
+function skipMediaTrack(direction = 'next') {
+  const targetId = activeMediaTabId || GlobalMediaState.activeTabId;
+  if (!targetId) return;
+  const wrapper = document.querySelector(`.webview-wrapper[data-tab-id="${targetId}"]`);
+  if (!wrapper) return;
+  const wv = wrapper.querySelector('webview');
+  if (!wv) return;
+
+  const script = direction === 'next' ? `
+    (() => {
+      const nextBtn = document.querySelector('.next-button, [aria-label="Next"], [aria-label="next"], [data-testid="control-button-skip-forward"], .player-controls__btn_next');
+      if (nextBtn) nextBtn.click();
+    })()
+  ` : `
+    (() => {
+      const prevBtn = document.querySelector('.previous-button, [aria-label="Previous"], [aria-label="previous"], [data-testid="control-button-skip-back"], .player-controls__btn_prev');
+      if (prevBtn) prevBtn.click();
+    })()
+  `;
+  try {
+    wv.executeJavaScript(script).catch(() => {});
+  } catch (e) {}
+}
+
+function initPipDockControls() {
+  if (btnPipToggle) {
+    btnPipToggle.addEventListener('click', () => {
+      if (pipDock) {
+        pipDock.classList.toggle('visible');
+        pipState.visible = pipDock.classList.contains('visible');
+      }
+    });
+  }
+
+  if (pipClose) {
+    pipClose.addEventListener('click', () => {
+      if (pipDock) {
+        pipDock.classList.remove('visible');
+        pipState.visible = false;
+      }
+    });
+  }
+
+  if (pipExpand) {
+    pipExpand.addEventListener('click', () => {
+      openMediaTab();
+      if (pipDock) pipDock.classList.remove('visible');
+    });
+  }
+
+  if (pipPlay) {
+    pipPlay.addEventListener('click', () => {
+      toggleMediaPlayback();
+    });
+  }
+
+  if (pipPrev) {
+    pipPrev.addEventListener('click', () => {
+      skipMediaTrack('prev');
+    });
+  }
+
+  if (pipNext) {
+    pipNext.addEventListener('click', () => {
+      skipMediaTrack('next');
+    });
+  }
+}
+initPipDockControls();
 
 function makeDockIconsDraggable() {
   try {
@@ -2100,17 +2202,35 @@ welcomeSearchForm.addEventListener('submit', (e) => {
 
 btnBack.addEventListener('click', () => {
   const wv = getActiveWebview();
-  if (wv && wv.canGoBack()) wv.goBack();
+  if (wv) {
+    try {
+      if (wv.canGoBack()) wv.goBack();
+    } catch (e) {
+      console.warn('btnBack warning:', e);
+    }
+  }
 });
 
 btnForward.addEventListener('click', () => {
   const wv = getActiveWebview();
-  if (wv && wv.canGoForward()) wv.goForward();
+  if (wv) {
+    try {
+      if (wv.canGoForward()) wv.goForward();
+    } catch (e) {
+      console.warn('btnForward warning:', e);
+    }
+  }
 });
 
 btnRefresh.addEventListener('click', () => {
   const wv = getActiveWebview();
-  if (wv) wv.reload();
+  if (wv) {
+    try {
+      wv.reload();
+    } catch (e) {
+      console.warn('btnRefresh warning:', e);
+    }
+  }
 });
 
 btnHome.addEventListener('click', navigateHome);
@@ -2120,7 +2240,13 @@ btnNewTab.addEventListener('click', () => createTab());
 document.querySelectorAll('.shortcut-card').forEach(card => {
   card.addEventListener('click', () => {
     const url = card.dataset.url;
-    if (url) navigateTo(url);
+    if (url) {
+      if (!tabs || tabs.length === 0 || !activeTabId) {
+        createTab(url);
+      } else {
+        navigateTo(url);
+      }
+    }
   });
 });
 
@@ -2128,7 +2254,13 @@ document.querySelectorAll('.shortcut-card').forEach(card => {
 dockIcons.querySelectorAll('.dock-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const url = btn.dataset.url;
-    if (url) navigateTo(url);
+    if (url) {
+      if (!tabs || tabs.length === 0 || !activeTabId) {
+        createTab(url);
+      } else {
+        navigateTo(url);
+      }
+    }
   });
 });
 
@@ -7404,6 +7536,18 @@ setupFindInPage();
 setupMenuDispatcher();
 updateLiveExchangeRatesUI();
 
+// Hook Currency Card click
+const csCurrencyCard = document.getElementById('cs-currency');
+if (csCurrencyCard) {
+  csCurrencyCard.style.cursor = 'pointer';
+  csCurrencyCard.addEventListener('click', async () => {
+    csCurrencyCard.style.transform = 'scale(0.98)';
+    setTimeout(() => { csCurrencyCard.style.transform = ''; }, 150);
+    await updateLiveExchangeRatesUI();
+    showToast('💱 Валюта бағамы жаңартылды');
+  });
+}
+
 // Hook Bookmark button
 const btnBookmark = document.getElementById('btn-bookmark-current');
 if (btnBookmark) {
@@ -7817,6 +7961,27 @@ function initStartPageCustomizer() {
 
 // Bootstrap Start Page Customizer
 initStartPageCustomizer();
+
+// ══════════════════════════════════════════════════════════════
+//  GLOBAL EXPORTS FOR DIAGNOSTICS, AUTOMATION & TESTING
+// ══════════════════════════════════════════════════════════════
+Object.defineProperty(window, 'tabs', {
+  get: () => tabs,
+  configurable: true
+});
+window.createTab = createTab;
+window.closeTab = closeTab;
+window.navigateTo = navigateTo;
+window.getActiveWebview = getActiveWebview;
+window.gpOpenModal = gpOpenModal;
+window.gpCloseModal = gpCloseModal;
+window.gpSwitchTab = gpSwitchTab;
+window.toggleAiSidebarPanel = toggleAiSidebarPanel;
+window.openAiSidebarPanel = openAiSidebarPanel;
+window.closeAiSidebarPanel = closeAiSidebarPanel;
+window.toggleMediaPlayback = toggleMediaPlayback;
+window.skipMediaTrack = skipMediaTrack;
+window.updateLiveExchangeRatesUI = updateLiveExchangeRatesUI;
 
 
 
