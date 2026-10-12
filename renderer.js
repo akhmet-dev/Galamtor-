@@ -3038,115 +3038,110 @@ document.head.appendChild(settingsGlowStyle);
   const s = document.createElement('style');
   s.id = 'galamtor-profile-hub-css';
   s.textContent = `
-    /* ── Overlay & Modal ────────────────────────── */
+    /* ── Overlay & Modal (B&W Minimalist Liquid Glass) ────────────────────────── */
     .gp-overlay {
       position: fixed; inset: 0; z-index: 900000;
-      background: rgba(4, 5, 8, 0.25) !important;
-      backdrop-filter: blur(4px) !important; -webkit-backdrop-filter: blur(4px) !important;
+      background: rgba(0, 0, 0, 0.3) !important;
+      backdrop-filter: blur(8px) !important; -webkit-backdrop-filter: blur(8px) !important;
       display: flex; align-items: center; justify-content: flex-start;
       opacity: 0; pointer-events: none;
       transition: opacity 0.3s cubic-bezier(0.25, 1, 0.5, 1);
     }
     .gp-overlay.gp-visible { opacity: 1; pointer-events: auto; }
     .gp-modal {
-      position: fixed; top: 0; left: 80px; width: 420px; height: 100vh !important; max-height: 100vh !important;
-      background: rgba(20, 20, 20, 0.75) !important;
-      backdrop-filter: blur(25px) saturate(180%) !important; -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
-      border: none !important;
-      border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
-      border-radius: 0 !important;
-      display: flex; flex-direction: column;
-      transform: translateX(-100%);
+      position: fixed;
+      top: 24px;
+      left: 88px;
+      bottom: 24px;
+      width: 488px;
+      max-height: calc(100vh - 48px) !important;
+      background: rgba(20, 20, 24, 0.74) !important;
+      backdrop-filter: blur(50px) saturate(130%) !important;
+      -webkit-backdrop-filter: blur(50px) saturate(130%) !important;
+      border: 1.5px solid rgba(255, 255, 255, 0.78) !important;
+      border-radius: 28px !important;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(calc(-100% - 60px));
       opacity: 0;
       visibility: hidden;
-      transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease, box-shadow 0.5s ease, visibility 0.5s !important;
+      box-shadow: 0 0 32px rgba(255, 255, 255, 0.25), 0 35px 90px rgba(0, 0, 0, 0.75), inset 0 1px 1px rgba(255, 255, 255, 0.45) !important;
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease, visibility 0.4s !important;
       will-change: transform, opacity;
       overflow: hidden;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
     }
     .gp-overlay.gp-visible .gp-modal {
       transform: translateX(0);
       opacity: 1;
       visibility: visible;
-      box-shadow: 15px 0 50px rgba(0, 242, 254, 0.12), 30px 0 100px rgba(138, 43, 226, 0.08) !important;
+      box-shadow: 0 0 35px rgba(255, 255, 255, 0.3), 0 35px 90px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.5) !important;
     }
 
-    /* ── Laser Charging Edge Beam ───────────────── */
+    /* Laser Charging Edge Beam disabled for pure monochrome */
     .gp-modal::after {
-      content: "";
-      position: absolute;
-      top: 0;
-      right: -1px;
-      width: 2px;
-      height: 0%;
-      opacity: 0;
-      background: linear-gradient(to bottom, transparent, #00f2fe, #8a2be2, transparent);
-      transition: height 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease;
-      pointer-events: none;
-      z-index: 10;
-    }
-    .gp-overlay.gp-visible .gp-modal::after {
-      height: 100%;
-      opacity: 1;
+      display: none !important;
     }
 
     /* ── Header ─────────────────────────────────── */
     .gp-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 24px 24px 0; flex-shrink: 0;
+      padding: 24px 20px 0; flex-shrink: 0;
     }
     .gp-title {
-      font-size: 16px; font-weight: 700; color: #fff;
-      letter-spacing: -0.3px; margin: 0;
-      background: linear-gradient(135deg, #ffffff 40%, #a3a3c2 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      font-size: 17px; font-weight: 700; color: #ffffff !important;
+      letter-spacing: -0.4px; margin: 0;
+      background: none !important;
+      -webkit-background-clip: unset !important;
+      -webkit-text-fill-color: #ffffff !important;
     }
     .gp-close {
-      width: 28px; height: 28px; border-radius: 50%;
-      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
-      color: rgba(255,255,255,0.4); font-size: 16px;
+      width: 30px; height: 30px; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.16);
+      color: rgba(255, 255, 255, 0.75); font-size: 16px;
       cursor: pointer; display: flex; align-items: center; justify-content: center;
       transition: all 0.2s ease;
     }
-    .gp-close:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.12); color: #fff; transform: rotate(90deg); }
+    .gp-close:hover {
+      background: rgba(255, 255, 255, 0.18); border-color: #ffffff; color: #ffffff; transform: rotate(90deg);
+    }
 
     /* ── Unified Segmented Control Strip ────────── */
     .gp-tabs {
-      display: flex; gap: 0; padding: 2px !important;
-      margin: 10px 24px 16px;
-      background: rgba(255, 255, 255, 0.04) !important;
-      border: 1px solid rgba(255, 255, 255, 0.04) !important;
-      border-radius: 12px;
+      display: flex; gap: 3px; padding: 3px !important;
+      margin: 10px 20px 16px;
+      background: rgba(0, 0, 0, 0.35) !important;
+      border: 1px solid rgba(255, 255, 255, 0.08) !important;
+      border-radius: 14px !important;
       overflow: hidden;
       flex-shrink: 0;
       position: relative;
     }
     .gp-tab-btn {
-      flex: 1; padding: 7px 2px !important; font-size: 10px !important; font-weight: 600 !important;
-      border: 1px solid transparent; background: transparent;
-      border-radius: 9px !important;
-      color: rgba(255,255,255,0.45);
+      flex: 1; padding: 7px 3px !important; font-size: 10px !important; font-weight: 500 !important;
+      letter-spacing: -0.2px;
+      border: 1px solid transparent !important; background: transparent !important;
+      border-radius: 10px !important;
+      color: rgba(255, 255, 255, 0.5) !important;
       cursor: pointer;
-      transition: color 0.25s ease, background-color 0.25s ease, transform 0.15s ease !important;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
       display: inline-flex; align-items: center; justify-content: center; gap: 3px;
       font-family: inherit;
-      letter-spacing: -0.1px;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
-    .gp-tab-btn:hover { color: rgba(255,255,255,0.75); }
+    .gp-tab-btn:hover { color: #ffffff !important; }
     .gp-tab-btn:active { transform: scale(0.97); }
     .gp-tab-btn.active {
-      color: #fff !important;
-      background: rgba(255, 255, 255, 0.1) !important;
-      border-color: rgba(255, 255, 255, 0.05) !important;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+      color: #ffffff !important;
+      background: rgba(255, 255, 255, 0.18) !important;
+      border-color: rgba(255, 255, 255, 0.28) !important;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+      font-weight: 600 !important;
     }
-    .gp-tab-btn svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2.0; flex-shrink: 0; }
+    .gp-tab-btn svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 2.0; flex-shrink: 0; }
 
     /* ── Body & Panels ──────────────────────────── */
-    .gp-body { flex: 1; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; padding: 10px 24px 24px; }
+    .gp-body { flex: 1; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; padding: 10px 20px 24px; }
     .gp-body::-webkit-scrollbar { width: 4px; }
     .gp-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 4px; }
     .gp-panel { display: none; animation: gpFadePanel 0.28s ease-out; height: 100%; width: 100%; box-sizing: border-box; }
@@ -3174,31 +3169,31 @@ document.head.appendChild(settingsGlowStyle);
     .gp-color-swatch:hover { transform: scale(1.2); }
     .gp-color-swatch.active { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.15), 0 2px 10px rgba(0,0,0,0.4); }
 
-    .gp-field { margin-bottom: 20px; }
-    .gp-label { font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px; display: block; }
+    .gp-field { margin-bottom: 22px; }
+    .gp-label { font-size: 9.5px; font-weight: 700; color: rgba(255, 255, 255, 0.4); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px; display: block; }
     .gp-input {
-      width: 100%; padding: 11px 15px; border-radius: 14px !important;
-      background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.05);
-      color: #fff; font-size: 14px; font-family: inherit; outline: none;
+      width: 100%; padding: 12px 16px; border-radius: 14px !important;
+      background: rgba(255, 255, 255, 0.04) !important; border: 1px solid rgba(255, 255, 255, 0.1) !important;
+      color: #fff; font-size: 13.5px; font-family: inherit; outline: none;
       transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
       box-sizing: border-box;
     }
     .gp-input:focus {
-      background: rgba(255,255,255,0.06);
-      border-color: rgba(255,255,255,0.12) !important;
-      box-shadow: none !important;
+      background: rgba(255, 255, 255, 0.07) !important;
+      border-color: rgba(255, 255, 255, 0.4) !important;
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.15) !important;
     }
-    .gp-input::placeholder { color: rgba(255,255,255,0.18); }
+    .gp-input::placeholder { color: rgba(255, 255, 255, 0.25); }
 
-    .gp-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 8px; }
+    .gp-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 12px; }
     .gp-stat {
-      background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.03);
-      border-radius: 16px !important; padding: 14px 8px; text-align: center;
+      background: rgba(255, 255, 255, 0.03) !important; border: 1px solid rgba(255, 255, 255, 0.08) !important;
+      border-radius: 16px !important; padding: 16px 8px; text-align: center;
       transition: all 0.2s ease;
     }
-    .gp-stat:hover { background: rgba(255,255,255,0.035); border-color: rgba(255,255,255,0.06); }
-    .gp-stat-val { font-size: 24px; font-weight: 800; color: #fff; line-height: 1.1; }
-    .gp-stat-label { font-size: 9px; color: rgba(255,255,255,0.3); margin-top: 5px; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+    .gp-stat:hover { background: rgba(255, 255, 255, 0.06) !important; border-color: rgba(255, 255, 255, 0.2) !important; }
+    .gp-stat-val { font-size: 26px; font-weight: 800; color: #fff; line-height: 1.1; }
+    .gp-stat-label { font-size: 9px; color: rgba(255, 255, 255, 0.4); margin-top: 5px; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
 
     /* ── Vibe Cards ──────────────────────────────── */
     .gp-vibes-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
@@ -3470,38 +3465,39 @@ document.head.appendChild(settingsGlowStyle);
     }
     .gp-btn-touchid {
       display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      background: rgba(0, 242, 254, 0.1) !important; border: 1px solid rgba(0, 242, 254, 0.35) !important;
-      color: #00f2fe !important; padding: 10px 22px; border-radius: 20px;
+      background: rgba(255, 255, 255, 0.08) !important; border: 1px solid rgba(255, 255, 255, 0.25) !important;
+      color: #ffffff !important; padding: 10px 22px; border-radius: 20px;
       font-size: 13px; font-weight: 600; cursor: pointer;
-      box-shadow: 0 4px 16px rgba(0, 242, 254, 0.15);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
       transition: all 0.2s cubic-bezier(0.16,1,0.3,1);
     }
     .gp-btn-touchid:hover {
-      background: rgba(0, 242, 254, 0.2) !important; border-color: #00f2fe !important;
-      box-shadow: 0 6px 22px rgba(0, 242, 254, 0.3); transform: scale(1.02);
+      background: rgba(255, 255, 255, 0.16) !important; border-color: #ffffff !important;
+      box-shadow: 0 0 16px rgba(255, 255, 255, 0.35); transform: scale(1.02);
     }
-    .gp-btn-touchid svg { stroke: #00f2fe; }
+    .gp-btn-touchid svg { stroke: #ffffff; }
     .gp-forgot-pin-btn {
       background: transparent; border: none; color: rgba(255, 255, 255, 0.45);
       font-size: 12px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
       transition: color 0.2s ease; padding: 4px 8px; font-family: inherit;
     }
-    .gp-forgot-pin-btn:hover { color: #00f2fe; }
+    .gp-forgot-pin-btn:hover { color: #ffffff; }
 
     /* ── Confirm Dialog ─────────────────────────── */
     .gp-confirm-overlay {
       position: fixed; inset: 0; z-index: 920000;
-      background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+      background: rgba(0,0,0,0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
       display: flex; align-items: center; justify-content: center;
       animation: gpFadePanel 0.2s ease;
     }
     .gp-confirm-card {
-      background: rgba(18,19,26,0.98); border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 16px; padding: 24px; max-width: 340px; width: 90%; text-align: center;
-      box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+      background: rgba(20, 20, 24, 0.88); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+      border: 1.5px solid rgba(255, 255, 255, 0.78);
+      border-radius: 24px; padding: 26px; max-width: 360px; width: 90%; text-align: center;
+      box-shadow: 0 0 28px rgba(255, 255, 255, 0.25), 0 30px 80px rgba(0,0,0,0.8), inset 0 1px 1px rgba(255, 255, 255, 0.45);
     }
     .gp-confirm-card h4 { font-size: 15px; color: #fff; font-weight: 600; margin: 0 0 8px; font-family: 'Inter',sans-serif; }
-    .gp-confirm-card p { font-size: 12px; color: rgba(255,255,255,0.4); margin: 0 0 20px; line-height: 1.5; }
+    .gp-confirm-card p { font-size: 12px; color: rgba(255,255,255,0.5); margin: 0 0 20px; line-height: 1.5; }
     .gp-confirm-actions { display: flex; gap: 10px; }
     .gp-confirm-actions .gp-btn { flex: 1; padding: 10px; font-size: 13px; border-radius: 10px; }
 
@@ -3946,13 +3942,13 @@ function gpBuildOverlay() {
         <button class="gp-close" id="gp-close-btn">&times;</button>
       </div>
 
-      <!-- Quick Stats Banner -->
-      <div class="gp-stats-banner" style="display:flex;gap:8px;margin:12px 24px 6px;padding:10px 14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-radius:14px;font-size:11px;color:rgba(255,255,255,0.7);">
-        <div style="flex:1;text-align:center;"><strong style="color:#00f2fe;display:block;font-size:14px;">${openTabsCount}</strong>Қойында</div>
-        <div style="width:1px;background:rgba(255,255,255,0.08);"></div>
-        <div style="flex:1;text-align:center;" id="gp-drawer-blocked-stat"><strong style="color:#9333ea;display:block;font-size:14px;" id="gp-drawer-ad-count">0</strong>Бұғатталды</div>
-        <div style="width:1px;background:rgba(255,255,255,0.08);"></div>
-        <div style="flex:1;text-align:center;"><strong style="color:#27c93f;display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${activeVibe.name}</strong>Вайб</div>
+      <!-- Quick Stats Banner (Monochrome Liquid Glass) -->
+      <div class="gp-stats-banner" style="display:flex;align-items:center;justify-content:space-between;margin:12px 20px 8px;padding:12px 18px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);border-radius:16px;font-size:11px;color:rgba(255,255,255,0.6);">
+        <div style="flex:1;text-align:center;"><strong style="color:#ffffff;display:block;font-size:16px;font-weight:700;line-height:1.2;">${openTabsCount}</strong><span style="font-size:9.5px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">Қойынды</span></div>
+        <div style="width:1px;height:24px;background:rgba(255,255,255,0.08);"></div>
+        <div style="flex:1;text-align:center;" id="gp-drawer-blocked-stat"><strong style="color:#ffffff;display:block;font-size:16px;font-weight:700;line-height:1.2;" id="gp-drawer-ad-count">0</strong><span style="font-size:9.5px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">Бұғатталды</span></div>
+        <div style="width:1px;height:24px;background:rgba(255,255,255,0.08);"></div>
+        <div style="flex:1;text-align:center;"><strong style="color:#ffffff;display:block;font-size:16px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${activeVibe.name}</strong><span style="font-size:9.5px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">Вайб</span></div>
       </div>
 
       <div class="gp-tabs">
@@ -4060,18 +4056,18 @@ function gpRenderProfileTab() {
   } else if (syncUser) {
     dotClass = 'gp-sync-dot-connected';
     statusText = trans.syncConnected;
-    statusColor = '#27c93f';
+    statusColor = '#ffffff';
     btnHtml = `
       <div style="display:flex; align-items:center; gap:8px;">
-        <img src="${syncUser.photoURL || 'assets/avatar.png'}" style="width:24px; height:24px; border-radius:50%; border:1px solid rgba(255,255,255,0.15); object-fit:cover;">
-        <button class="gp-btn gp-btn-secondary" id="gp-sync-auth-btn" style="padding: 6px 12px; font-size: 11px; border-radius: 12px; background: rgba(255,95,86,0.15); color:#ff5f56; border:none; cursor:pointer;">${trans.syncButtonLogout}</button>
+        <img src="${syncUser.photoURL || 'assets/avatar.png'}" style="width:24px; height:24px; border-radius:50%; border:1px solid rgba(255,255,255,0.2); object-fit:cover;">
+        <button class="gp-btn gp-btn-secondary" id="gp-sync-auth-btn" style="padding: 6px 14px; font-size: 11px; font-weight:600; border-radius: 10px; background: rgba(255,255,255,0.1); color:#ffffff; border:1px solid rgba(255,255,255,0.2); cursor:pointer;">${trans.syncButtonLogout}</button>
       </div>
     `;
   } else {
     dotClass = 'gp-sync-dot-disconnected';
     statusText = trans.syncDisconnected;
     statusColor = 'rgba(255,255,255,0.45)';
-    btnHtml = `<button class="gp-btn gp-btn-secondary" id="gp-sync-auth-btn" style="padding: 6px 12px; font-size: 11px; border-radius: 12px;">${trans.syncButtonLogin}</button>`;
+    btnHtml = `<button class="gp-btn gp-btn-secondary" id="gp-sync-auth-btn" style="padding: 6px 14px; font-size: 11px; font-weight:600; border-radius: 10px; background: rgba(255,255,255,0.1); color:#ffffff; border:1px solid rgba(255,255,255,0.2); cursor:pointer;">${trans.syncButtonLogin}</button>`;
   }
 
   // Load configured media service selection for the dropdown
@@ -4090,44 +4086,44 @@ function gpRenderProfileTab() {
   }
 
   panel.innerHTML = `
-    <div class="gp-field" style="margin-top:10px; margin-bottom:24px;">
-      <label class="gp-label" style="font-size:9px; letter-spacing:1.5px; color:rgba(255,255,255,0.25);">${trans.userNameLabel}</label>
-      <input class="gp-input gp-input-borderless" id="gp-name-input" value="${(prof.name||'').replace(/"/g,'&quot;')}" placeholder="Атыңызды енгізіңіз..." maxlength="32">
+    <div class="gp-field" style="margin-top:6px; margin-bottom:20px;">
+      <label class="gp-label">${trans.userNameLabel}</label>
+      <input class="gp-input" id="gp-name-input" value="${(prof.name||'').replace(/"/g,'&quot;')}" placeholder="Атыңызды енгізіңіз..." maxlength="32">
     </div>
 
     <!-- ТІЛ таңдау Dropdown Selector -->
-    <div class="gp-field" style="margin-bottom:24px;">
-      <label class="gp-label" style="font-size:9px; letter-spacing:1.5px; color:rgba(255,255,255,0.25);">${trans.langLabel}</label>
-      <select class="gp-input" id="gp-language-select" style="background: rgba(15,16,22,0.85); color:#fff; border: 1px solid rgba(255,255,255,0.06); cursor:pointer; outline:none; appearance:none; padding:11px 15px; border-radius:14px; width: 100%;">
-        <option value="kk" ${currentLang === 'kk' ? 'selected' : ''} style="background:#0f1016; color:#fff;">Қазақ тілі (Kazakh)</option>
-        <option value="ru" ${currentLang === 'ru' ? 'selected' : ''} style="background:#0f1016; color:#fff;">Русский (Russian)</option>
-        <option value="en" ${currentLang === 'en' ? 'selected' : ''} style="background:#0f1016; color:#fff;">English</option>
+    <div class="gp-field" style="margin-bottom:20px;">
+      <label class="gp-label">${trans.langLabel}</label>
+      <select class="gp-input" id="gp-language-select" style="background: rgba(18,18,22,0.85); color:#fff; border: 1px solid rgba(255,255,255,0.1); cursor:pointer; outline:none; padding:12px 16px; border-radius:14px; width: 100%;">
+        <option value="kk" ${currentLang === 'kk' ? 'selected' : ''} style="background:#141418; color:#fff;">Қазақ тілі (Kazakh)</option>
+        <option value="ru" ${currentLang === 'ru' ? 'selected' : ''} style="background:#141418; color:#fff;">Русский (Russian)</option>
+        <option value="en" ${currentLang === 'en' ? 'selected' : ''} style="background:#141418; color:#fff;">English</option>
       </select>
     </div>
 
     <!-- МЕДИА ҚЫЗМЕТІ Dropdown Selector -->
-    <div class="gp-field" style="margin-bottom:24px;">
-      <label class="gp-label" style="font-size:9px; letter-spacing:1.5px; color:rgba(255,255,255,0.25);">${trans.mediaServiceLabel}</label>
-      <select class="gp-input" id="gp-media-service-select" style="background: rgba(15,16,22,0.85); color:#fff; border: 1px solid rgba(255,255,255,0.06); cursor:pointer; outline:none; appearance:none; padding:11px 15px; border-radius:14px; width: 100%;">
-        <option value="https://music.youtube.com" ${selectedService === 'youtube' ? 'selected' : ''} style="background:#0f1016; color:#fff;">YouTube Music (Default)</option>
-        <option value="https://music.yandex.ru" ${selectedService === 'yandex' ? 'selected' : ''} style="background:#0f1016; color:#fff;">Yandex Music</option>
-        <option value="https://open.spotify.com" ${selectedService === 'spotify' ? 'selected' : ''} style="background:#0f1016; color:#fff;">Spotify</option>
-        <option value="custom" ${selectedService === 'custom' ? 'selected' : ''} style="background:#0f1016; color:#fff;">Жеке URL (Custom URL)</option>
+    <div class="gp-field" style="margin-bottom:20px;">
+      <label class="gp-label">${trans.mediaServiceLabel}</label>
+      <select class="gp-input" id="gp-media-service-select" style="background: rgba(18,18,22,0.85); color:#fff; border: 1px solid rgba(255,255,255,0.1); cursor:pointer; outline:none; padding:12px 16px; border-radius:14px; width: 100%;">
+        <option value="https://music.youtube.com" ${selectedService === 'youtube' ? 'selected' : ''} style="background:#141418; color:#fff;">YouTube Music (Default)</option>
+        <option value="https://music.yandex.ru" ${selectedService === 'yandex' ? 'selected' : ''} style="background:#141418; color:#fff;">Yandex Music</option>
+        <option value="https://open.spotify.com" ${selectedService === 'spotify' ? 'selected' : ''} style="background:#141418; color:#fff;">Spotify</option>
+        <option value="custom" ${selectedService === 'custom' ? 'selected' : ''} style="background:#141418; color:#fff;">Жеке URL (Custom URL)</option>
       </select>
     </div>
 
-    <div class="gp-field" id="gp-media-custom-url-container" style="display: ${selectedService === 'custom' ? 'block' : 'none'}; margin-top:12px; margin-bottom:24px; transition: all 0.3s ease;">
-      <label class="gp-label" style="font-size:9px; letter-spacing:1.5px; color:rgba(255,255,255,0.25);">${trans.customUrlLabel}</label>
-      <input class="gp-input gp-input-borderless" id="gp-media-custom-url-input" value="${customUrlVal.replace(/"/g,'&quot;')}" placeholder="https://example.com" type="url">
+    <div class="gp-field" id="gp-media-custom-url-container" style="display: ${selectedService === 'custom' ? 'block' : 'none'}; margin-top:10px; margin-bottom:20px; transition: all 0.3s ease;">
+      <label class="gp-label">${trans.customUrlLabel}</label>
+      <input class="gp-input" id="gp-media-custom-url-input" value="${customUrlVal.replace(/"/g,'&quot;')}" placeholder="https://example.com" type="url">
     </div>
 
     <!-- Бұлтты Синхронизация UI Block -->
-    <div class="gp-sync-card" style="margin-bottom:28px; padding: 14px 0; border-top: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: space-between;">
+    <div class="gp-sync-card" style="margin-bottom:22px; padding: 12px 16px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; display: flex; align-items: center; justify-content: space-between;">
       <div class="gp-sync-info" style="display: flex; flex-direction: column; gap: 4px;">
-        <label class="gp-label" style="font-size: 8px; letter-spacing: 1px; margin: 0; color: rgba(255,255,255,0.25);">${trans.syncStatusLabel}</label>
-        <div class="gp-sync-status-row" style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
-          <span class="gp-sync-dot ${dotClass}"></span>
-          <span class="gp-sync-text" style="font-size: 12px; font-weight: 500; color: ${statusColor === 'gp-sync-dot-connecting' ? '#ffbd2e' : statusColor};">${statusText}</span>
+        <label class="gp-label" style="font-size: 8.5px; letter-spacing: 1px; margin: 0; color: rgba(255,255,255,0.35);">${trans.syncStatusLabel}</label>
+        <div class="gp-sync-status-row" style="display: flex; align-items: center; gap: 8px; margin-top: 3px;">
+          <span class="gp-sync-dot ${dotClass}" style="background: #ffffff; box-shadow: 0 0 8px rgba(255,255,255,0.7); width: 8px; height: 8px; border-radius: 50%;"></span>
+          <span class="gp-sync-text" style="font-size: 12px; font-weight: 500; color: ${statusColor === 'gp-sync-dot-connecting' ? '#ffffff' : statusColor};">${statusText}</span>
         </div>
       </div>
       <div class="gp-sync-actions">
@@ -4135,23 +4131,23 @@ function gpRenderProfileTab() {
       </div>
     </div>
 
-    <div class="gp-stats" style="margin-top:24px; margin-bottom:32px;">
-      <div class="gp-stat" style="background:transparent !important; border:none !important;">
+    <div class="gp-stats" style="margin-top:16px; margin-bottom:24px;">
+      <div class="gp-stat">
         <div class="gp-stat-val-huge">${tabs.length}</div>
         <div class="gp-stat-label-micro">${trans.openTabs}</div>
       </div>
-      <div class="gp-stat" style="background:transparent !important; border:none !important;">
+      <div class="gp-stat">
         <div class="gp-stat-val-huge">${pinnedCount}</div>
         <div class="gp-stat-label-micro">${trans.pinnedSites}</div>
       </div>
-      <div class="gp-stat" style="background:transparent !important; border:none !important;">
+      <div class="gp-stat">
         <div class="gp-stat-val-huge">${vibeCount}</div>
         <div class="gp-stat-label-micro">${trans.vibeCountLabel}</div>
       </div>
     </div>
-    <div style="margin-top:20px; text-align: center;">
-      <label class="gp-label" style="font-size:9px; letter-spacing:1.5px; color:rgba(255,255,255,0.25);">${trans.regDate}</label>
-      <div style="font-size:13px;color:rgba(255,255,255,0.45); font-weight:500; margin-top:6px;">${created}</div>
+    <div style="margin-top:16px; text-align: center;">
+      <label class="gp-label" style="font-size:9px; letter-spacing:1.5px; color:rgba(255,255,255,0.35);">${trans.regDate}</label>
+      <div style="font-size:12.5px;color:rgba(255,255,255,0.55); font-weight:500; margin-top:4px;">${created}</div>
     </div>
   `;
 
@@ -4985,7 +4981,7 @@ function gpShowForgotPinDialog() {
         </p>
 
         ${userEmail ? `
-          <div style="background: rgba(0, 242, 254, 0.06); border: 1px solid rgba(0, 242, 254, 0.2); border-radius: 10px; padding: 10px; font-size: 12px; color: #00f2fe; margin-bottom: 16px; text-align: left; display: flex; align-items: center; gap: 8px;">
+          <div style="background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 12px; padding: 10px 14px; font-size: 12px; color: #ffffff; margin-bottom: 16px; text-align: left; display: flex; align-items: center; gap: 8px;">
             <span>👤</span>
             <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Google: <strong>${userEmail}</strong></span>
           </div>
@@ -5236,7 +5232,7 @@ function gpOpenModal(targetTab) {
 
   requestAnimationFrame(() => _gp.overlayEl.classList.add('gp-visible'));
 
-  if (logo) { logo.style.textShadow = '0 0 16px rgba(0,242,254,0.5)'; logo.style.color = '#00f2fe'; }
+  if (logo) { logo.style.textShadow = '0 0 16px rgba(255,255,255,0.7)'; logo.style.color = '#ffffff'; }
 }
 
 function gpCloseModal() {
