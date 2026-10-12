@@ -1274,7 +1274,9 @@ function openLensWithUrl(imageUrl) {
 
 // Lens button click → open file picker
 btnLens.addEventListener('click', () => lensFileInput.click());
-btnLensWelcome.addEventListener('click', () => lensFileInput.click());
+if (btnLensWelcome) {
+  btnLensWelcome.addEventListener('click', () => lensFileInput.click());
+}
 
 lensFileInput.addEventListener('change', (e) => {
   if (e.target.files && e.target.files[0]) {
