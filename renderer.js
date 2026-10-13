@@ -179,6 +179,8 @@ function getInitial(url) {
 function showToast(message) {
   const toast = document.createElement('div');
   toast.className = 'toast-notification';
+  toast.setAttribute('role', 'status');
+  toast.setAttribute('role', 'status');
   toast.textContent = message;
   document.body.appendChild(toast);
   requestAnimationFrame(() => toast.classList.add('show'));
@@ -3750,7 +3752,8 @@ const _gp = {
   newVibe: { name:'', emoji:'💻', color:'#00f2fe' },
   hiddenItems: [], // sidebar elements hidden by lock
   lockedOpenTabs: [], // tabs closed/hidden by lock
-  syncState: localStorage.getItem('gp_sync_state') || 'disconnected',
+  // Pending loopback logins cannot survive an application restart.
+  syncState: 'disconnected',
   syncUser: null,
   syncLoginTimeout: null
 };
@@ -3991,14 +3994,14 @@ function gpRenderProfileTab() {
     dotClass = 'gp-sync-dot-connecting';
     statusText = trans.syncConnecting;
     statusColor = 'gp-sync-dot-connecting';
-    btnHtml = `<button class="gp-btn gp-btn-secondary" style="padding: 6px 16px; font-size: 11px; border-radius: 12px; display: flex; align-items: center; justify-content: center;" disabled><span class="gp-spinner"></span></button>`;
+    btnHtml = `<button class="gp-btn gp-btn-secondary" id="gp-sync-cancel-btn" type="button">Кіруді тоқтату</button>`;
   } else if (syncUser) {
     dotClass = 'gp-sync-dot-connected';
     statusText = trans.syncConnected;
     statusColor = '#ffffff';
     btnHtml = `
       <div style="display:flex; align-items:center; gap:8px;">
-        <img src="${syncUser.photoURL || 'assets/avatar.png'}" style="width:24px; height:24px; border-radius:50%; border:1px solid rgba(255,255,255,0.2); object-fit:cover;">
+        <img src="${escapeAttr(safeHttpUrl(syncUser.photoURL) || 'assets/icon.png')}" style="width:24px; height:24px; border-radius:50%; border:1px solid rgba(255,255,255,0.2); object-fit:cover;">
         <button class="gp-btn gp-btn-secondary" id="gp-sync-auth-btn" style="padding: 6px 14px; font-size: 11px; font-weight:600; border-radius: 10px; background: rgba(255,255,255,0.1); color:#ffffff; border:1px solid rgba(255,255,255,0.2); cursor:pointer;">${trans.syncButtonLogout}</button>
       </div>
     `;
@@ -4091,11 +4094,21 @@ function gpRenderProfileTab() {
   `;
 
   // Sync auth button click
+  panel.querySelector('#gp-sync-cancel-btn')?.addEventListener('click', () => {
+    if (_gp.syncLoginTimeout) clearTimeout(_gp.syncLoginTimeout);
+    _gp.syncLoginTimeout = null;
+    _gp.syncState = 'disconnected';
+    localStorage.setItem('gp_sync_state', 'disconnected');
+    window.galamtorAPI.stopAuthServer();
+    showToast('Google кіруі тоқтатылды');
+    gpRenderProfileTab();
+  });
   const authBtn = panel.querySelector('#gp-sync-auth-btn');
   if (authBtn) {
     authBtn.addEventListener('click', () => {
       const user = auth.currentUser;
       if (!user) {
+        if (_gp.syncState === 'connecting') return;
         if (_gp.syncLoginTimeout) clearTimeout(_gp.syncLoginTimeout);
         _gp.syncState = 'connecting';
         localStorage.setItem('gp_sync_state', 'connecting');
@@ -5100,6 +5113,7 @@ function gpUpdateLockBadge() {
 }
 
 // ── 10. MODAL OPEN / CLOSE ───────────────────────────────────────
+let profileOpenFrame = null;
 function gpOpenModal(targetTab) {
   if (!_gp.overlayEl) {
     _gp.overlayEl = gpBuildOverlay();
@@ -5121,12 +5135,20 @@ function gpOpenModal(targetTab) {
     }, 300);
   }
 
-  requestAnimationFrame(() => _gp.overlayEl.classList.add('gp-visible'));
+  if (profileOpenFrame !== null) cancelAnimationFrame(profileOpenFrame);
+  _gp.overlayEl.inert = false;
+  profileOpenFrame = requestAnimationFrame(() => {
+    profileOpenFrame = null;
+    _gp.overlayEl.classList.add('gp-visible');
+  });
 
   if (logo) { logo.style.textShadow = '0 0 16px rgba(255,255,255,0.7)'; logo.style.color = '#ffffff'; }
 }
 
 function gpCloseModal() {
+  if (profileOpenFrame !== null) cancelAnimationFrame(profileOpenFrame);
+  profileOpenFrame = null;
+  if (_gp.overlayEl) _gp.overlayEl.inert = true;
   if (_gp.overlayEl) _gp.overlayEl.classList.remove('gp-visible');
 
   // Trigger reverse compression animation on logo
@@ -5379,7 +5401,7 @@ function gpInitProfileHub() {
         _gp.syncState = 'connected';
         localStorage.setItem('gp_sync_state', 'connected');
         showToast('✅ Google-мен синхрондау сәтті аяқталды!');
-        console.log('[Auth] signInWithCredential succeeded. User:', result.user.email);
+        console.log('[Auth] Google sign-in completed.');
 
         const stats = {
           openTabsCount: tabs.length,
@@ -5400,7 +5422,7 @@ function gpInitProfileHub() {
         _signInInProgress = false;
         _gp.syncState = 'disconnected';
         localStorage.setItem('gp_sync_state', 'disconnected');
-        console.error('[Auth] signInWithCredential error:', err.code, err.message);
+        console.error('[Auth] signInWithCredential error:', err.code || 'UNKNOWN');
 
         // Provide a human-readable toast for the most common error
         if (err.code === 'auth/invalid-credential') {
@@ -5437,86 +5459,6 @@ if (activeVibeId) {
 }
 
 // ── 13. BOOKMARKS, HISTORY & DOWNLOADS PANEL RENDERING ─────────────
-
-async function gpRenderBookmarksTab() {
-  const panel = _gp.overlayEl.querySelector('#gp-panel-bookmarks');
-  if (!panel) return;
-  panel.innerHTML = `
-    <div style="display:flex; align-items:center; justify-content:center; padding: 40px;">
-      <span class="gp-spinner"></span>
-    </div>
-  `;
-
-  try {
-    const bookmarks = (window.galamtorAPI && window.galamtorAPI.getBookmarks) ? await window.galamtorAPI.getBookmarks() : [];
-    let bHtml = '';
-    if (bookmarks && bookmarks.length > 0) {
-      bHtml = bookmarks.map(b => {
-        const domain = extractDomain(b.url);
-        const fav = b.favicon || `https://www.google.com/s2/favicons?domain=${domain}`;
-        return `
-          <div class="gp-bookmark-item" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(255,255,255,0.015);border:1px solid rgba(255,255,255,0.03);border-radius:10px;transition:all 0.2s ease;gap:10px;">
-            <img class="gp-bookmark-favicon" src="${escapeAttr(safeHttpUrl(fav))}" data-fallback="https://www.google.com/s2/favicons?domain=google.com" style="width:16px;height:16px;border-radius:3px;flex-shrink:0;">
-            <div style="flex:1;min-width:0;cursor:pointer;" class="gp-bm-click" data-url="${escapeAttr(b.url)}">
-              <div style="font-size:13px;font-weight:500;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(b.title)}</div>
-              <div style="font-size:11px;color:rgba(255,255,255,0.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(b.url)}</div>
-            </div>
-            <button class="gp-btn-delete-bm" data-id="${escapeAttr(b.id)}" style="background:transparent;border:none;color:rgba(255,255,255,0.3);font-size:16px;cursor:pointer;padding:4px;border-radius:4px;" title="Өшіру">×</button>
-          </div>
-        `;
-      }).join('');
-    } else {
-      bHtml = `<div style="text-align:center;padding:40px 20px;color:rgba(255,255,255,0.25);font-size:13px;">Бетбелгілер бос. ⌘D арқылы сайттарды қосыңыз.</div>`;
-    }
-
-    panel.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;margin-top:10px;">
-        <h3 style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.7);margin:0;">Бетбелгілер (${bookmarks ? bookmarks.length : 0})</h3>
-        <button class="gp-btn gp-btn-primary" id="gp-add-current-bm-btn" style="padding:5px 10px;font-size:10px;">+ Ағымдағы бетті қосу</button>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:8px;flex:1;overflow-y:auto;padding-right:4px;">
-        ${bHtml}
-      </div>
-    `;
-
-    panel.querySelectorAll('.gp-bookmark-favicon').forEach(img => {
-      img.addEventListener('error', () => {
-        const fallbackUrl = img.dataset.fallback;
-        if (fallbackUrl && img.src !== fallbackUrl) img.src = fallbackUrl;
-        else img.remove();
-      });
-    });
-
-    panel.querySelectorAll('.gp-bm-click').forEach(el => {
-      el.addEventListener('click', () => {
-        navigateTo(el.dataset.url);
-        gpCloseModal();
-      });
-    });
-
-    panel.querySelectorAll('.gp-btn-delete-bm').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        await window.galamtorAPI.removeBookmark(btn.dataset.id);
-        currentBookmarks = await window.galamtorAPI.getBookmarks();
-        renderBookmarksBar();
-        updateBookmarkButtonState();
-        showToast('🗑️ Бетбелгі өшірілді');
-        gpRenderBookmarksTab();
-      });
-    });
-
-    const addBtn = panel.querySelector('#gp-add-current-bm-btn');
-    if (addBtn) {
-      addBtn.addEventListener('click', async () => {
-        await toggleBookmarkCurrent();
-        gpRenderBookmarksTab();
-      });
-    }
-  } catch (err) {
-    console.error(err);
-    panel.textContent = `Қате: ${err.message}`;
-  }
-}
 
 async function gpRenderHistoryTab() {
   const panel = _gp.overlayEl?.querySelector('#gp-panel-history');
@@ -6702,6 +6644,8 @@ function openAiSidebarPanel() {
   updateAiSidebarPageInfo();
 
   panel.classList.add('active');
+  panel.inert = false;
+  panel.setAttribute('aria-hidden', 'false');
   document.body.classList.add('ai-panel-active');
   document.getElementById('btn-toggle-ai-sidebar')?.classList.add('ai-panel-open');
   updateAiSidebarFilesList();
@@ -6716,7 +6660,11 @@ function openAiSidebarPanel() {
 
 function closeAiSidebarPanel() {
   const panel = document.getElementById('ai-sidebar-panel');
-  if (panel) panel.classList.remove('active');
+  if (panel) {
+    panel.classList.remove('active');
+    panel.inert = true;
+    panel.setAttribute('aria-hidden', 'true');
+  }
   document.body.classList.remove('ai-panel-active');
   document.getElementById('btn-toggle-ai-sidebar')?.classList.remove('ai-panel-open');
   if ('speechSynthesis' in window) {
@@ -7289,151 +7237,34 @@ window.NCALayerBridge = NCALayerBridge;
 // ════════════════════════════════════════
 //  GALAMTOR BOOKMARKS ENGINE
 // ════════════════════════════════════════
-let currentBookmarks = [];
-
-async function initBookmarks() {
-  try {
-    if (window.galamtorAPI && window.galamtorAPI.getBookmarks) {
-      currentBookmarks = await window.galamtorAPI.getBookmarks();
-      renderBookmarksBar();
-      updateBookmarkButtonState();
-    }
-  } catch (err) {
-    console.error('[Bookmarks] Init error:', err);
-  }
-}
-
-function renderBookmarksBar() {
-  const container = document.getElementById('bookmarks-bar-items');
-  const bar = document.getElementById('bookmarks-bar');
-  if (!container || !bar) return;
-
-  if (!currentBookmarks || currentBookmarks.length === 0) {
-    bar.style.display = 'none';
-    container.innerHTML = '';
-    return;
-  }
-
-  bar.style.display = 'flex';
-  container.replaceChildren();
-  currentBookmarks.forEach(b => {
-    const domain = extractDomain(b.url);
-    const fav = b.favicon || `https://www.google.com/s2/favicons?domain=${domain}`;
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = 'bookmark-bar-item';
-    item.dataset.url = b.url;
-    item.title = `${b.title} (${b.url})`;
-    const img = document.createElement('img');
-    img.src = safeHttpUrl(fav) || '';
-    img.onerror = () => { img.onerror = null; img.style.display = 'none'; };
-    const label = document.createElement('span');
-    label.textContent = b.title;
-    item.append(img, label);
-    item.addEventListener('click', (event) => {
-      if (event.metaKey || event.ctrlKey) createTab(item.dataset.url);
-      else navigateTo(item.dataset.url);
-    });
-    item.addEventListener('auxclick', (event) => {
-      if (event.button === 1) { event.preventDefault(); createTab(item.dataset.url); }
-    });
-    item.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      if (confirm(`«${item.querySelector('span').textContent}» бетбелгісін өшіру керек пе?`)) {
-        removeBookmarkByUrl(item.dataset.url);
-      }
-    });
-    container.appendChild(item);
-  });
-}
-
-async function updateBookmarkButtonState() {
-  const btn = document.getElementById('btn-bookmark-current');
-  if (!btn) return;
-  const tab = tabs.find(t => t.id === activeTabId);
-  if (!tab || tab.isHome || !tab.url) {
-    btn.classList.remove('bookmarked');
-    btn.title = 'Осы бетті бетбелгіге қосу (⌘D)';
-    return;
-  }
-
-  try {
-    const pageUrl = tab.url;
-    const isBm = await window.galamtorAPI.isBookmarked(pageUrl);
-    if (activeTabId !== tab.id || tab.url !== pageUrl) return;
-    btn.classList.toggle('bookmarked', !!isBm);
-    btn.title = isBm ? 'Бетбелгілерден алып тастау (⌘D)' : 'Осы бетті бетбелгіге қосу (⌘D)';
-  } catch (e) {
-    btn.classList.remove('bookmarked');
-  }
-}
-
-async function toggleBookmarkCurrent() {
-  const active = tabs.find(t => t.id === activeTabId);
-  const tab = active ? { ...active } : null;
-  if (!tab || tab.isHome || !tab.url) {
-    showToast('⚠️ Басты бетті бетбелгіге қосу мүмкін емес');
-    return;
-  }
-
-  try {
-    const isBm = await window.galamtorAPI.isBookmarked(tab.url);
-    if (isBm) {
-      await removeBookmarkByUrl(tab.url);
-    } else {
-      const success = await window.galamtorAPI.addBookmark({
-        title: tab.title || tab.url,
-        url: tab.url,
-        favicon: tab.favicon || ''
-      });
-      if (success) {
-        currentBookmarks = await window.galamtorAPI.getBookmarks();
-        renderBookmarksBar();
-        updateBookmarkButtonState();
-        showToast('⭐️ Бетбелгілерге сәтті қосылды!');
-      } else showToast('Бетбелгі сақталмады');
-    }
-  } catch (err) {
-    console.error('[Bookmarks] Toggle error:', err);
-  }
-}
-
-async function removeBookmarkByUrl(url) {
-  try {
-    if (!await window.galamtorAPI.removeBookmark(url)) { showToast('Бетбелгі өшірілмеді'); return; }
-    currentBookmarks = await window.galamtorAPI.getBookmarks();
-    renderBookmarksBar();
-    updateBookmarkButtonState();
-    showToast('🗑️ Бетбелгі өшірілді');
-  } catch (err) {
-    console.error('[Bookmarks] Remove error:', err);
-  }
-}
-
 // ════════════════════════════════════════
 //  LIVE EXCHANGE RATES ENGINE
 // ════════════════════════════════════════
-async function updateLiveExchangeRatesUI() {
+async function updateLiveExchangeRatesUI(force = false) {
   try {
     if (!window.galamtorAPI || !window.galamtorAPI.getExchangeRates) return;
-    const rates = await window.galamtorAPI.getExchangeRates();
+    const rates = await window.galamtorAPI.getExchangeRates(force);
     if (!rates) return;
 
     const usdEl = document.getElementById('rate-usd');
     const eurEl = document.getElementById('rate-eur');
     const rubEl = document.getElementById('rate-rub');
 
-    if (usdEl && rates.USD) usdEl.textContent = rates.USD;
-    if (eurEl && rates.EUR) eurEl.textContent = rates.EUR;
-    if (rubEl && rates.RUB) rubEl.textContent = rates.RUB;
+    if (usdEl) usdEl.textContent = Number.isFinite(rates.USD) && rates.USD > 0 ? rates.USD : '—';
+    if (eurEl) eurEl.textContent = Number.isFinite(rates.EUR) && rates.EUR > 0 ? rates.EUR : '—';
+    if (rubEl) rubEl.textContent = Number.isFinite(rates.RUB) && rates.RUB > 0 ? rates.RUB : '—';
     const sourceEl = document.getElementById('currency-source');
     if (sourceEl) {
       sourceEl.textContent = rates.updatedAt
         ? `Анықтамалық бағам • ${new Date(rates.updatedAt).toLocaleDateString('kk-KZ')} • open.er-api.com`
         : rates.USD ? 'Анықтамалық бағам • уақыт белгісіз' : 'Бағам дерегі қолжетімсіз • open.er-api.com';
+      if (rates.refreshFailed && rates.USD) sourceEl.textContent += ' • Жаңарту сәтсіз';
     }
-  } catch (err) {
-    console.warn('[Rates] Live rates UI error:', err);
+    return !!rates.USD && !rates.refreshFailed;
+  } catch {
+    const source = document.getElementById('currency-source');
+    if (source) source.textContent = 'Бағамды жаңарту мүмкін болмады. Қайталап көріңіз.';
+    return false;
   }
 }
 
@@ -7480,7 +7311,7 @@ function setupFindInPage() {
       return;
     }
     try {
-      wv.findInPage(text, { forward, findNext });
+      wv.findInPage(text, { forward, findNext: !findNext });
     } catch (e) {
       console.warn('findInPage error:', e);
     }
@@ -7650,15 +7481,26 @@ setupFindInPage();
 setupMenuDispatcher();
 updateLiveExchangeRatesUI();
 
-// Hook Currency Card click
+// The whole card remains clickable and exposes the same action to keyboards.
 const csCurrencyCard = document.getElementById('cs-currency');
 if (csCurrencyCard) {
+  csCurrencyCard.setAttribute('role', 'button');
+  csCurrencyCard.tabIndex = 0;
   csCurrencyCard.style.cursor = 'pointer';
-  csCurrencyCard.addEventListener('click', async () => {
-    csCurrencyCard.style.transform = 'scale(0.98)';
-    setTimeout(() => { csCurrencyCard.style.transform = ''; }, 150);
-    await updateLiveExchangeRatesUI();
-    showToast(document.getElementById('rate-usd')?.textContent === '—' ? 'Бағам дерегі қолжетімсіз' : '💱 Валюта бағамы тексерілді');
+  let refreshing = false;
+  const refreshRates = async () => {
+    if (refreshing) return;
+    refreshing = true;
+    csCurrencyCard.setAttribute('aria-busy', 'true');
+    showToast('Валюта бағамы жаңартылуда…');
+    try {
+      const success = await updateLiveExchangeRatesUI(true);
+      showToast(success ? 'Валюта бағамы жаңартылды' : 'Бағам жаңартылмады. Желі байланысын тексеріп, қайталап көріңіз.');
+    } finally { refreshing = false; csCurrencyCard.setAttribute('aria-busy', 'false'); }
+  };
+  csCurrencyCard.addEventListener('click', refreshRates);
+  csCurrencyCard.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); refreshRates(); }
   });
 }
 
@@ -7983,8 +7825,10 @@ function initStartPageCustomizer() {
   if (presetsGrid) {
     presetsGrid.innerHTML = '';
     GALAMTOR_PRESET_WALLPAPERS.forEach(preset => {
-      const card = document.createElement('div');
+      const card = document.createElement('button');
+      card.type = 'button';
       card.className = 'preset-card';
+      card.setAttribute('aria-label', preset.name);
       card.dataset.preset = preset.id;
       card.innerHTML = `
         <div class="preset-thumb-wrap">

@@ -1,7 +1,7 @@
 {
   "name": "galamtor",
   "productName": "Galamtor",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Galamtor - Kazakhstani Browser",
   "author": "Galamtor contributors",
   "license": "MIT",
@@ -21,7 +21,9 @@
     "release": "electron-builder --publish onTag",
     "serve": "node server.js",
     "test": "node --test",
-    "check": "node --check index.js && node --check preload.js && node --check renderer.js && node --check url-utils.js && node --check lens-utils.js && node --check legal-assistant.js && node --check ncalayer-diagnostics.js && node --check public/auth-flow.js && node --check browser-state.js && node --check welcome-utils.js && node --check browser-controls.js && node --check profile-storage.js && node --check auth-utils.js && node --check security-utils.js && node --check ollama-client.js && node --check chatgpt-plan.js && node --check pet-companion.js && node --check server.js && npm run build:assets"
+    "check": "node --check index.js && node --check preload.js && node --check renderer.js && node --check url-utils.js && node --check lens-utils.js && node --check legal-assistant.js && node --check ncalayer-diagnostics.js && node --check public/auth-flow.js && node --check browser-state.js && node --check welcome-utils.js && node --check browser-controls.js && node --check profile-storage.js && node --check auth-utils.js && node --check security-utils.js && node --check ollama-client.js && node --check chatgpt-plan.js && node --check pet-companion.js && node --check server.js && node --check bookmark-controls.js && node --check public/release-utils.js && node --check public/github-releases.js && npm run build:assets",
+    "test:ui": "node scripts/qa-smoke.cjs",
+    "test:web": "node scripts/qa-web.cjs"
   },
   "dependencies": {
     "electron-log": "^5.4.4",
@@ -32,7 +34,8 @@
     "electron": "^44.7.0",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2",
-    "firebase": "^13.0.0"
+    "firebase": "^13.0.0",
+    "playwright": "^1.64.0"
   },
   "allowScripts": {
     "electron@44.7.0": true,
@@ -65,7 +68,9 @@
       "auth-utils.js",
       "security-utils.js",
       "ollama-client.js",
-      "chatgpt-plan.js"
+      "chatgpt-plan.js",
+      "bookmark-controls.js",
+      "public/release-utils.js"
     ],
     "publish": [
       {
@@ -93,7 +98,8 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "identity": null
     },
     "win": {
       "icon": "build/icon.ico",
@@ -133,5 +139,8 @@
         }
       ]
     }
+  },
+  "galamtorRelease": {
+    "unsignedPreview": true
   }
 }

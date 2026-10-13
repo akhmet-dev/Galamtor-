@@ -51,6 +51,26 @@
     }).slice(0, 2000);
   }
 
+  // All mutations share URL canonicalization and preserve record identity.
+  // A collision during editing must not silently overwrite another favorite.
+  function changeBookmark(value, input, id = null) {
+    const bookmarks = normalizeBookmarks(value);
+    const url = webURL(input?.url);
+    const title = typeof input?.title === 'string' ? input.title.trim().slice(0, 300) : '';
+    if (!url || !title) return { ok: false, error: 'invalid' };
+    const index = id === null ? bookmarks.findIndex(item => item.url === url) : bookmarks.findIndex(item => item.id === id);
+    if (id !== null && index < 0) return { ok: false, error: 'missing' };
+    if (id !== null && bookmarks.some((item, i) => i !== index && item.url === url)) return { ok: false, error: 'duplicate' };
+    if (index >= 0) {
+      const previous = bookmarks[index];
+      bookmarks[index] = { ...previous, url, title, favicon: previous.url === url ? previous.favicon : '' };
+    } else {
+      bookmarks.unshift({ id: `bm_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`, url, title,
+        favicon: webURL(input.favicon), createdAt: Date.now() });
+    }
+    return { ok: true, bookmarks: bookmarks.slice(0, 2000) };
+  }
+
   function normalizeDownloads(value) {
     if (!Array.isArray(value)) return [];
     return value.filter(entry => isRecord(entry) && !entry.isIncognito && typeof entry.filename === 'string' && typeof entry.savePath === 'string')
@@ -84,5 +104,5 @@
     return true;
   }
 
-  return { isRecord, webURL, normalizeSessionTabs, normalizeHistory, normalizeBookmarks, normalizeDownloads, validateProfileImport };
+  return { isRecord, webURL, normalizeSessionTabs, normalizeHistory, normalizeBookmarks, changeBookmark, normalizeDownloads, validateProfileImport };
 });

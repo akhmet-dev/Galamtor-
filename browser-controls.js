@@ -147,7 +147,9 @@
     checkingUpdate = true;
     showToast('Жаңартулар тексерілуде…');
     try {
-      if (!await window.galamtorAPI?.checkForUpdate()) {
+      const result = await window.galamtorAPI?.checkForUpdate();
+      if (result?.manual) checkingUpdate = false;
+      if (!result) {
         checkingUpdate = false;
         showToast('Бұл жинақта автожаңарту қолжетімсіз');
       }

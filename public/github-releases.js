@@ -1,10 +1,9 @@
 (function() {
   'use strict';
 
-  const CACHE_KEY = 'galamtor_github_release_cache_v3';
+  const CACHE_KEY = 'galamtor_github_release_cache_v4';
   const CACHE_TIME_MS = 15 * 60 * 1000; // 15 minutes
-  const REPO_API_URL = 'https://api.github.com/repos/akhmet-dev/Galamtor-/releases/latest';
-  const FALLBACK_VERSION = 'v1.4.0';
+  const FALLBACK_VERSION = 'v1.5.0';
 
   const KAZAKH_MONTHS = [
     'Қаңтар', 'Ақпан', 'Наурыз', 'Сәуір', 'Мамыр', 'Маусым',
@@ -48,28 +47,15 @@
 
   async function fetchLatestRelease() {
     try {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Date.now() - parsed.timestamp < CACHE_TIME_MS) {
-          return parsed.data;
-        }
-      }
-
-      const response = await fetch(REPO_API_URL);
-      if (!response.ok) throw new Error('API request failed');
-      const data = await response.json();
-
-      localStorage.setItem(CACHE_KEY, JSON.stringify({
-        timestamp: Date.now(),
-        data: data
-      }));
-
-      return data;
-    } catch (error) {
-      console.warn('Failed to fetch GitHub release:', error);
-      return null;
-    }
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+      const validated = window.GalamtorReleaseUtils.normalizeRelease(cached?.data);
+      if (validated && !window.GalamtorReleaseUtils.isNewerVersion(FALLBACK_VERSION, validated.tag_name) && cached.timestamp <= Date.now() && Date.now() - cached.timestamp < CACHE_TIME_MS) return validated;
+    } catch { /* Blocked or corrupt browser storage must not disable downloads. */ }
+    try {
+      const release = await window.GalamtorReleaseUtils.fetchRelease();
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data: release })); } catch {}
+      return release;
+    } catch { return null; }
   }
 
   function escapeHtml(value) {
@@ -149,11 +135,14 @@
       `;
       
       release.assets.forEach(asset => {
+        if (!/\.(dmg|zip|exe|msi|txt)$/i.test(asset.name)) return;
         if (!/^https:\/\/github\.com\//.test(asset.browser_download_url)) return;
+        const platformLabel = /-arm64(?:-mac)?\.(dmg|zip)$/.test(asset.name) ? 'Apple Silicon (ARM64) — '
+          : /^Galamtor-[\d.]+(?:-mac)?\.(dmg|zip)$/.test(asset.name) ? 'Intel (x64) — ' : '';
         dropdownHTML += `
           <li style="margin-bottom: 8px;">
             <a href="${escapeHtml(asset.browser_download_url)}" style="text-decoration: none; color: inherit; border-bottom: 1px dotted currentColor;">
-              ${escapeHtml(asset.name)} (${formatBytes(asset.size)})
+              ${platformLabel}${escapeHtml(asset.name)} (${formatBytes(asset.size)})
             </a>
           </li>
         `;

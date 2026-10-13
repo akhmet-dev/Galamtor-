@@ -34,7 +34,7 @@ test('after returning without a Firebase result, asks for a manual retry instead
   assert.deepEqual(flow.resolveRedirect({ mode: null, state: null, hasResult: false, storage }), { action: 'returned-without-result', state });
   assert.equal(storage.getItem(flow.REDIRECT_PENDING_KEY), null);
   assert.equal(storage.getItem(flow.LOGIN_STATE_KEY), state);
-  assert.deepEqual(flow.resolveRedirect({ mode: null, state: null, hasResult: false, storage }), { action: 'idle', state: null });
+  assert.deepEqual(flow.resolveRedirect({ mode: null, state: null, hasResult: false, storage }), { action: 'returned-without-result', state });
 });
 
 test('completes a successful redirect and preserves its CSRF state for the loopback callback', () => {
@@ -54,4 +54,26 @@ test('ignores malformed login state and clears both state keys after callback su
   flow.clearLogin(storage);
   assert.equal(storage.getItem(flow.LOGIN_STATE_KEY), null);
   assert.equal(storage.getItem(flow.REDIRECT_PENDING_KEY), null);
+});
+
+test('reloading the original login URL never restarts the same failed chooser', () => {
+  const storage = createStorage();
+  assert.equal(flow.resolveRedirect({ mode: 'login', state, hasResult: false, storage }).action, 'start');
+  for (let i = 0; i < 5; i++) {
+    assert.equal(flow.resolveRedirect({ mode: 'login', state, hasResult: false, storage }).action, 'returned-without-result');
+  }
+});
+
+test('a new explicit login state replaces an abandoned attempt', () => {
+  const storage = createStorage({ [flow.LOGIN_STATE_KEY]: state, [flow.REDIRECT_PENDING_KEY]: state });
+  const next = 'b'.repeat(64);
+  assert.deepEqual(flow.resolveRedirect({ mode: 'login', state: next, hasResult: false, storage }), { action: 'start', state: next });
+  assert.equal(storage.getItem(flow.LOGIN_STATE_KEY), next);
+});
+
+test('unavailable browser storage reports a recoverable setup state without starting OAuth', () => {
+  const storage = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); }, removeItem() { throw new Error('blocked'); } };
+  assert.deepEqual(flow.resolveRedirect({ mode: 'login', state, hasResult: false, storage }), { action: 'storage-unavailable', state: null });
+  assert.equal(flow.markRedirectPending(state, storage), false);
+  assert.doesNotThrow(() => flow.clearLogin(storage));
 });

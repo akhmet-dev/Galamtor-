@@ -149,11 +149,12 @@ contextBridge.exposeInMainWorld('galamtorAPI', {
   // ── Bookmarks API ──
   getBookmarks: () => ipcRenderer.invoke('bookmarks:get'),
   addBookmark: (bookmark) => ipcRenderer.invoke('bookmarks:add', bookmark),
+  updateBookmark: (id, bookmark) => ipcRenderer.invoke('bookmarks:update', id, bookmark),
   removeBookmark: (idOrUrl) => ipcRenderer.invoke('bookmarks:remove', idOrUrl),
   isBookmarked: (url) => ipcRenderer.invoke('bookmarks:check', url),
 
   // ── Currency Rates API ──
-  getExchangeRates: () => ipcRenderer.invoke('rates:get'),
+  getExchangeRates: (force = false) => ipcRenderer.invoke('rates:get', force === true),
 
   // ── Native Application Menu Action Bridge ──
   onMenuAction: (callback) => {

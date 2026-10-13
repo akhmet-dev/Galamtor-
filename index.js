@@ -5,6 +5,8 @@ const https = require('https');
 const url = require('url');
 const fs = require('fs');
 const crypto = require('crypto');
+const { fetchRelease, isNewerVersion } = require('./public/release-utils');
+const unsignedMacPreview = process.platform === 'darwin' && require('./package.json').galamtorRelease?.unsignedPreview === true;
 const { readJsonFile, writeJsonAtomic } = require('./profile-storage');
 const { validateAuthCallback } = require('./auth-utils');
 const { isPhishingOrScam, isYouTubeURL } = require('./security-utils');
@@ -16,12 +18,12 @@ const {
   hasVerifiableLegalEvidence,
   extractLegalPurposeSentence
 } = require('./legal-assistant');
-const { isRecord, webURL, normalizeHistory, normalizeSessionTabs, normalizeBookmarks, normalizeDownloads } = require('./browser-state');
+const { isRecord, webURL, normalizeHistory, normalizeSessionTabs, normalizeBookmarks, changeBookmark, normalizeDownloads } = require('./browser-state');
 
-if (!app.isPackaged) {
+if (!app.isPackaged || app.commandLine.hasSwitch('galamtor-qa')) {
   const developmentProfile = process.env.GALAMTOR_DEV_PROFILE
     ? path.resolve(process.env.GALAMTOR_DEV_PROFILE)
-    : path.join(app.getPath('appData'), 'Galamtor Development');
+    : path.join(app.getPath('appData'), app.isPackaged ? 'Galamtor QA' : 'Galamtor Development');
   fs.mkdirSync(developmentProfile, { recursive: true });
   app.setPath('userData', developmentProfile);
 }
@@ -475,14 +477,14 @@ function loadBookmarks() {
   const stored = readJsonFile(getBookmarksPath(), null, Array.isArray);
   if (stored !== null) return normalizeBookmarks(stored);
   // Default Kazakh digital ecosystem bookmarks
-  return [
+  return normalizeBookmarks([
     { id: 'bm_1', title: 'Kaspi.kz', url: 'https://kaspi.kz', favicon: 'https://kaspi.kz/favicon.ico', createdAt: Date.now() },
     { id: 'bm_2', title: 'eGov.kz', url: 'https://egov.kz', favicon: 'https://egov.kz/favicon.ico', createdAt: Date.now() },
     { id: 'bm_3', title: 'Tengrinews.kz', url: 'https://tengrinews.kz', favicon: 'https://tengrinews.kz/favicon.ico', createdAt: Date.now() },
     { id: 'bm_4', title: 'Enbek.kz', url: 'https://enbek.kz', favicon: 'https://enbek.kz/favicon.ico', createdAt: Date.now() },
     { id: 'bm_5', title: 'Kolesa.kz', url: 'https://kolesa.kz', favicon: 'https://kolesa.kz/favicon.ico', createdAt: Date.now() },
     { id: 'bm_6', title: 'Krisha.kz', url: 'https://krisha.kz', favicon: 'https://krisha.kz/favicon.ico', createdAt: Date.now() }
-  ];
+  ]);
 }
 
 function saveBookmarks(bookmarks) {
@@ -491,6 +493,7 @@ function saveBookmarks(bookmarks) {
 }
 
 // ── Exchange rates from open.er-api.com ──
+let exchangeRatesRequest = null;
 let cachedRates = { USD: null, EUR: null, RUB: null, CNY: null, updatedAt: 0, fetchedAt: 0 };
 
 async function fetchLiveExchangeRates() {
@@ -525,11 +528,11 @@ async function fetchLiveExchangeRates() {
             return;
           }
         } catch (e) {}
-        resolve(cachedRates);
+        resolve({ ...cachedRates, refreshFailed: true });
       });
     });
     req.setTimeout(5000, () => req.destroy(new Error('Timed out')));
-    req.on('error', () => resolve(cachedRates));
+    req.on('error', () => resolve({ ...cachedRates, refreshFailed: true }));
   });
 }
 
@@ -670,19 +673,14 @@ function addDownloadEntry(entry) {
 
 // ── OAuth Handshake Loopback Server ──
 function startAuthServer(win, state) {
+  if (authServer) return;
   if (authTimeout) clearTimeout(authTimeout);
   authTimeout = null;
   authState = state;
-  if (authServer) {
-    console.log('[AuthServer] Stale server detected — closing before restart.');
-    authServer.close();
-    authServer = null;
-  }
 
   console.log('[AuthServer] Starting local server on port 4242...');
 
   authServer = http.createServer((req, res) => {
-    console.log(`[AuthServer] Incoming: ${req.method} ${req.url}`);
     const parsedUrl = url.parse(req.url, true);
     const originAllowed = ALLOWED_AUTH_ORIGINS.includes(req.headers.origin);
     const hostAllowed = req.headers.host === '127.0.0.1:4242';
@@ -725,7 +723,7 @@ function startAuthServer(win, state) {
         try {
           payload = JSON.parse(rawBody);
         } catch (parseErr) {
-          console.error('[AuthServer] Failed to parse JSON body:', parseErr.message);
+          console.error('[AuthServer] Callback contained invalid JSON.');
           res.writeHead(400, { ...getCorsHeaders(req), 'Content-Type': 'text/plain' });
           res.end('Bad Request: invalid JSON');
           return;
@@ -781,6 +779,11 @@ function startAuthServer(win, state) {
   authServer.listen(4242, '127.0.0.1', () => {
     console.log('[AuthServer] Listening on http://127.0.0.1:4242');
     authTimeout = setTimeout(stopAuthServer, 10 * 60 * 1000);
+    // Open the chooser only after its callback server is ready.
+    shell.openExternal(`${AUTH_REDIRECT_ORIGIN}/auth.html?mode=login&state=${state}`).catch(() => {
+      stopAuthServer();
+      if (win && !win.isDestroyed()) win.webContents.send('auth-server-error', 'OPEN_FAILED');
+    });
   });
 }
 
@@ -825,7 +828,7 @@ function createWindow() {
 }
 
 function setupAutoUpdater() {
-  if (!autoUpdater || !app.isPackaged) return;
+  if (!autoUpdater || !app.isPackaged || unsignedMacPreview) return;
   const { dialog } = require('electron');
 
   setTimeout(() => {
@@ -1189,29 +1192,54 @@ app.on('web-contents-created', (event, contents) => {
 });
 
 // ── IPC Handlers with Sender Validation ──
-ipcMain.handle('update:check', (event) => {
-  if (!validateSender(event) || !autoUpdater || !app.isPackaged) return false;
+let manualUpdateRequest = null;
+ipcMain.handle('update:check', async (event) => {
+  if (!validateSender(event)) return false;
+  if (unsignedMacPreview) {
+    if (manualUpdateRequest) return manualUpdateRequest;
+    manualUpdateRequest = (async () => {
+      try {
+        const release = await fetchRelease();
+        if (!isNewerVersion(release.tag_name, app.getVersion())) {
+          if (!event.sender.isDestroyed()) event.sender.send('update-not-available', { version: app.getVersion() });
+        } else {
+          const result = await dialog.showMessageBox(mainWindow, {
+            type: 'info', title: 'Galamtor жаңартуы',
+            message: `${release.tag_name} нұсқасы дайын`,
+            detail: 'Қолтаңбасыз preview қолмен жаңартылады. Ресми релизден Mac түріңізге сай DMG жүктеп, қолданбаны жауып, Applications ішіндегі Galamtor-ды ауыстырыңыз. Профиль деректері сақталады.',
+            buttons: ['Релизді ашу', 'Кейінірек'], defaultId: 0, cancelId: 1
+          });
+          if (result.response === 0) await shell.openExternal(release.html_url);
+        }
+        return { manual: true };
+      } catch {
+        if (!event.sender.isDestroyed()) event.sender.send('update-error', 'Желі байланысын тексеріп, қайталап көріңіз.');
+        return { manual: true };
+      } finally { manualUpdateRequest = null; }
+    })();
+    return manualUpdateRequest;
+  }
+  if (!autoUpdater || !app.isPackaged) return false;
   autoUpdater.checkForUpdates().catch(err => log.error('Manual update check error:', err));
   return true;
 });
-ipcMain.handle('browser:info', event => validateSender(event) ? { version: app.getVersion() } : {});
+ipcMain.handle('browser:info', event => validateSender(event) ? { version: app.getVersion(), updateMode: unsignedMacPreview ? 'manual' : 'automatic' } : {});
 ipcMain.handle('update:download', (event) => {
-  if (!validateSender(event) || !autoUpdater) return false;
+  if (!validateSender(event) || !autoUpdater || unsignedMacPreview || !app.isPackaged) return false;
   autoUpdater.downloadUpdate();
   return true;
 });
 ipcMain.handle('update:install', (event) => {
-  if (!validateSender(event) || !autoUpdater) return false;
+  if (!validateSender(event) || !autoUpdater || unsignedMacPreview || !app.isPackaged) return false;
   autoUpdater.quitAndInstall(false, true);
   return true;
 });
 
 ipcMain.on('start-google-login', (event) => {
-  if (!validateSender(event)) return;
+  if (!validateSender(event) || authServer) return;
   const win = BrowserWindow.fromWebContents(event.sender);
   authState = crypto.randomBytes(32).toString('hex');
   startAuthServer(win, authState);
-  shell.openExternal(`${AUTH_REDIRECT_ORIGIN}/auth.html?mode=login&state=${authState}`);
 });
 
 ipcMain.on('stop-auth-server', (event) => {
@@ -1326,44 +1354,38 @@ ipcMain.handle('bookmarks:get', (event) => {
 });
 
 ipcMain.handle('bookmarks:add', (event, bookmark) => {
-  if (!validateSender(event) || !bookmark || !bookmark.url) return false;
-  try {
-    if (!['http:', 'https:'].includes(new URL(bookmark.url).protocol)) return false;
-  } catch { return false; }
-  let bookmarks = loadBookmarks();
-  const idx = bookmarks.findIndex(b => b.url === bookmark.url);
-  if (idx >= 0) {
-    bookmarks[idx] = { ...bookmarks[idx], ...bookmark, updatedAt: Date.now() };
-  } else {
-    bookmarks.unshift({
-      id: 'bm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-      title: bookmark.title || 'Жаңа бетбелгі',
-      url: bookmark.url,
-      favicon: bookmark.favicon || '',
-      createdAt: Date.now()
-    });
-  }
-  return saveBookmarks(bookmarks);
+  if (!validateSender(event)) return false;
+  const result = changeBookmark(loadBookmarks(), bookmark);
+  return result.ok && saveBookmarks(result.bookmarks);
+});
+
+ipcMain.handle('bookmarks:update', (event, id, bookmark) => {
+  if (!validateSender(event) || typeof id !== 'string') return { ok: false, error: 'invalid' };
+  const result = changeBookmark(loadBookmarks(), bookmark, id);
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: saveBookmarks(result.bookmarks), error: 'save' };
 });
 
 ipcMain.handle('bookmarks:remove', (event, idOrUrl) => {
   if (!validateSender(event) || !idOrUrl) return false;
   let bookmarks = loadBookmarks();
-  bookmarks = bookmarks.filter(b => b.id !== idOrUrl && b.url !== idOrUrl);
+  const address = webURL(idOrUrl);
+  bookmarks = bookmarks.filter(b => b.id !== idOrUrl && b.url !== address);
   return saveBookmarks(bookmarks);
 });
 
 ipcMain.handle('bookmarks:check', (event, url) => {
   if (!validateSender(event) || !url) return false;
   const bookmarks = loadBookmarks();
-  return bookmarks.some(b => b.url === url);
+  return bookmarks.some(b => b.url === webURL(url));
 });
 
 // ── Rates IPC Handler ──
-ipcMain.handle('rates:get', async (event) => {
+ipcMain.handle('rates:get', async (event, force = false) => {
   if (!validateSender(event)) return cachedRates;
-  if (Date.now() - cachedRates.updatedAt > 30 * 60 * 1000) {
-    return await fetchLiveExchangeRates();
+  if (force === true || Date.now() - cachedRates.fetchedAt > 30 * 60 * 1000) {
+    if (!exchangeRatesRequest) exchangeRatesRequest = fetchLiveExchangeRates().finally(() => { exchangeRatesRequest = null; });
+    return await exchangeRatesRequest;
   }
   return cachedRates;
 });

@@ -127,6 +127,9 @@
   </div>
 
   <script>
+  (function initializeAuthPage() {
+    let authStorage = null;
+    try { authStorage = window.sessionStorage; } catch {}
     const authParams = new URLSearchParams(window.location.search);
     const requestedLoginState = authParams.get('state');
     const requestedMode = authParams.get('mode');
@@ -180,6 +183,12 @@
     };
 
     log("Firebase SDK loading...");
+    if (typeof firebase === 'undefined' || typeof GalamtorAuthFlow === 'undefined') {
+      setStatus('Google кіру модулі жүктелмеді. Желіні тексеріп, қайталап көріңіз.');
+      showSpinner(false);
+      showRetryButton(() => window.location.reload());
+      return;
+    }
     firebase.initializeApp(firebaseConfig);
     const auth     = firebase.auth();
     const provider = new firebase.auth.GoogleAuthProvider();
@@ -191,7 +200,7 @@
     function getRedirectResultWithRetry(retries = 3, delay = 1000) {
       return auth.getRedirectResult()
         .catch(async (error) => {
-          log(`getRedirectResult failed: ${error.code || 'unknown'} - ${error.message}`, 'warn');
+          log(`getRedirectResult failed: ${error.code || 'unknown'}`, 'warn');
           const isNetworkError = error.code === 'auth/network-request-failed' || 
                                  error.code === 'auth/timeout' ||
                                  (error.message && error.message.toLowerCase().includes('network')) ||
@@ -239,7 +248,12 @@
     function startLoginRedirect(state) {
       if (redirectStarting || !GalamtorAuthFlow.isValidState(state)) return;
       redirectStarting = true;
-      GalamtorAuthFlow.markRedirectPending(state, sessionStorage);
+      if (!GalamtorAuthFlow.markRedirectPending(state, authStorage)) {
+        redirectStarting = false;
+        setStatus('Браузердің сақтау рұқсатын қосып, Galamtor қолданбасынан кіруді қайта бастаңыз.');
+        showSpinner(false);
+        return;
+      }
       setStatus('Google жүйесіне бағытталуда...');
       showSpinner(true);
       document.getElementById('retry-container').innerHTML = '';
@@ -248,8 +262,8 @@
       window.history.replaceState({}, document.title, cleanUrl);
       auth.signInWithRedirect(provider).catch(err => {
         redirectStarting = false;
-        GalamtorAuthFlow.clearRedirectPending(sessionStorage);
-        log(`signInWithRedirect error: ${err.message}`, 'error');
+        GalamtorAuthFlow.clearRedirectPending(authStorage);
+        log(`signInWithRedirect error: ${err.code || 'unknown'}`, 'error');
         presentAuthError(err);
         if (err.code !== 'auth/unauthorized-domain') {
           showRetryButton(() => startLoginRedirect(state));
@@ -269,13 +283,13 @@
           mode: requestedMode,
           state: requestedLoginState,
           hasResult: hasRedirectUser,
-          storage: sessionStorage
+          storage: authStorage
         });
 
         if (hasRedirectUser) {
           if (redirectDecision.action !== 'complete' || !redirectDecision.state) {
             log('Google returned a user but the local login state is missing or invalid.', 'error');
-            GalamtorAuthFlow.clearLogin(sessionStorage);
+            GalamtorAuthFlow.clearLogin(authStorage);
             setStatus('Кіру күйі расталмады. Galamtor қолданбасынан қайта бастаңыз.');
             showSpinner(false);
             return;
@@ -310,26 +324,22 @@
               const response = await fetch('http://127.0.0.1:4242/callback', {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
+                signal: AbortSignal.timeout(10000),
                 body: JSON.stringify({
                   state: redirectDecision.state,
                   googleIdToken,
-                  googleAccessToken,
-                  email:       result.user.email,
-                  displayName: result.user.displayName,
-                  photoURL:    result.user.photoURL,
-                  uid:         result.user.uid
+                  googleAccessToken
                 })
               });
 
               if (response.ok) {
-                GalamtorAuthFlow.clearLogin(sessionStorage);
+                GalamtorAuthFlow.clearLogin(authStorage);
                 log("POST to loopback server succeeded (HTTP 200).");
                 setStatus("✅ Galamtor синхрондалды! Бұл терезені жабуға болады.");
                 showSpinner(false);
                 setTimeout(() => window.close(), 2500);
               } else {
-                const text = await response.text();
-                log(`Loopback server responded ${response.status}: ${text}`, 'error');
+                log(`Loopback server responded ${response.status}`, 'error');
                 setStatus(`Қате: Сервер ${response.status} қайтарды.`);
                 showSpinner(false);
                 showRetryButton(sendCredentialsToLoopback);
@@ -355,6 +365,9 @@
             setStatus('Google аккаунты таңдалды, бірақ Firebase кіру нәтижесін қайтармады. Қайта-қайта бағыттауды тоқтаттым. Қайталап көруге болады.');
             showSpinner(false);
             showRetryButton(() => startLoginRedirect(redirectDecision.state));
+          } else if (redirectDecision.action === 'storage-unavailable') {
+            setStatus('Браузердің сақтау рұқсатын қосып, Galamtor қолданбасынан кіруді қайта бастаңыз.');
+            showSpinner(false);
           } else {
             log("No login request is active; waiting for the app.", 'warn');
             setStatus("Жүйеге кіру күтілуде. Қолданбадағы батырманы басыңыз.");
@@ -363,14 +376,16 @@
         }
       })
       .catch(async (error) => {
-        log(`getRedirectResult ERROR [${error.code}]: ${error.message}`, 'error');
-        const retryState = sessionStorage.getItem(GalamtorAuthFlow.LOGIN_STATE_KEY) || requestedLoginState;
-        GalamtorAuthFlow.clearRedirectPending(sessionStorage);
+        log(`getRedirectResult ERROR [${error.code || 'unknown'}]`, 'error');
+        let retryState = requestedLoginState;
+        try { retryState = authStorage?.getItem(GalamtorAuthFlow.LOGIN_STATE_KEY) || requestedLoginState; } catch {}
+        GalamtorAuthFlow.clearRedirectPending(authStorage);
         presentAuthError(error);
         if (error.code !== 'auth/unauthorized-domain' && GalamtorAuthFlow.isValidState(retryState)) {
           showRetryButton(() => startLoginRedirect(retryState));
         }
       });
+  })();
   </script>
 </body>
 </html>

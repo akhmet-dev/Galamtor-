@@ -368,9 +368,12 @@
 
     const commitName = () => update({ name: nameInput.value }, 'Аты осы құрылғыда сақталды.');
     nameInput.addEventListener('input', (event) => {
-      if (!event.isComposing) commitName();
+      // Leave an empty edit intact until blur; otherwise deleting the old
+      // name immediately puts the default name back under the cursor.
+      if (!event.isComposing && nameInput.value.trim()) commitName();
     });
     nameInput.addEventListener('compositionend', commitName);
+    nameInput.addEventListener('blur', commitName);
     accessorySelect.addEventListener('change', () => update({ accessoryId: accessorySelect.value }, 'Аксессуары өзгертілді.'));
     temperamentSelect.addEventListener('change', () => update({ temperamentId: temperamentSelect.value }, 'Мінезі өзгертілді.'));
 
@@ -390,7 +393,8 @@
       previousFocus = root.document.activeElement;
       panel.hidden = false;
       openButton.setAttribute('aria-expanded', 'true');
-      root.document.getElementById('galamtor-pet-name')?.focus();
+      if (closeButton) closeButton.focus({ preventScroll: true });
+      else nameInput.focus({ preventScroll: true });
     }
 
     openButton.addEventListener('click', openStudio);
