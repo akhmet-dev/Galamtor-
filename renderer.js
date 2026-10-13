@@ -19,6 +19,16 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+function getRegistrationDate() {
+  const created = auth.currentUser?.metadata?.creationTime;
+  if (created) return new Date(created).toISOString().slice(0, 10);
+  let localCreated = localStorage.getItem('galamtor_created_at');
+  if (!localCreated) {
+    localCreated = new Date().toISOString().slice(0, 10);
+    localStorage.setItem('galamtor_created_at', localCreated);
+  }
+  return localCreated;
+}
 
 async function syncProfileStats(userId, stats) {
   try {
@@ -28,7 +38,7 @@ async function syncProfileStats(userId, stats) {
       openTabsCount: stats.openTabsCount,
       pinnedTabsCount: stats.pinnedTabsCount,
       vibesCount: stats.vibesCount,
-      registrationDate: stats.registrationDate || "2026-07-12",
+      registrationDate: stats.registrationDate || getRegistrationDate(),
       lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
     console.log('[Firebase] Stats successfully synchronized.');
@@ -81,7 +91,7 @@ function gpTriggerAutoSync() {
           openTabsCount: tabs.length,
           pinnedTabsCount: dockIcons.querySelectorAll('.dock-btn[data-url]').length,
           vibesCount: GalamtorStore.getVibes().length,
-          registrationDate: "2026-07-12"
+          registrationDate: getRegistrationDate()
         };
         syncProfileStats(user.uid, stats);
       } catch (innerErr) {
@@ -112,7 +122,6 @@ const btnHome = document.getElementById('btn-home');
 const btnClearCache = document.getElementById('btn-clear-cache');
 const btnLens = document.getElementById('btn-lens');
 const btnLensWelcome = document.getElementById('btn-lens-welcome');
-const lensFileInput = document.getElementById('lens-file-input');
 const lensDropOverlay = document.getElementById('lens-drop-overlay');
 const welcomeScreen = document.getElementById('welcome-screen');
 const webviewsContainer = document.getElementById('webviews-container');
@@ -137,6 +146,8 @@ const ctxRemove = document.getElementById('ctx-remove');
 let tabs = [];
 let activeTabId = null;
 let tabIdCounter = 0;
+let _sessionRestoreComplete = false;
+const recentlyClosedTabs = [];
 let draggedTabId = null;
 let contextTarget = null; // { element, url }
 let pipState = { visible: false, playing: false, progress: 0, interval: null };
@@ -148,18 +159,7 @@ let pipState = { visible: false, playing: false, progress: 0, interval: null };
 function generateTabId() { return `tab-${++tabIdCounter}`; }
 
 function parseSearchOrURL(input) {
-  const trimmed = input.trim();
-  if (!trimmed) return '';
-  // Preserve non-HTTP protocols (file://, ftp://, etc.)
-  if (/^(file|ftp|data|blob|chrome|devtools):/i.test(trimmed)) return trimmed;
-  // Match domains (including TLDs), localhost, and IP addresses
-  const urlPattern = /^(https?:\/\/)?(www\.)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}/;
-  const ipPattern = /^(https?:\/\/)?\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?/;
-  if (urlPattern.test(trimmed) || ipPattern.test(trimmed) || trimmed.startsWith('localhost') || trimmed.startsWith('127.0.0.1')) {
-    if (!/^https?:\/\//i.test(trimmed)) return `https://${trimmed}`;
-    return trimmed;
-  }
-  return `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`;
+  return window.GalamtorURLUtils?.parseSearchOrURL(input) || '';
 }
 
 function extractDomain(url) {
@@ -192,7 +192,11 @@ function showToast(message) {
 //  TAB MANAGEMENT
 // ════════════════════════════════════════
 
-function createTab(url = null, isIncognito = false) {
+function createTab(url = null, isIncognito = false, options = {}) {
+  if (url) {
+    url = window.GalamtorBrowserState.webURL(url);
+    if (!url) { showToast('Тек HTTP және HTTPS сілтемелері қолдау табады'); return null; }
+  }
   const tabId = generateTabId();
   const defaultTitle = isIncognito ? 'Жеке қойынды' : 'Жаңа қойынды';
   const tab = { 
@@ -201,7 +205,11 @@ function createTab(url = null, isIncognito = false) {
     url, 
     isHome: !url, 
     isIncognito, 
-    isSleeping: false, 
+    isSleeping: Boolean(url && options.lazy),
+    isMuted: options.isMuted === true,
+    isLoading: false,
+    loadFailed: false,
+    isAutomaticHome: options.automaticHome === true,
     lastActiveTime: Date.now() 
   };
   tabs.push(tab);
@@ -210,6 +218,9 @@ function createTab(url = null, isIncognito = false) {
   tabEl.className = isIncognito ? 'tab incognito-tab' : 'tab';
   tabEl.dataset.tabId = tabId;
   tabEl.setAttribute('draggable', 'true');
+  tabEl.setAttribute('role', 'tab');
+  tabEl.setAttribute('aria-selected', 'false');
+  tabEl.tabIndex = -1;
   // Use textContent to prevent XSS from tab titles
   const titleSpan = document.createElement('span');
   titleSpan.className = 'tab-title';
@@ -218,12 +229,35 @@ function createTab(url = null, isIncognito = false) {
   closeBtn.className = 'tab-close';
   closeBtn.title = 'Жабу';
   closeBtn.textContent = '×';
-  tabEl.appendChild(titleSpan);
-  tabEl.appendChild(closeBtn);
+  const muteBtn = document.createElement('button');
+  muteBtn.className = 'tab-mute';
+  muteBtn.type = 'button';
+  muteBtn.hidden = true;
+  muteBtn.addEventListener('click', (event) => { event.stopPropagation(); toggleTabMuted(tabId); });
+  tabEl.append(titleSpan, muteBtn, closeBtn);
+  tabEl.addEventListener('contextmenu', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    window.openTabMenu?.(tabId, event.clientX, event.clientY);
+  });
+  tabEl.addEventListener('auxclick', event => {
+    if (event.button === 1) { event.preventDefault(); closeTab(tabId); }
+  });
+  tabEl.addEventListener('keydown', event => {
+    if (event.target !== tabEl) return;
+    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault();
+      const index = tabs.findIndex(t => t.id === tabId);
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+        : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+      activateTab(tabs[next].id);
+      document.querySelector(`.tab[data-tab-id="${tabs[next].id}"]`)?.focus();
+    } else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); activateTab(tabId); }
+  });
 
   // Click to activate
   tabEl.addEventListener('click', (e) => {
-    if (!e.target.classList.contains('tab-close')) activateTab(tabId);
+    if (!e.target.closest('button')) activateTab(tabId);
   });
   tabEl.querySelector('.tab-close').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -288,8 +322,9 @@ function createTab(url = null, isIncognito = false) {
 
   tabsContainer.insertBefore(tabEl, btnNewTab);
 
-  if (url) createWebview(tabId, url, isIncognito);
-  activateTab(tabId);
+  if (url && !options.lazy) createWebview(tabId, url, isIncognito);
+  updateTabStatus(tab);
+  if (!options.background) activateTab(tabId);
   gpTriggerAutoSync();
   return tabId;
 }
@@ -318,6 +353,7 @@ function reorderTab(dragId, targetId, insertBefore) {
       tabsContainer.insertBefore(dragEl, targetEl.nextSibling);
     }
   }
+  persistCurrentSession();
 }
 
 function clearAllDragIndicators() {
@@ -327,8 +363,6 @@ function clearAllDragIndicators() {
 }
 
 // ── YouTube Smooth Playback & Anti-AdBlock Shield Engine ──
-const STANDARD_BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.186 Safari/537.36';
-const SAFARI_AUTH_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15';
 
 function injectYouTubeOptimizations(webview) {
   try {
@@ -440,8 +474,6 @@ function createWebview(tabId, url, isIncognito = false) {
   const webview = document.createElement('webview');
   webview.setAttribute('src', url);
   webview.setAttribute('allowpopups', '');
-  const isGoogleAuth = (url || '').toLowerCase().includes('accounts.google.com') || (url || '').toLowerCase().includes('accounts.youtube.com');
-  webview.setAttribute('useragent', isGoogleAuth ? SAFARI_AUTH_UA : STANDARD_BROWSER_UA);
   if (isIncognito) {
     webview.setAttribute('partition', 'incognito');
   }
@@ -449,65 +481,55 @@ function createWebview(tabId, url, isIncognito = false) {
 
   // Setup YouTube optimization triggers
   const applyYTShield = () => injectYouTubeOptimizations(webview);
-  webview.addEventListener('dom-ready', applyYTShield);
+  webview.addEventListener('dom-ready', () => {
+    const tab = tabs.find(t => t.id === tabId);
+    if (tab) { try { webview.setAudioMuted(tab.isMuted); } catch {} }
+    applyYTShield();
+  });
+  webview.addEventListener('did-start-navigation', event => {
+    if (event.isMainFrame === false || event.isInPlace) return;
+    const tab = tabs.find(t => t.id === tabId);
+    const address = window.GalamtorBrowserState.webURL(event.url);
+    if (tab && address) { tab.url = address; clearTabLoadError(tabId); }
+  });
   webview.addEventListener('did-navigate', applyYTShield);
   webview.addEventListener('did-navigate-in-page', applyYTShield);
 
-  // Dynamic User-Agent switching for Google Authentication to bypass embedded webview blocks
-  const handleNavUA = (event) => {
-    try {
-      const targetUrl = ((event && event.url) || (webview.getURL && webview.getURL()) || '').toLowerCase();
-      if (targetUrl.includes('accounts.google.com') || targetUrl.includes('accounts.youtube.com')) {
-        if (typeof webview.setUserAgent === 'function') {
-          webview.setUserAgent(SAFARI_AUTH_UA);
-        }
-      } else {
-        if (typeof webview.setUserAgent === 'function') {
-          webview.setUserAgent(STANDARD_BROWSER_UA);
-        }
-      }
-    } catch (e) {}
-  };
-
-  webview.addEventListener('will-navigate', handleNavUA);
-  webview.addEventListener('did-navigate', handleNavUA);
-  webview.addEventListener('did-navigate-in-page', handleNavUA);
-
-  // Handle popups and target="_blank" by creating a new browser tab
-  webview.addEventListener('new-window', (e) => {
-    if (e && e.url) {
-      createTab(e.url);
-    }
-  });
+  // Popup requests are checked in the main process and returned as tabs.
 
   webview.addEventListener('did-start-loading', () => {
-    if (activeTabId === tabId) showLoadingBar();
+    const tab = tabs.find(t => t.id === tabId);
+    if (tab) tab.isLoading = true;
+    if (activeTabId === tabId) { showLoadingBar(); updateRefreshButton(); }
   });
 
   webview.addEventListener('did-stop-loading', () => {
-    // Always hide loading bar if this was the tab that started it, even if user switched tabs
+    const tab = tabs.find(t => t.id === tabId);
+    if (tab) tab.isLoading = false;
     if (activeTabId === tabId) {
       hideLoadingBar();
+      updateRefreshButton();
       updateNavButtons(webview);
-    } else {
-      // If a background tab finished loading while we were viewing it before switching,
-      // make sure the loading bar isn't stuck from this tab
-      hideLoadingBar();
     }
   });
 
+  // Record completed document navigations, not every resource loading cycle.
+  webview.addEventListener('did-finish-load', () => {
+    const tab = tabs.find(t => t.id === tabId);
+    if (!tab || tab.loadFailed || tab.isIncognito || !window.galamtorAPI?.addHistory) return;
+    let pageUrl = '', pageTitle = '';
+    try { pageUrl = window.GalamtorBrowserState.webURL(webview.getURL()); pageTitle = webview.getTitle(); } catch {}
+    if (pageUrl) window.galamtorAPI.addHistory({ url: pageUrl, title: pageTitle || tab.title, timestamp: Date.now() }).catch(() => {});
+  });
+
   webview.addEventListener('did-navigate', (event) => {
+    if (!window.GalamtorBrowserState.webURL(event.url)) return;
+    clearTabLoadError(tabId);
     try {
       const tab = tabs.find(t => t.id === tabId);
       if (tab) {
         tab.url = event.url;
-        if (!tab.isIncognito && window.galamtorAPI?.addHistory) {
-          window.galamtorAPI.addHistory({
-            url: event.url,
-            title: tab.title || event.url,
-            timestamp: Date.now()
-          }).catch(err => console.error('[History] Failed to add entry:', err));
-        }
+        updateTabStatus(tab);
 
         // Sync media state URL if active
         if (GlobalMediaState.activeTabId === tabId) {
@@ -515,9 +537,11 @@ function createWebview(tabId, url, isIncognito = false) {
         }
       }
       if (activeTabId === tabId) {
+        window.galamtorAPI?.setActiveBankingUrl?.(event.url);
         urlInput.value = event.url;
         updateNavButtons(webview);
         if (typeof updateBookmarkButtonState === 'function') updateBookmarkButtonState();
+        if (document.getElementById('ai-sidebar-panel')?.classList.contains('active')) updateAiSidebarPageInfo();
       }
       // Auto-save session on navigation
       persistCurrentSession();
@@ -527,14 +551,16 @@ function createWebview(tabId, url, isIncognito = false) {
   });
 
   webview.addEventListener('did-navigate-in-page', (event) => {
+    if (event.isMainFrame === false || !window.GalamtorBrowserState.webURL(event.url)) return;
     try {
       const tab = tabs.find(t => t.id === tabId);
       if (tab) {
         tab.url = event.url;
+        updateTabStatus(tab);
         if (!tab.isIncognito && window.galamtorAPI?.addHistory) {
           window.galamtorAPI.addHistory({
             url: event.url,
-            title: tab.title || event.url,
+            title: (() => { try { return webview.getTitle(); } catch { return ''; } })() || tab.title || event.url,
             timestamp: Date.now()
           }).catch(err => console.error('[History] Failed to add entry:', err));
         }
@@ -545,10 +571,14 @@ function createWebview(tabId, url, isIncognito = false) {
         }
       }
       if (activeTabId === tabId) {
+        window.galamtorAPI?.setActiveBankingUrl?.(event.url);
         urlInput.value = event.url;
         const wv = getActiveWebview();
         if (wv) updateNavButtons(wv);
+        updateBookmarkButtonState();
+        if (document.getElementById('ai-sidebar-panel')?.classList.contains('active')) updateAiSidebarPageInfo();
       }
+      persistCurrentSession();
     } catch (err) {
       console.error("Error in did-navigate-in-page listener:", err);
     }
@@ -557,9 +587,10 @@ function createWebview(tabId, url, isIncognito = false) {
   webview.addEventListener('page-title-updated', (event) => {
     try {
       const tab = tabs.find(t => t.id === tabId);
-      if (tab) {
+      if (tab && !tab.loadFailed) {
         tab.title = event.title || 'Жаңа қойынды';
         updateTabTitle(tabId, tab.title);
+        persistCurrentSession();
 
         // Sync track title if this is the active media tab
         if (GlobalMediaState.activeTabId === tabId) {
@@ -588,6 +619,8 @@ function createWebview(tabId, url, isIncognito = false) {
           faviconUrl = new URL(faviconUrl, pageUrl).href;
         } catch { /* keep original */ }
       }
+      // The application shell intentionally accepts HTTPS icons only (plus embedded images).
+      if (!/^https:\/\//i.test(faviconUrl) && !/^data:image\//i.test(faviconUrl)) faviconUrl = '';
       if (tab) tab.favicon = faviconUrl;
       updateTabFavicon(tabId, faviconUrl);
     }
@@ -595,12 +628,12 @@ function createWebview(tabId, url, isIncognito = false) {
 
   webview.addEventListener('media-started-playing', () => {
     const tab = tabs.find(t => t.id === tabId);
-    if (tab) tab.isPlaying = true;
+    if (tab) { tab.isPlaying = true; updateTabStatus(tab); }
     handleMediaStart(tabId);
   });
   webview.addEventListener('media-paused', () => {
     const tab = tabs.find(t => t.id === tabId);
-    if (tab) tab.isPlaying = false;
+    if (tab) { tab.isPlaying = false; updateTabStatus(tab); }
     handleMediaPause(tabId);
   });
 
@@ -626,33 +659,144 @@ function createWebview(tabId, url, isIncognito = false) {
       '-200': { title: 'Сертификат қатесі', desc: 'Бұл сайттың қауіпсіздік сертификаты жарамсыз.' },
     };
     const errInfo = errorMessages[String(event.errorCode)] || { title: 'Бет жүктелмеді', desc: event.errorDescription || `Қате коды: ${event.errorCode}` };
-    const errorHTML = `<html><head><meta charset='UTF-8'><style>
-      body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0c0e;color:#fff;font-family:'Inter',system-ui,sans-serif;}
-      .err{text-align:center;max-width:420px;padding:40px;}
-      .err-icon{font-size:64px;margin-bottom:20px;opacity:0.6;}
-      .err h2{color:#00f2fe;margin:0 0 12px;font-size:22px;}
-      .err p{color:rgba(255,255,255,0.55);line-height:1.6;margin:0 0 24px;}
-      .err button{background:linear-gradient(135deg,#00f2fe,#648cff);border:none;color:#fff;padding:10px 28px;border-radius:10px;font-size:14px;cursor:pointer;font-weight:600;transition:transform 0.2s,box-shadow 0.2s;}
-      .err button:hover{transform:translateY(-2px);box-shadow:0 4px 20px rgba(0,242,254,0.3);}
-    </style></head><body><div class='err'><div class='err-icon'>🌐</div><h2>${errInfo.title}</h2><p>${errInfo.desc}</p><button onclick='location.reload()'>Қайта жүктеу</button></div></body></html>`;
+    let retryUrl = '';
     try {
-      webview.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHTML)}`);
-    } catch (e) {
-      webview.setAttribute('src', `data:text/html;charset=utf-8,${encodeURIComponent(errorHTML)}`);
-    }
+      const candidateUrl = event.validatedURL || event.url || webview.getURL() || tab?.url || '';
+      const parsedUrl = new URL(candidateUrl);
+      if (['http:', 'https:'].includes(parsedUrl.protocol)) retryUrl = parsedUrl.href;
+    } catch {}
+    if (tab && retryUrl) tab.url = retryUrl;
+    showTabLoadError(tabId, tab?.securityError ? 'Кибер-Қалқан ескертуі' : errInfo.title, tab?.securityError || errInfo.desc);
+    persistCurrentSession();
   });
 
-  // Handle renderer process crash
-  webview.addEventListener('render-process-gone', (event) => {
-    console.error(`[Webview] Renderer process gone for tab ${tabId}:`, event.details);
-    const tab = tabs.find(t => t.id === tabId);
-    if (tab && tab.url) {
-      // Attempt to reload
-      setTimeout(() => {
-        try { webview.loadURL(tab.url); } catch {}
-      }, 1000);
-    }
+  webview.addEventListener('render-process-gone', () => {
+    showTabLoadError(tabId, 'Қойынды жұмысы тоқтады', 'Бетті қайта жүктеп көріңіз.');
   });
+}
+
+
+function clearTabLoadError(tabId) {
+  const tab = tabs.find(t => t.id === tabId);
+  if (tab) { tab.loadFailed = false; tab.securityError = null; }
+  const wrapper = document.querySelector(`.webview-wrapper[data-tab-id="${tabId}"]`);
+  wrapper?.classList.remove('has-load-error');
+  wrapper?.querySelector('.error-page')?.remove();
+}
+
+function showTabLoadError(tabId, title, description) {
+  const tab = tabs.find(t => t.id === tabId);
+  const wrapper = document.querySelector(`.webview-wrapper[data-tab-id="${tabId}"]`);
+  if (!tab || !wrapper) return;
+  tab.loadFailed = true;
+  tab.isLoading = false;
+  tab.isPlaying = false;
+  tab.title = title;
+  tab.favicon = null;
+  document.querySelector(`.tab[data-tab-id="${tabId}"] .tab-favicon`)?.remove();
+  updateTabTitle(tabId, title);
+  wrapper.querySelector('.error-page')?.remove();
+  wrapper.classList.add('has-load-error');
+  const panel = document.createElement('div');
+  panel.className = 'error-page';
+  panel.setAttribute('role', 'alert');
+  const icon = document.createElement('div');
+  icon.className = 'error-page-icon'; icon.textContent = tab.securityError ? '🛡️' : '🌐'; icon.setAttribute('aria-hidden', 'true');
+  const heading = document.createElement('h2'); heading.className = 'error-page-title'; heading.textContent = title;
+  const message = document.createElement('p'); message.className = 'error-page-desc'; message.textContent = description;
+  const address = document.createElement('p'); address.className = 'error-page-url'; address.textContent = tab.url || '';
+  const retry = document.createElement('button'); retry.className = 'error-page-retry'; retry.textContent = tab.securityError ? 'Басты бетке қайту' : 'Қайта жүктеу';
+  retry.addEventListener('click', () => { activateTab(tabId); tab.securityError ? navigateHome() : navigateTo(tab.url); });
+  panel.append(icon, heading, message, address, retry);
+  wrapper.appendChild(panel);
+  updateTabStatus(tab);
+  if (activeTabId === tabId) { window.closeFindInPage?.(); hideLoadingBar(); updateRefreshButton(); }
+  persistCurrentSession();
+}
+
+function updateTabStatus(tab) {
+  const element = document.querySelector(`.tab[data-tab-id="${tab.id}"]`);
+  if (!element) return;
+  element.title = `${tab.title}${tab.url ? '\n' + tab.url : ''}`;
+  element.setAttribute('aria-label', `${tab.title}${tab.isIncognito ? ' — жеке қойынды' : ''}`);
+  const mute = element.querySelector('.tab-mute');
+  if (mute) {
+    mute.hidden = !tab.isMuted && !tab.isPlaying;
+    mute.textContent = tab.isMuted ? '🔇' : '♫';
+    mute.title = tab.isMuted ? 'Дыбысты қосу' : 'Дыбысты өшіру';
+    mute.setAttribute('aria-label', mute.title);
+  }
+  let sleeping = element.querySelector('.tab-sleep-badge');
+  if (tab.isSleeping && !sleeping) {
+    sleeping = document.createElement('span'); sleeping.className = 'tab-sleep-badge'; sleeping.textContent = '◌';
+    sleeping.title = 'Белсендіргенде жүктеледі'; element.prepend(sleeping);
+  } else if (!tab.isSleeping) sleeping?.remove();
+  window.refreshBrowserMenu?.();
+}
+
+function toggleTabMuted(tabId = activeTabId) {
+  const tab = tabs.find(t => t.id === tabId);
+  if (!tab || tab.isHome) return;
+  tab.isMuted = !tab.isMuted;
+  try { document.querySelector(`.webview-wrapper[data-tab-id="${tabId}"] webview`)?.setAudioMuted(tab.isMuted); } catch {}
+  updateTabStatus(tab);
+  persistCurrentSession();
+}
+
+function duplicateTab(tabId = activeTabId) {
+  const source = tabs.find(t => t.id === tabId);
+  if (source) createTab(source.isHome ? null : source.url, source.isIncognito, { isMuted: source.isMuted });
+}
+
+function reopenClosedTab() {
+  const saved = recentlyClosedTabs.pop();
+  if (!saved) { showToast('Жабылған қойынды жоқ'); return; }
+  const automaticHome = tabs.length === 1 && tabs[0].isAutomaticHome && tabs[0].isHome ? tabs[0] : null;
+  const id = createTab(saved.isHome ? null : saved.url, false, { isMuted: saved.isMuted });
+  if (!id) return;
+  const tab = tabs.find(t => t.id === id);
+  tab.title = saved.title;
+  updateTabTitle(id, tab.title);
+  const target = tabs[saved.index];
+  if (target && target.id !== id) reorderTab(id, target.id, true);
+  if (automaticHome) closeTab(automaticHome.id, { remember: false });
+  persistCurrentSession();
+  window.refreshBrowserMenu?.();
+}
+
+function cycleTab(direction) {
+  if (!tabs.length) return;
+  const index = tabs.findIndex(t => t.id === activeTabId);
+  activateTab(tabs[(index + direction + tabs.length) % tabs.length].id);
+}
+
+function updateRefreshButton() {
+  const loading = tabs.find(t => t.id === activeTabId)?.isLoading === true;
+  btnRefresh.title = loading ? 'Жүктеуді тоқтату (Esc)' : 'Қайта жүктеу (⌘R)';
+  btnRefresh.setAttribute('aria-label', btnRefresh.title);
+  btnRefresh.classList.toggle('is-loading', loading);
+  btnRefresh.innerHTML = loading
+    ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 6 12 12M18 6 6 18"/></svg>'
+    : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M20.49 15A9 9 0 1 1 18.37 5.64L23 10"/></svg>';
+}
+
+function reloadActiveTab(ignoreCache = false) {
+  const tab = tabs.find(t => t.id === activeTabId);
+  const webview = getActiveWebview();
+  if (!tab || !webview) return;
+  if (tab.loadFailed) navigateTo(tab.url);
+  else { try { ignoreCache ? webview.reloadIgnoringCache() : webview.reload(); } catch {} }
+}
+
+async function saveActivePage() {
+  const tab = tabs.find(t => t.id === activeTabId);
+  const webview = getActiveWebview();
+  if (!webview || !tab || tab.loadFailed) { showToast('Алдымен веб-бетті ашыңыз'); return; }
+  try {
+    const result = await window.galamtorAPI.savePage(webview.getWebContentsId());
+    if (result?.saved) showToast('✓ Бет және оның файлдары сақталды');
+    else if (result?.error) showToast(result.error);
+  } catch { showToast('Бетті сақтау сәтсіз аяқталды'); }
 }
 
 function sleepTab(tab) {
@@ -714,11 +858,18 @@ function activateTab(tabId) {
     return;
   }
 
+  if (activeTabId !== tabId) window.closeFindInPage?.();
   activeTabId = tabId;
+  window.galamtorAPI?.setActiveBankingUrl?.(tab.url || '');
   tab.lastActiveTime = Date.now();
   if (tab.isSleeping) wakeTab(tab);
 
-  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(el => {
+    const selected = el.dataset.tabId === tabId;
+    el.classList.toggle('active', selected);
+    el.setAttribute('aria-selected', String(selected));
+    el.tabIndex = selected ? 0 : -1;
+  });
   const activeTabEl = document.querySelector(`.tab[data-tab-id="${tabId}"]`);
   if (activeTabEl) activeTabEl.classList.add('active');
 
@@ -740,12 +891,21 @@ function activateTab(tabId) {
     if (wv) updateNavButtons(wv);
     if (typeof updateBookmarkButtonState === 'function') updateBookmarkButtonState();
   }
+  if (tab.isLoading) showLoadingBar(); else hideLoadingBar();
+  updateRefreshButton();
+  persistCurrentSession();
+  window.refreshBrowserMenu?.();
 }
 
-function closeTab(tabId) {
+function closeTab(tabId, { remember = true } = {}) {
   try {
     const index = tabs.findIndex(t => t.id === tabId);
     if (index === -1) return;
+    const closed = tabs[index];
+    if (remember && !closed.isIncognito) {
+      recentlyClosedTabs.push({ url: closed.url, isHome: closed.isHome, title: closed.title, isMuted: closed.isMuted, index });
+      if (recentlyClosedTabs.length > 20) recentlyClosedTabs.shift();
+    }
     tabs.splice(index, 1);
 
     const tabEl = document.querySelector(`.tab[data-tab-id="${tabId}"]`);
@@ -758,7 +918,7 @@ function closeTab(tabId) {
       if (tabs.length > 0) {
         activateTab(tabs[Math.min(index, tabs.length - 1)].id);
       } else {
-        createTab();
+        createTab(null, false, { automaticHome: true });
       }
     }
 
@@ -773,6 +933,7 @@ function closeTab(tabId) {
     }
 
     gpTriggerAutoSync();
+    window.refreshBrowserMenu?.();
   } catch (err) {
     console.error("Error in closeTab:", err);
   }
@@ -780,13 +941,16 @@ function closeTab(tabId) {
 
 function updateTabTitle(tabId, title) {
   const tabEl = document.querySelector(`.tab[data-tab-id="${tabId}"] .tab-title`);
-  if (tabEl) tabEl.textContent = title.length > 22 ? title.substring(0, 22) + '…' : title;
+  if (tabEl) tabEl.textContent = title;
+  const tab = tabs.find(t => t.id === tabId);
+  if (tab) updateTabStatus(tab);
 }
 
 function updateTabFavicon(tabId, faviconUrl) {
   const tabEl = document.querySelector(`.tab[data-tab-id="${tabId}"]`);
   if (!tabEl) return;
   let img = tabEl.querySelector('.tab-favicon');
+  if (!faviconUrl) { img?.remove(); return; }
   if (!img) {
     img = document.createElement('img');
     img.className = 'tab-favicon';
@@ -808,13 +972,17 @@ function getActiveWebview() {
 function navigateTo(targetUrl) {
   if (!targetUrl) return;
   const parsedUrl = parseSearchOrURL(targetUrl);
+  if (!parsedUrl) { showToast('Тек HTTP және HTTPS сілтемелері қолдау табады'); return; }
   const tab = tabs.find(t => t.id === activeTabId);
   if (!tab) return; // Guard against undefined tab
+  window.closeFindInPage?.();
+  clearTabLoadError(activeTabId);
+  tab.isAutomaticHome = false;
 
   if (tab.isHome) {
     tab.isHome = false;
     tab.url = parsedUrl;
-    createWebview(activeTabId, parsedUrl);
+    createWebview(activeTabId, parsedUrl, tab.isIncognito);
     welcomeScreen.classList.add('hidden-view');
     document.querySelectorAll('.webview-wrapper').forEach(el => {
       el.classList.toggle('active', el.dataset.tabId === activeTabId);
@@ -825,7 +993,7 @@ function navigateTo(targetUrl) {
     const wv = getActiveWebview();
     if (wv) {
       try {
-        wv.loadURL(parsedUrl);
+        Promise.resolve(wv.loadURL(parsedUrl)).catch(err => console.warn('[Navigation] Failed:', err));
       } catch (e) {
         wv.setAttribute('src', parsedUrl);
       }
@@ -837,12 +1005,20 @@ function navigateTo(targetUrl) {
     }
   }
   urlInput.value = parsedUrl;
+  window.galamtorAPI?.setActiveBankingUrl?.(parsedUrl);
+  persistCurrentSession();
 }
 
 function navigateHome() {
+  window.closeFindInPage?.();
   const tab = tabs.find(t => t.id === activeTabId);
   if (tab) {
     tab.isHome = true;
+    tab.isSleeping = false;
+    tab.isLoading = false;
+    tab.loadFailed = false;
+    tab.securityError = null;
+    tab.isPlaying = false;
     tab.url = null;
     tab.title = 'Жаңа қойынды';
     tab.favicon = null; // Reset favicon to prevent stale icons
@@ -853,11 +1029,17 @@ function navigateHome() {
   }
   const wvWrapper = document.querySelector(`.webview-wrapper[data-tab-id="${activeTabId}"]`);
   if (wvWrapper) wvWrapper.remove();
+  if (GlobalMediaState.activeTabId === activeTabId) { GlobalMediaState.reset(); updateMediaPlayerUI(); }
   welcomeScreen.classList.remove('hidden-view');
   urlInput.value = '';
+  window.galamtorAPI?.setActiveBankingUrl?.('');
   btnBack.disabled = true;
   btnForward.disabled = true;
   if (typeof refreshGalamtorState === 'function') refreshGalamtorState();
+  updateBookmarkButtonState();
+  updateRefreshButton();
+  hideLoadingBar();
+  persistCurrentSession();
 }
 
 // ════════════════════════════════════════
@@ -865,8 +1047,10 @@ function navigateHome() {
 // ════════════════════════════════════════
 
 let progressInterval = null;
+let loadingGeneration = 0;
 
 function showLoadingBar() {
+  loadingGeneration++;
   if (progressInterval) clearInterval(progressInterval);
   loadingBar.style.opacity = '1';
   loadingBar.style.width = '20%';
@@ -882,11 +1066,13 @@ function showLoadingBar() {
 }
 
 function hideLoadingBar() {
+  const generation = ++loadingGeneration;
   if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
   loadingBar.style.width = '100%';
   setTimeout(() => {
+    if (generation !== loadingGeneration) return;
     loadingBar.style.opacity = '0';
-    setTimeout(() => { loadingBar.style.width = '0%'; }, 400);
+    setTimeout(() => { if (generation === loadingGeneration) loadingBar.style.width = '0%'; }, 400);
   }, 200);
 }
 
@@ -953,7 +1139,7 @@ function pinToSidebar(url, title, faviconUrl) {
     if (!dockIcons) return;
 
     // Check if already pinned safely
-    const existing = dockIcons.querySelector(`.dock-btn[data-url="${url}"]`);
+    const existing = [...dockIcons.querySelectorAll('.dock-btn[data-url]')].find(button => button.dataset.url === url);
     if (existing) {
       showToast('📌 Бұл сайт қазірдің өзінде бекітілген');
       return;
@@ -988,7 +1174,16 @@ function pinToSidebar(url, title, faviconUrl) {
 
     const finalFaviconUrl = faviconUrl || `https://www.google.com/s2/favicons?domain=${domain}`;
 
-    btn.innerHTML = `<span class="dock-badge pinned-bg"><img src="${finalFaviconUrl}" width="16" height="16" style="border-radius:2px;" onerror="this.parentElement.textContent='${initial}'"></span>`;
+    const badge = document.createElement('span');
+    badge.className = 'dock-badge pinned-bg';
+    const icon = document.createElement('img');
+    icon.width = 16;
+    icon.height = 16;
+    icon.style.borderRadius = '2px';
+    icon.src = safeHttpUrl(finalFaviconUrl) || '';
+    icon.onerror = () => { badge.textContent = initial; };
+    badge.appendChild(icon);
+    btn.appendChild(badge);
 
     // Click to navigate or open new tab
     btn.addEventListener('click', () => {
@@ -1086,324 +1281,94 @@ dockIcons.querySelectorAll('.dock-btn').forEach(btn => {
 });
 
 // ════════════════════════════════════════
-//  GALAMTOR LENS — Automated Image Search
+//  GALAMTOR LENS — Google Lens handoff
 // ════════════════════════════════════════
+function openLensPage(message = 'Google Lens ашылды. Камера белгішесін басып, суретті таңдаңыз.') {
+  navigateTo('https://www.google.com/');
+  showToast(`🔍 ${message}`);
+}
 
-/**
- * Reads a local image file as base64, navigates to Google Lens,
- * then programmatically uploads the image inside the webview
- * so the user lands directly on the search-results page.
- */
 function openLensWithFile(file) {
-  if (!file || !file.type.startsWith('image/')) {
-    showToast('⚠️ Тек сурет файлдарын қабылдаймыз');
+  if (!file || typeof file.type !== 'string' || !file.type.startsWith('image/')) {
+    showToast('⚠️ Lens тек сурет файлдарын қабылдайды');
     return;
   }
-
-  showToast('🔍 Galamtor Lens — сурет дайындалуда...');
-
-  const reader = new FileReader();
-  reader.onload = () => {
-    const dataUrl    = reader.result;                          // data:image/…;base64,…
-    const safeName   = file.name.replace(/['"\\`${}]/g, '_');  // sanitize for injection
-    const mimeType   = file.type;
-
-    // 1) Navigate to Google Lens origin so our injected fetch
-    //    runs same-origin and keeps cookies / CORS happy.
-    navigateTo('https://lens.google.com/');
-
-    // 2) Grab the webview that was just created / reused.
-    //    navigateTo() is synchronous DOM-wise, so the element exists now.
-    requestAnimationFrame(() => {
-      const wv = getActiveWebview();
-      if (!wv) { showToast('⚠️ Webview табылмады'); return; }
-
-      // Guard against double-fire
-      let injected = false;
-      const attemptInjection = () => {
-        if (injected) return;
-        injected = true;
-        wv.removeEventListener('did-finish-load', attemptInjection);
-
-        // Short grace period for Google's JS to initialise
-        setTimeout(() => {
-          performLensUpload(wv, dataUrl, safeName, mimeType);
-        }, 1200);
-      };
-
-      wv.addEventListener('did-finish-load', attemptInjection);
-    });
-  };
-  reader.readAsDataURL(file);
+  // Keep the file handoff inside Google's own upload UI. Lens owns the native
+  // file chooser, so Galamtor never reads or silently uploads the local image.
+  openLensPage('Lens ішінде камераны басып, суретті құрылғыдан таңдаңыз.');
 }
 
-/**
- * Core injection — runs entirely inside the Google Lens webview.
- *
- * Strategy chain (first success wins):
- *   1. POST to /v3/upload  → follow redirect to results
- *   2. POST to legacy /searchbyimage/upload → follow redirect
- *   3. Find any <input type="file"> on the page and inject the File
- *   4. Simulate a DragEvent drop on the page body
- */
-function performLensUpload(webview, dataUrl, fileName, mimeType) {
-  // JSON.stringify safely escapes the (potentially multi-MB) base64 string
-  // so it can be embedded as a JS string literal inside executeJavaScript.
-  const b64Literal   = JSON.stringify(dataUrl);
-  const nameLiteral  = JSON.stringify(fileName);
-  const mimeLiteral  = JSON.stringify(mimeType);
-
-  const script = `
-    (async () => {
-      /* ─── Helper: data-URL → File ─── */
-      const b64  = ${b64Literal};
-      const resp = await fetch(b64);
-      const blob = await resp.blob();
-      const file = new File([blob], ${nameLiteral}, { type: ${mimeLiteral} });
-
-      /* ─── STRATEGY 1 — POST /v3/upload (modern Lens endpoint) ─── */
-      try {
-        const fd1 = new FormData();
-        fd1.append('encoded_image', file, file.name);
-        fd1.append('sbisrc', 'Chromium Lens Overlay');
-        fd1.append('original_width',  '0');
-        fd1.append('original_height', '0');
-
-        const r1 = await fetch('/v3/upload', {
-          method: 'POST',
-          body: fd1,
-          credentials: 'include',
-          redirect: 'follow',
-        });
-
-        /* Fetch followed a redirect → the final URL is the results page */
-        if (r1.redirected && r1.url) {
-          window.location.href = r1.url;
-          return 'ok:redirect-v3';
-        }
-
-        /* No redirect, but the response body may contain one */
-        if (r1.ok) {
-          const html = await r1.text();
-          const m = html.match(/(https:\\/\\/lens\\.google\\.com\\/search[^"'\\\\s<>]+)/);
-          if (m) {
-            window.location.href = m[1].replace(/&amp;/g, '&');
-            return 'ok:parsed-v3';
-          }
-        }
-      } catch (_) { /* fall through */ }
-
-      /* ─── STRATEGY 2 — POST /searchbyimage/upload (legacy) ─── */
-      try {
-        const fd2 = new FormData();
-        fd2.append('encoded_image', file, file.name);
-        fd2.append('image_content', '');
-
-        const r2 = await fetch('/searchbyimage/upload', {
-          method: 'POST',
-          body: fd2,
-          credentials: 'include',
-          redirect: 'follow',
-        });
-
-        if (r2.redirected && r2.url) {
-          window.location.href = r2.url;
-          return 'ok:redirect-legacy';
-        }
-
-        if (r2.ok) {
-          const html2 = await r2.text();
-          const m2 = html2.match(/(https?:\\/\\/[^"'\\\\s<>]+search[^"'\\\\s<>]+)/);
-          if (m2) {
-            window.location.href = m2[1].replace(/&amp;/g, '&');
-            return 'ok:parsed-legacy';
-          }
-        }
-      } catch (_) { /* fall through */ }
-
-      /* ─── STRATEGY 3 — Inject into <input type="file"> ─── */
-      try {
-        const inputs = document.querySelectorAll('input[type="file"]');
-        if (inputs.length) {
-          for (const inp of inputs) {
-            const dt = new DataTransfer();
-            dt.items.add(file);
-            inp.files = dt.files;
-            inp.dispatchEvent(new Event('change', { bubbles: true }));
-            inp.dispatchEvent(new Event('input',  { bubbles: true }));
-          }
-          return 'ok:input-inject';
-        }
-      } catch (_) { /* fall through */ }
-
-      /* ─── STRATEGY 4 — Simulate drop on page body ─── */
-      try {
-        const target = document.querySelector('[data-action-type]')
-                    || document.querySelector('[jscontroller]')
-                    || document.body;
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        ['dragenter', 'dragover', 'drop'].forEach(evtName => {
-          target.dispatchEvent(new DragEvent(evtName, {
-            bubbles: true,
-            cancelable: true,
-            dataTransfer: dt,
-          }));
-        });
-        return 'ok:drop-simulate';
-      } catch (_) { /* fall through */ }
-
-      return 'fail:all-strategies-exhausted';
-    })();
-  `;
-
-  webview.executeJavaScript(script)
-    .then(result => {
-      console.log('[Galamtor Lens]', result);
-      if (result && result.startsWith('ok:')) {
-        showToast('🔍 Lens нәтижелері жүктелуде...');
-      } else if (result && result.startsWith('fail:')) {
-        showToast('⚠️ Автоматты жүктеу сәтсіз — бетте қолмен жүктеңіз');
-      }
-    })
-    .catch(err => {
-      console.error('[Galamtor Lens] Injection error:', err);
-      showToast('⚠️ Lens қатесі — бетте қолмен жүктеңіз');
-    });
-}
-
-/**
- * URL-based image search — works directly for externally-hosted images.
- */
 function openLensWithUrl(imageUrl) {
-  showToast('🔍 Galamtor Lens іздеуде...');
-  const lensUrl = `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`;
+  const lensUrl = window.GalamtorLensUtils?.buildLensUploadUrl(imageUrl);
+  if (!lensUrl) {
+    showToast('⚠️ Lens-ке тек жалпыға қолжетімді HTTPS сурет сілтемесін жіберуге болады');
+    return;
+  }
   navigateTo(lensUrl);
+  showToast('🔍 Сурет сілтемесі Google Lens-ке жіберілді');
 }
 
-// Lens button click → open file picker
-btnLens.addEventListener('click', () => lensFileInput.click());
-if (btnLensWelcome) {
-  btnLensWelcome.addEventListener('click', () => lensFileInput.click());
+btnLens.addEventListener('click', () => openLensPage());
+if (btnLensWelcome) btnLensWelcome.addEventListener('click', () => openLensPage());
+
+function getDroppedImageUrl(event) {
+  const value = event.dataTransfer.getData('text/uri-list') || event.dataTransfer.getData('text/plain');
+  return /^https?:\/\//i.test(value.trim()) ? value.trim() : '';
 }
 
-lensFileInput.addEventListener('change', (e) => {
-  if (e.target.files && e.target.files[0]) {
-    openLensWithFile(e.target.files[0]);
-    e.target.value = '';
-  }
-});
-
-// ── Image Drag & Drop on URL Bar ──
-urlBar.addEventListener('dragover', (e) => {
-  if (draggedTabId) return; // ignore tab drags
-  const hasImage = Array.from(e.dataTransfer.types).some(t =>
-    t === 'Files' || t.includes('image') || t === 'text/uri-list'
-  );
-  if (hasImage) {
-    e.preventDefault();
-    urlBar.classList.add('lens-drag-over');
-  }
-});
-
-urlBar.addEventListener('dragleave', () => {
-  urlBar.classList.remove('lens-drag-over');
-});
-
-urlBar.addEventListener('drop', (e) => {
-  urlBar.classList.remove('lens-drag-over');
-  if (draggedTabId) return;
-
-  // Check for image URL
-  const imageUrl = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
-  if (imageUrl && (imageUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)/i) || imageUrl.startsWith('data:image'))) {
-    e.preventDefault();
+function handleLensDrop(event) {
+  const imageUrl = getDroppedImageUrl(event);
+  if (imageUrl) {
+    event.preventDefault();
     openLensWithUrl(imageUrl);
     return;
   }
 
-  // Check for file
-  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-    const file = e.dataTransfer.files[0];
-    if (file.type.startsWith('image/')) {
-      e.preventDefault();
-      openLensWithFile(file);
-      return;
-    }
+  const file = event.dataTransfer.files?.[0];
+  if (file?.type?.startsWith('image/')) {
+    event.preventDefault();
+    openLensWithFile(file);
   }
-});
+}
 
-// ── Image Drag & Drop on Welcome Search Box ──
-welcomeSearchBox.addEventListener('dragover', (e) => {
-  if (draggedTabId) return;
-  const hasImage = Array.from(e.dataTransfer.types).some(t =>
-    t === 'Files' || t.includes('image') || t === 'text/uri-list'
+function acceptsLensDrop(event) {
+  return Array.from(event.dataTransfer.types || []).some(type =>
+    type === 'Files' || type === 'text/uri-list' || type.includes('image')
   );
-  if (hasImage) {
-    e.preventDefault();
-    welcomeSearchBox.classList.add('lens-drag-over');
-    lensDropOverlay.classList.add('visible');
-  }
-});
+}
 
-welcomeSearchBox.addEventListener('dragleave', (e) => {
-  if (!welcomeSearchBox.contains(e.relatedTarget)) {
-    welcomeSearchBox.classList.remove('lens-drag-over');
-    lensDropOverlay.classList.remove('visible');
-  }
+// Drop a public image URL for direct Lens search. Local files are handed to
+// Lens' own picker after opening the page, avoiding undocumented upload APIs.
+urlBar.addEventListener('dragover', (event) => {
+  if (draggedTabId || !acceptsLensDrop(event)) return;
+  event.preventDefault();
+  urlBar.classList.add('lens-drag-over');
 });
-
-welcomeSearchBox.addEventListener('drop', (e) => {
-  welcomeSearchBox.classList.remove('lens-drag-over');
-  lensDropOverlay.classList.remove('visible');
+urlBar.addEventListener('dragleave', () => urlBar.classList.remove('lens-drag-over'));
+urlBar.addEventListener('drop', (event) => {
+  urlBar.classList.remove('lens-drag-over');
   if (draggedTabId) return;
-
-  const imageUrl = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
-  if (imageUrl && (imageUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)/i) || imageUrl.startsWith('data:image'))) {
-    e.preventDefault();
-    openLensWithUrl(imageUrl);
-    return;
-  }
-
-  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-    const file = e.dataTransfer.files[0];
-    if (file.type.startsWith('image/')) {
-      e.preventDefault();
-      openLensWithFile(file);
-    }
-  }
+  handleLensDrop(event);
 });
 
-// ── Global drag overlay for welcome screen ──
 const welcomeForm = document.getElementById('welcome-search-form');
-welcomeForm.addEventListener('dragover', (e) => {
-  if (draggedTabId) return;
-  const hasImage = Array.from(e.dataTransfer.types).some(t => t === 'Files');
-  if (hasImage) {
-    e.preventDefault();
-    lensDropOverlay.classList.add('visible');
-    welcomeSearchBox.classList.add('lens-drag-over');
-  }
+welcomeForm.addEventListener('dragover', (event) => {
+  if (draggedTabId || !acceptsLensDrop(event)) return;
+  event.preventDefault();
+  lensDropOverlay.classList.add('visible');
+  welcomeSearchBox.classList.add('lens-drag-over');
 });
-
-welcomeForm.addEventListener('dragleave', (e) => {
-  if (!welcomeForm.contains(e.relatedTarget)) {
+welcomeForm.addEventListener('dragleave', (event) => {
+  if (!welcomeForm.contains(event.relatedTarget)) {
     lensDropOverlay.classList.remove('visible');
     welcomeSearchBox.classList.remove('lens-drag-over');
   }
 });
-
-welcomeForm.addEventListener('drop', (e) => {
+welcomeForm.addEventListener('drop', (event) => {
   lensDropOverlay.classList.remove('visible');
   welcomeSearchBox.classList.remove('lens-drag-over');
-
-  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-    const file = e.dataTransfer.files[0];
-    if (file.type.startsWith('image/')) {
-      e.preventDefault();
-      openLensWithFile(file);
-    }
-  }
+  if (draggedTabId) return;
+  handleLensDrop(event);
 });
 
 // ════════════════════════════════════════
@@ -1768,13 +1733,14 @@ function updateMediaPlayerUI() {
       }
     } else {
       resetMediaButtonsTitle();
+      if (glowContainer) glowContainer.classList.remove('active-glow');
       if (badge) {
         badge.classList.remove('media-player-active');
         badge.style.setProperty('display', 'inline-flex', 'important');
       }
       const albumArt = GlobalMediaState.albumArtUrl;
-      if (albumArt && badge) {
-        badge.style.backgroundImage = `url('${albumArt}')`;
+      if (safeHttpUrl(albumArt) && badge) {
+        badge.style.backgroundImage = `url('${safeHttpUrl(albumArt)}')`;
         badge.style.backgroundSize = 'cover';
         badge.style.backgroundPosition = 'center';
         if (staticIcon) {
@@ -1808,8 +1774,11 @@ function updateMediaPlayerUI() {
         if (pipPlayBtn) {
           pipPlayBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
         }
-        if (pipAlbumArt && GlobalMediaState.albumArtUrl) {
-          pipAlbumArt.innerHTML = `<img src="${GlobalMediaState.albumArtUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" />`;
+        if (pipAlbumArt && safeHttpUrl(GlobalMediaState.albumArtUrl)) {
+          const cover = document.createElement('img');
+          cover.src = safeHttpUrl(GlobalMediaState.albumArtUrl);
+          cover.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:8px;';
+          pipAlbumArt.replaceChildren(cover);
         }
       } else {
         if (pipPlayBtn) {
@@ -1999,6 +1968,7 @@ function initPipDockControls() {
     pipExpand.addEventListener('click', () => {
       openMediaTab();
       if (pipDock) pipDock.classList.remove('visible');
+      pipState.visible = false;
     });
   }
 
@@ -2223,32 +2193,13 @@ btnForward.addEventListener('click', () => {
 });
 
 btnRefresh.addEventListener('click', () => {
-  const wv = getActiveWebview();
-  if (wv) {
-    try {
-      wv.reload();
-    } catch (e) {
-      console.warn('btnRefresh warning:', e);
-    }
-  }
+  const tab = tabs.find(t => t.id === activeTabId);
+  if (tab?.isLoading) { try { getActiveWebview()?.stop(); } catch {} }
+  else reloadActiveTab();
 });
 
 btnHome.addEventListener('click', navigateHome);
 btnNewTab.addEventListener('click', () => createTab());
-
-// Shortcut cards
-document.querySelectorAll('.shortcut-card').forEach(card => {
-  card.addEventListener('click', () => {
-    const url = card.dataset.url;
-    if (url) {
-      if (!tabs || tabs.length === 0 || !activeTabId) {
-        createTab(url);
-      } else {
-        navigateTo(url);
-      }
-    }
-  });
-});
 
 // Sidebar dock clicks
 dockIcons.querySelectorAll('.dock-btn').forEach(btn => {
@@ -2676,7 +2627,7 @@ btnClearCache.addEventListener('click', () => {
     animationId = requestAnimationFrame(animate);
   };
 
-  const triggerTrashFinisher = () => {
+  const triggerTrashFinisher = async () => {
     cancelAnimationFrame(animationId);
     window.removeEventListener('resize', resizeCanvas);
 
@@ -2684,9 +2635,12 @@ btnClearCache.addEventListener('click', () => {
     btnClearCache.style.transition='transform 0.15s cubic-bezier(0.175,0.885,0.32,1.275)';
     btnClearCache.style.transform='scale(1.4) translateY(-8px)';
 
-    // Actual cache purge
-    const wv = getActiveWebview();
-    if(wv){ try{ wv.clearHistory(); } catch(e){ console.error(e); } }
+    let cacheCleared = false;
+    try {
+      cacheCleared = await window.galamtorAPI?.clearCache?.() === true;
+    } catch (err) {
+      console.error('[Cache] Failed to clear browser cache:', err);
+    }
 
     // Sidebar shake
     if(sidebar){
@@ -2710,7 +2664,10 @@ btnClearCache.addEventListener('click', () => {
     overlay.remove();
     requestAnimationFrame(()=>{
       flash.style.opacity='0';
-      setTimeout(()=>{ flash.remove(); showToast('🧹 Кэш пен тарих сәтті тазартылды!'); },420);
+      setTimeout(() => {
+        flash.remove();
+        showToast(cacheCleared ? '🧹 Браузер кэші тазартылды' : '⚠️ Кэшті тазарту сәтсіз аяқталды');
+      }, 420);
     });
 
     setTimeout(()=>{
@@ -2722,97 +2679,15 @@ btnClearCache.addEventListener('click', () => {
   animate();
 });
 
-// ── Keyboard Shortcuts ──
+// Native menu accelerators dispatch the shared browser shortcuts from the main process.
+// Keep only renderer-specific shortcuts here so one keypress cannot trigger an action twice.
 document.addEventListener('keydown', (e) => {
-  if ((e.metaKey || e.ctrlKey) && e.key === 't') {
-    e.preventDefault();
-    createTab();
-  }
-  if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
-    e.preventDefault();
-    if (activeTabId) closeTab(activeTabId);
-  }
-  if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
-    e.preventDefault();
-    urlInput.focus();
-    urlInput.select();
-  }
-  if ((e.metaKey || e.ctrlKey) && e.key === 'r') {
-    e.preventDefault();
-    const wv = getActiveWebview();
-    if (wv) wv.reload();
-  }
   // Cmd+Shift+M — toggle PIP
   if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'm') {
     e.preventDefault();
     togglePip();
   }
-  // Cmd+F — Find in page
-  if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
-    e.preventDefault();
-    if (window.openFindInPage) window.openFindInPage();
-  }
-  // Cmd+D — Bookmark current page
-  if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
-    e.preventDefault();
-    if (typeof toggleBookmarkCurrent === 'function') toggleBookmarkCurrent();
-  }
-  // Cmd+B — Open bookmarks
-  if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
-    e.preventDefault();
-    if (typeof gpOpenModal === 'function') gpOpenModal('bookmarks');
-  }
-  // Cmd+Y — Open history
-  if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
-    e.preventDefault();
-    if (typeof gpOpenModal === 'function') gpOpenModal('history');
-  }
 });
-
-// ── Galamtor State Sync & Dynamic Refresh ──
-const galamtorShortcuts = [
-  {
-    url: 'https://kaspi.kz',
-    label: 'Kaspi.kz',
-    desc: 'Төлемдер, аударымдар',
-    iconHTML: '<div class="sc-icon kaspi-bg">K</div>'
-  },
-  {
-    url: 'https://youtube.com',
-    label: 'YouTube',
-    desc: 'Бейнероликтер',
-    iconHTML: `<div class="sc-icon youtube-bg"><svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M23.498 6.163a3.003 3.003 0 0 0-2.11-2.107C19.522 3.5 12 3.5 12 3.5s-7.522 0-9.388.556a3.003 3.003 0 0 0-2.11 2.107C0 8.029 0 12 0 12s0 3.971.502 5.837a3.003 3.003 0 0 0 2.11 2.107C4.478 20.5 12 20.5 12 20.5s7.522 0 9.388-.556a3.003 3.003 0 0 0 2.11 2.107C24 15.971 24 12 24 12s0-3.971-.502-5.837zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></div>`
-  },
-  {
-    url: 'https://kinopoisk.ru',
-    label: 'Кинопоиск',
-    desc: 'Фильмдер, сериалдар',
-    iconHTML: '<div class="sc-icon kino-bg">К</div>'
-  },
-  {
-    url: 'https://egov.kz',
-    label: 'egov.kz',
-    desc: 'Мемлекеттік қызметтер',
-    iconHTML: `<div class="sc-icon egov-bg"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>`
-  }
-];
-
-// Initialize localStorage if empty
-if (!localStorage.getItem('galamtor_shortcuts')) {
-  localStorage.setItem('galamtor_shortcuts', JSON.stringify(galamtorShortcuts));
-}
-
-function loadShortcuts() {
-  const saved = localStorage.getItem('galamtor_shortcuts');
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch (e) {
-      console.error(e);
-    }
-  }
-  return galamtorShortcuts;
-}
 
 function refreshGalamtorState() {
   // 1. Reset inputs & search states
@@ -2833,16 +2708,7 @@ function refreshGalamtorState() {
     updateLiveExchangeRatesUI();
   }
 
-  // 3. Matrix Scramble Reveal Effect
-  const logoEl = document.querySelector('.welcome-logo');
-  if (logoEl) {
-    scrambleLogoText(logoEl, 'Galamtor');
-  }
-}
-
-function scrambleLogoText(element, targetText = 'Galamtor') {
-  if (!element) return;
-  element.innerHTML = 'Galamtor';
+  updateWelcomeClock();
 }
 
 // ── Sidebar Pinned Shortcuts Setup ──
@@ -2890,7 +2756,7 @@ function injectPremiumNewTabStyles() {
       -webkit-text-fill-color: transparent !important;
       background-clip: text !important;
       text-shadow: none !important;
-      margin-bottom: 28px !important;
+      margin-bottom: 8px !important;
       opacity: 0.95;
     }
 
@@ -2963,96 +2829,7 @@ function injectPremiumNewTabStyles() {
       margin-bottom: 20px !important;
     }
 
-    .shortcuts-grid {
-      display: grid !important;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
-      gap: 14px !important;
-      width: 100% !important;
-      margin-top: 18px !important;
-    }
 
-    .safari-favorites-row {
-      display: grid !important;
-      grid-template-columns: repeat(7, 1fr) !important;
-      gap: 10px !important;
-      width: 100% !important;
-      margin-top: 0 !important;
-    }
-
-    .safari-favorites-row .shortcut-card,
-    .safari-fav-item {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      padding: 6px 4px !important;
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
-      display: flex !important;
-      flex-direction: column !important;
-      align-items: center !important;
-      justify-content: flex-start !important;
-      cursor: pointer !important;
-      transition: all 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2) !important;
-      border-radius: 16px !important;
-    }
-
-    .safari-favorites-row .shortcut-card:hover,
-    .safari-fav-item:hover {
-      background: rgba(255, 255, 255, 0.08) !important;
-      backdrop-filter: blur(16px) !important;
-      -webkit-backdrop-filter: blur(16px) !important;
-      transform: translateY(-3px) scale(1.03) !important;
-      box-shadow: none !important;
-      border: none !important;
-    }
-
-    .shortcut-card:active {
-      transform: translateY(-1px) scale(0.98) !important;
-    }
-
-    .shortcut-card .sc-icon {
-      width: 48px !important;
-      height: 48px !important;
-      border-radius: 12px !important;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
-      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
-      margin-bottom: 12px !important;
-    }
-
-    .shortcut-card:hover .sc-icon {
-      transform: scale(1.06) !important;
-    }
-
-    .shortcut-card .kaspi-bg {
-      background: linear-gradient(135deg, #e33e3d, #ff5e5d) !important;
-    }
-
-    .shortcut-card .egov-bg {
-      background: linear-gradient(135deg, #0096c7, #005f73) !important;
-    }
-
-    .shortcut-card .youtube-bg {
-      background: linear-gradient(135deg, #e63946, #b70919) !important;
-    }
-
-    .shortcut-card .kino-bg {
-      background: linear-gradient(135deg, #f77f00, #fcbf49) !important;
-    }
-
-    .shortcut-card .sc-label {
-      font-family: 'Inter', -apple-system, sans-serif !important;
-      font-size: 13px !important;
-      font-weight: 500 !important;
-      color: rgba(255, 255, 255, 0.9) !important;
-      margin-bottom: 4px !important;
-    }
-
-    .shortcut-card .sc-desc {
-      font-family: 'Inter', -apple-system, sans-serif !important;
-      font-size: 11px !important;
-      color: rgba(255, 255, 255, 0.4) !important;
-      line-height: 1.4 !important;
-    }
   `;
   document.head.appendChild(styleEl);
 }
@@ -3833,7 +3610,7 @@ const UI_TRANSLATIONS = {
     customUrlLabel: 'Жеке URL сілтемесі',
     userNameLabel: 'ПАЙДАЛАНУШЫ АТЫ',
     langLabel: 'Тіл / Язык / Language',
-    welcomeFooter: 'Қазақстанның ұлттық браузері'
+    welcomeFooter: 'Қазақ тіліндегі браузер'
   },
   ru: {
     profileTab: 'Профиль',
@@ -3974,25 +3751,45 @@ const _gp = {
   hiddenItems: [], // sidebar elements hidden by lock
   lockedOpenTabs: [], // tabs closed/hidden by lock
   syncState: localStorage.getItem('gp_sync_state') || 'disconnected',
-  syncUser: null
+  syncUser: null,
+  syncLoginTimeout: null
 };
 
 // ── 4. STORAGE LAYER (GalamtorStore) ─────────────────────────────
 const GalamtorStore = {
-  _get(key, fallback) { try { const v=localStorage.getItem(key); return v?JSON.parse(v):fallback; } catch { return fallback; } },
-  _set(key, val) { localStorage.setItem(key, JSON.stringify(val)); },
+  _get(key, fallback) {
+    try {
+      const value = JSON.parse(localStorage.getItem(key));
+      if (Array.isArray(fallback)) return Array.isArray(value) ? value : fallback;
+      return window.GalamtorBrowserState.isRecord(value) ? value : fallback;
+    } catch { return fallback; }
+  },
+  _set(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); return true; }
+    catch { showToast('Деректер сақталмады: профиль жады толған болуы мүмкін'); return false; }
+  },
 
-  getProfile() { return this._get('gp_profile', { name:'Galamtor Пайдаланушысы', colorId:'cyan', createdAt:Date.now() }); },
+  getProfile() {
+    const profile = this._get('gp_profile', {});
+    return { ...profile, name: typeof profile.name === 'string' ? profile.name.slice(0, 100) : 'Galamtor Пайдаланушысы',
+      colorId: typeof profile.colorId === 'string' ? profile.colorId : 'cyan',
+      createdAt: Number.isFinite(profile.createdAt) ? profile.createdAt : Date.now() };
+  },
   saveProfile(p) { this._set('gp_profile', p); },
 
-  getVibes() { return this._get('gp_vibes', null) || GP_DEFAULT_VIBES; },
+  getVibes() { return this._get('gp_vibes', structuredClone(GP_DEFAULT_VIBES)).filter(vibe => window.GalamtorBrowserState.validateProfileImport({ vibes: [vibe] })); },
   saveVibes(v) { this._set('gp_vibes', v); },
   addVibe(v) { const all=this.getVibes(); all.push(v); this.saveVibes(all); },
   deleteVibe(id) { this.saveVibes(this.getVibes().filter(v=>v.id!==id)); },
   getActiveVibeId() { return localStorage.getItem('gp_active_vibe') || ''; },
   setActiveVibeId(id) { localStorage.setItem('gp_active_vibe', id); },
 
-  getLock() { return this._get('gp_lock', { enabled:false, pinHash:'', hiddenUrls:[], touchIdEnabled:true }); },
+  getLock() {
+    const lock = this._get('gp_lock', {});
+    return { ...lock, enabled: lock.enabled === true, pinHash: typeof lock.pinHash === 'string' ? lock.pinHash : '',
+      hiddenUrls: Array.isArray(lock.hiddenUrls) ? lock.hiddenUrls.filter(window.GalamtorBrowserState.webURL) : [],
+      touchIdEnabled: lock.touchIdEnabled !== false };
+  },
   saveLock(l) { this._set('gp_lock', l); },
 
   async hashPin(pin) {
@@ -4006,7 +3803,7 @@ const GalamtorStore = {
     dockIcons.querySelectorAll('.dock-btn[data-url]').forEach(b => {
       pinned.push({ url:b.dataset.url, title:b.title||'' });
     });
-    const openTabs = tabs.map(t=>({ url:t.url, title:t.title, isHome:t.isHome }));
+    const openTabs = tabs.filter(t => !t.isIncognito).map(t=>({ url:t.url, title:t.title, isHome:t.isHome }));
     return { pinned, openTabs, capturedAt:Date.now() };
   },
 
@@ -4027,18 +3824,27 @@ const GalamtorStore = {
     inp.type='file'; inp.accept='.json';
     inp.addEventListener('change', e => {
       const f=e.target.files[0]; if(!f) return;
+      if (f.size > 2 * 1024 * 1024) { showToast('Импорт файлы 2 МБ-тан аспауы керек'); return; }
       const r=new FileReader();
       r.onload = ev => {
         try {
           const d=JSON.parse(ev.target.result);
-          if(d.profile) this.saveProfile(d.profile);
-          if(d.vibes) this.saveVibes(d.vibes);
-          if(d.lock) this.saveLock(d.lock);
-          if(d.activeVibe) this.setActiveVibeId(d.activeVibe);
+          if (!window.GalamtorBrowserState.validateProfileImport(d)) throw new Error('Invalid profile');
+          const updates = [];
+          for (const [field, key] of [['profile', 'gp_profile'], ['vibes', 'gp_vibes'], ['lock', 'gp_lock'], ['activeVibe', 'gp_active_vibe']]) {
+            if (field in d) updates.push([key, field === 'activeVibe' ? d[field] : JSON.stringify(d[field])]);
+          }
+          const previous = updates.map(([key]) => [key, localStorage.getItem(key)]);
+          try { updates.forEach(([key, value]) => localStorage.setItem(key, value)); }
+          catch (error) {
+            previous.forEach(([key, value]) => { try { value === null ? localStorage.removeItem(key) : localStorage.setItem(key, value); } catch {} });
+            throw error;
+          }
           showToast('✅ Профиль сәтті импортталды!');
           if(callback) callback();
         } catch { showToast('⚠️ Импорт қатесі — файл форматы дұрыс емес'); }
       };
+      r.onerror = () => showToast('Импорт файлын оқу мүмкін болмады');
       r.readAsText(f);
     });
     inp.click();
@@ -4168,7 +3974,8 @@ function gpRenderProfileTab() {
   const trans = UI_TRANSLATIONS[currentLang] || UI_TRANSLATIONS.kk;
   
   const localeMap = { kk: 'kk-KZ', ru: 'ru-RU', en: 'en-US' };
-  const created = new Date(prof.createdAt).toLocaleDateString(localeMap[currentLang] || 'kk-KZ', {year:'numeric',month:'long',day:'numeric'});
+  const created = currentLang === 'kk' ? formatKazakhDate(new Date(prof.createdAt))
+    : new Date(prof.createdAt).toLocaleDateString(localeMap[currentLang] || 'kk-KZ', {year:'numeric',month:'long',day:'numeric'});
   
   const vibeCount = GalamtorStore.getVibes().length;
   const pinnedCount = dockIcons.querySelectorAll('.dock-btn[data-url]').length;
@@ -4289,13 +4096,20 @@ function gpRenderProfileTab() {
     authBtn.addEventListener('click', () => {
       const user = auth.currentUser;
       if (!user) {
+        if (_gp.syncLoginTimeout) clearTimeout(_gp.syncLoginTimeout);
         _gp.syncState = 'connecting';
         localStorage.setItem('gp_sync_state', 'connecting');
         gpRenderProfileTab();
-        
-        // Clean up current auth state before triggering new redirect flow
-        auth.signOut().catch(() => {});
         window.galamtorAPI.startGoogleLogin();
+        _gp.syncLoginTimeout = setTimeout(() => {
+          if (_gp.syncState !== 'connecting' || auth.currentUser) return;
+          _gp.syncLoginTimeout = null;
+          _gp.syncState = 'disconnected';
+          localStorage.setItem('gp_sync_state', 'disconnected');
+          window.galamtorAPI.stopAuthServer();
+          showToast('Google кіруі аяқталмады. Қайта бастауға болады.');
+          gpRenderProfileTab();
+        }, 5 * 60 * 1000);
       } else {
         auth.signOut().then(() => {
           _gp.syncState = 'disconnected';
@@ -4602,144 +4416,88 @@ function gpApplyVibe(vibeId) {
   }
 }
 
-// ── 6b2. AI ASSISTANT & AUTO-DOWNLOADER ───────────────────────────
-async function handleAiDownloadCommand(userPrompt) {
-  try {
-    const prompt = (userPrompt || '').trim();
-    const activeTab = tabs.find(t => t.id === activeTabId);
-    let targetUrl = '';
-
-    // Check if user provided an explicit http(s) URL
-    const urlMatch = prompt.match(/https?:\/\/[^\s]+/i);
-    if (urlMatch) {
-      targetUrl = urlMatch[0];
-    } else if (activeTab && activeTab.url && !activeTab.isHome) {
-      targetUrl = activeTab.url;
-    }
-
-    if (!targetUrl) {
-      showToast('⚠️ Жүктейтін сілтеме немесе ашық сайт табылмады');
-      return false;
-    }
-
-    // First attempt: simulate direct click on page download button inside active webview
-    const wv = getActiveWebview();
-    if (wv && !urlMatch) {
-      const clicked = await wv.executeJavaScript(`
-        (() => {
-          const dlSelector = 'a[href*=".dmg"], a[href*=".pkg"], a[href*=".zip"], a[href*=".exe"], a[href*=".mp4"], a[download], [class*="download" i], [id*="download" i], a[href*="download" i], button[onclick*="download" i]';
-          const btn = document.querySelector(dlSelector);
-          if (btn) {
-            btn.click();
-            return true;
-          }
-          return false;
-        })()
-      `).catch(() => false);
-
-      if (clicked) {
-        showToast('AI Авто-Жүктеу: Парақшадағы бағдарлама іске қосылды');
-        return true;
-      }
-    }
-
-    // Fallback: Trigger Electron native download
-    if (window.galamtorAPI && window.galamtorAPI.downloadURL) {
-      await window.galamtorAPI.downloadURL(targetUrl);
-      showToast(`AI Авто-Жүктеу: ${targetUrl.slice(0, 30)}... жүктелуде`);
-
-      if (_gp.overlayEl && _gp.overlayEl.classList.contains('gp-visible')) {
-        gpSwitchTab('downloads');
-      }
-      return true;
-    }
-  } catch (err) {
-    console.error('[AI Downloader] Error:', err);
-    showToast('❌ AI Авто-Жүктеу кезінде қате орын алды');
-  }
-  return false;
-}
-
+// ── AI Assistant quick actions and site security ─────────────────
 function gpRenderAiTab() {
   const panel = _gp.overlayEl.querySelector('#gp-panel-ai');
   if (!panel) return;
 
-  const activeTab = tabs.find(t => t.id === activeTabId);
+  const activeTab = tabs.find(tab => tab.id === activeTabId);
   const currentTitle = activeTab ? (activeTab.title || activeTab.url || 'Парақша') : 'Ашық сайт';
   const currentUrl = activeTab ? (activeTab.url || '') : '';
+  const safeUrl = safeHttpUrl(currentUrl);
+  const currentHost = safeUrl ? new URL(safeUrl).hostname : '';
 
   panel.innerHTML = `
     <div style="padding: 10px 0;">
-      <div style="font-size: 13px; font-weight: 600; color: #fff; margin-bottom: 4px;">AI Көмекші & Авто-Жүктегіш</div>
-      <div style="font-size: 11px; color: rgba(255,255,255,0.45); margin-bottom: 16px;">Белсенді сайт: ${currentTitle.replace(/"/g,'&quot;')}</div>
+      <div style="font-size: 13px; font-weight: 600; color: #fff; margin-bottom: 4px;">AI көмекшісі және сайт қауіпсіздігі</div>
+      <div style="font-size: 11px; color: rgba(255,255,255,0.45); margin-bottom: 14px;">Белсенді сайт: ${escapeHtml(currentTitle)}</div>
 
-      <!-- AI Auto-Download Prompt Box -->
-      <div style="margin-bottom: 16px;">
-        <label class="gp-label" style="font-size: 9px; letter-spacing: 1px; color: rgba(255,255,255,0.3); margin-bottom: 6px; display: block;">AI ПӘРМЕНІ / АВТО-ЖҮКТЕУ</label>
-        <div style="display: flex; gap: 6px;">
-          <input type="text" id="gp-ai-prompt-input" class="gp-input" placeholder="Мысалы: осы видеоны жүкте немесе сілтеме..." style="flex:1; font-size:12px; padding:10px 12px;">
-          <button class="gp-btn gp-btn-primary" id="gp-ai-download-btn" style="font-size:11px; padding:10px 14px; white-space:nowrap;">
-            Авто-Жүктеу
-          </button>
+      <section style="margin-bottom:16px;padding:13px;background:rgba(15,16,22,.85);border:1px solid rgba(255,255,255,.09);border-radius:14px;">
+        <div style="font-size:12px;font-weight:600;color:#fff;margin-bottom:5px;">Сайт қауіпсіздігін тексеру</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:10px;">${escapeHtml(currentHost || 'Ашық веб-сайт жоқ')}</div>
+        <div id="gp-ai-security-result" role="status" aria-live="polite" style="font-size:11px;line-height:1.5;color:rgba(255,255,255,.7);margin-bottom:10px;">
+          HTTPS және Galamtor Qalqan фишинг тізімі бойынша тексеруге болады.
         </div>
+        <button class="gp-btn gp-btn-ghost" id="gp-ai-security-check" style="font-size:11px;padding:9px 10px;width:100%;" ${safeUrl ? '' : 'disabled'}>
+          Қауіпсіздікті тексеру
+        </button>
+        <div style="font-size:10px;color:rgba(255,255,255,.38);line-height:1.45;margin-top:8px;">Qalqan белгілі күдікті домендерді ғана қарайды. Бұл толық қауіпсіздік кепілдігі емес.</div>
+      </section>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+        <button class="gp-btn gp-btn-ghost" id="gp-ai-summarize-btn" style="font-size:11px;padding:10px 8px;">Бетті түйіндеу</button>
+        <button class="gp-btn gp-btn-ghost" id="gp-ai-insights-btn" style="font-size:11px;padding:10px 8px;">Негізгі фактілер</button>
       </div>
 
-      <!-- Quick Action Buttons -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px;">
-        <button class="gp-btn gp-btn-ghost" id="gp-ai-summarize-btn" style="font-size:11px; padding: 10px 8px;">
-          Бетті түйіндеу
-        </button>
-        <button class="gp-btn gp-btn-ghost" id="gp-ai-insights-btn" style="font-size:11px; padding: 10px 8px;">
-          Негізгі фактілер
-        </button>
-      </div>
-
-      <!-- Result Container -->
-      <div id="gp-ai-output" style="background: rgba(15, 16, 22, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 14px; min-height: 110px; font-size: 12px; line-height: 1.5; color: rgba(255, 255, 255, 0.85);">
-        <span style="color: rgba(255,255,255,0.35);">Пәрмен енгізіңіз немесе Авто-Жүктеу батырмасын басыңыз.</span>
+      <div id="gp-ai-output" style="background:rgba(15,16,22,.85);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;min-height:110px;font-size:12px;line-height:1.5;color:rgba(255,255,255,.85);">
+        <span style="color:rgba(255,255,255,.35);">AI-ға тапсырма таңдаңыз.</span>
       </div>
     </div>
   `;
 
-  const inputEl = panel.querySelector('#gp-ai-prompt-input');
-
-  panel.querySelector('#gp-ai-download-btn').addEventListener('click', async () => {
-    const text = inputEl ? inputEl.value : '';
-    await handleAiDownloadCommand(text || 'осы бетті жүкте');
-  });
-
-  inputEl?.addEventListener('keydown', async (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      await handleAiDownloadCommand(inputEl.value || 'осы бетті жүкте');
+  panel.querySelector('#gp-ai-security-check').addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    const resultEl = panel.querySelector('#gp-ai-security-result');
+    if (!safeUrl || !resultEl) return;
+    button.disabled = true;
+    resultEl.textContent = 'Сайт тексеріліп жатыр…';
+    try {
+      const result = await window.galamtorAPI.qalqanCheckUrl(safeUrl);
+      if (result?.isScam) {
+        resultEl.textContent = `⚠️ Күдікті белгі табылды: ${result.reason || 'Qalqan тізімімен сәйкес келді.'}`;
+        resultEl.style.color = '#ff8c8c';
+      } else {
+        const scheme = new URL(safeUrl).protocol;
+        const transport = scheme === 'https:' ? 'HTTPS байланысы шифрланған.' : 'HTTP байланысы шифрланбаған.';
+        resultEl.textContent = `${transport} Qalqan белгілі фишинг тізімінен белгі таппады.`;
+        resultEl.style.color = scheme === 'https:' ? '#a7e9c0' : '#ffd18a';
+      }
+    } catch {
+      resultEl.textContent = 'Қауіпсіздік тексерісін аяқтау мүмкін болмады.';
+      resultEl.style.color = '#ffd18a';
+    } finally {
+      button.disabled = false;
     }
   });
 
-  panel.querySelector('#gp-ai-summarize-btn').addEventListener('click', () => {
+  panel.querySelector('#gp-ai-summarize-btn').addEventListener('click', async () => {
     const out = panel.querySelector('#gp-ai-output');
-    out.innerHTML = `
-      <div style="color:#00f2fe; font-weight:600; margin-bottom:6px;">Беттің қысқаша түйіндемесі:</div>
-      <div style="margin-bottom:8px;"><strong>Сайт:</strong> ${currentTitle.replace(/</g,'&lt;')}</div>
-      <ul style="padding-left:16px; margin:0; color:rgba(255,255,255,0.75);">
-        <li>Маңызды ақпарат пен мазмұн қазақ тілінде құрылымдалды.</li>
-        <li>Жылдам оқу және басты идеяларға шолу жасалды.</li>
-        <li>Дереккөз сілтемесі: ${currentUrl.replace(/</g,'&lt;') || 'Жергілікті бет'}</li>
-      </ul>
-    `;
-    showToast('AI Талдау аяқталды');
+    out.textContent = 'Бет мәтіні талданып жатыр...';
+    try {
+      const content = await getActivePageContent();
+      const result = await window.galamtorAPI.aiSummarize(content, currentTitle, currentUrl);
+      out.textContent = result.text || result.error || 'Түйіндеме алынбады.';
+    } catch (err) { out.textContent = `Қате: ${err.message}`; }
   });
 
-  panel.querySelector('#gp-ai-insights-btn').addEventListener('click', () => {
+  panel.querySelector('#gp-ai-insights-btn').addEventListener('click', async () => {
     const out = panel.querySelector('#gp-ai-output');
-    out.innerHTML = `
-      <div style="color:#27c93f; font-weight:600; margin-bottom:6px;">Негізгі 3 факт:</div>
-      <ol style="padding-left:16px; margin:0; color:rgba(255,255,255,0.75);">
-        <li>Парақшадағы мазмұн мен негізгі деректер талданды.</li>
-        <li>Негізгі тақырыптық контекст сақталды.</li>
-        <li>Қауіпсіз және AdBlock қорғанысымен қамтамасыз етілген.</li>
-      </ol>
-    `;
-    showToast('Негізгі фактілер дайын');
+    out.textContent = 'Негізгі фактілер талданып жатыр...';
+    try {
+      const content = await getActivePageContent();
+      const result = await window.galamtorAPI.aiChat(`Мына бет мәтінінен дәлелденетін үш негізгі фактіні келтір. Мәтінде жоқ деректі қоспа:\n${content.slice(0, 15000)}`, { title: currentTitle, url: currentUrl }, []);
+      out.textContent = result.text || result.error || 'Фактілер алынбады.';
+    } catch (err) { out.textContent = `Қате: ${err.message}`; }
   });
 }
 
@@ -4751,9 +4509,10 @@ function gpRenderLockTab() {
 
   panel.innerHTML = `
     <div class="gp-lock-row">
-      <div class="gp-lock-label">Қауіпсіз құлып</div>
+      <div class="gp-lock-label">Көрініс құлпы</div>
       <button class="gp-toggle ${lock.enabled?'on':''}" id="gp-lock-toggle"></button>
     </div>
+    <p style="font-size:11px;color:rgba(255,255,255,0.5);line-height:1.5;margin:0 0 14px;">Бұл құлып қойындыларды интерфейсте жасырады. Тарих, cookies және файлдар шифрланбайды.</p>
     ${lock.enabled ? `
       ${hasPIN ? `
         <div class="gp-pin-status">PIN код орнатылған. <em>Сессия ${_gp.sessionUnlocked?'ашық ✓':'құлыпталған'}</em></div>
@@ -4785,7 +4544,7 @@ function gpRenderLockTab() {
       </div>
     ` : `
       <div style="text-align:center;padding:24px 0;color:rgba(255,255,255,0.25);font-size:13px;">
-        Профильді 4 таңбалы PIN кодпен қорғау үшін Қауіпсіз құлыпты қосыңыз.
+        Интерфейсті 4 таңбалы PIN кодпен жасыру үшін көрініс құлпын қосыңыз.
       </div>
     `}
   `;
@@ -5167,7 +4926,7 @@ function gpShowForgotPinDialog() {
 
     ov.querySelector('#gp-forgot-reset-btn')?.addEventListener('click', () => {
       ov.remove();
-      gpConfirm('PIN кодты нөлдеу керек пе?', 'Қауіпсіз құлып өшіріліп, жасырылған барлық беттер қайта көрсетіледі.', () => {
+      gpConfirm('PIN кодты нөлдеу керек пе?', 'Көрініс құлпы өшіріліп, жасырылған барлық беттер қайта көрсетіледі.', () => {
         const l = GalamtorStore.getLock();
         l.pinHash = '';
         l.enabled = false;
@@ -5303,8 +5062,8 @@ function gpHideLockedItems() {
   });
 
   tabsToClose.forEach(tab => {
-    _gp.lockedOpenTabs.push({ url: tab.url, title: tab.title });
-    closeTab(tab.id);
+    _gp.lockedOpenTabs.push({ url: tab.url, title: tab.title, isIncognito: tab.isIncognito, isMuted: tab.isMuted });
+    closeTab(tab.id, { remember: false });
   });
 }
 
@@ -5316,7 +5075,7 @@ function gpShowLockedItems() {
   // Restore matching open tabs
   if (_gp.lockedOpenTabs && _gp.lockedOpenTabs.length > 0) {
     _gp.lockedOpenTabs.forEach(t => {
-      createTab(t.url);
+      createTab(t.url, t.isIncognito, { isMuted: t.isMuted });
     });
     _gp.lockedOpenTabs = [];
   }
@@ -5537,6 +5296,8 @@ function gpInitProfileHub() {
     if (_signInInProgress) return;
 
     if (user) {
+      if (_gp.syncLoginTimeout) clearTimeout(_gp.syncLoginTimeout);
+      _gp.syncLoginTimeout = null;
       _gp.syncState = 'connected';
       localStorage.setItem('gp_sync_state', 'connected');
 
@@ -5544,10 +5305,10 @@ function gpInitProfileHub() {
         openTabsCount: tabs.length,
         pinnedTabsCount: dockIcons.querySelectorAll('.dock-btn[data-url]').length,
         vibesCount: GalamtorStore.getVibes().length,
-        registrationDate: "2026-07-12"
+        registrationDate: getRegistrationDate()
       };
       await syncProfileStats(user.uid, stats);
-    } else {
+    } else if (_gp.syncState !== 'connecting') {
       _gp.syncState = 'disconnected';
       localStorage.setItem('gp_sync_state', 'disconnected');
     }
@@ -5567,7 +5328,17 @@ function gpInitProfileHub() {
   // on the Firebase Hosting page) NOT a Firebase ID Token (from user.getIdToken()).
   // GoogleAuthProvider.credential(idToken, accessToken) requires Google's own token.
   if (window.galamtorAPI && typeof window.galamtorAPI.onFirebaseAuthToken === 'function') {
+    window.galamtorAPI.onAuthServerError?.((code) => {
+      if (_gp.syncLoginTimeout) clearTimeout(_gp.syncLoginTimeout);
+      _gp.syncLoginTimeout = null;
+      _gp.syncState = 'disconnected';
+      localStorage.setItem('gp_sync_state', 'disconnected');
+      showToast(`Google кіру сервері қосылмады: ${code}`);
+      if (_gp.overlayEl?.classList.contains('gp-visible') && _gp.activeTab === 'profile') gpRenderProfileTab();
+    });
     window.galamtorAPI.onFirebaseAuthToken((payload) => {
+    if (_gp.syncLoginTimeout) clearTimeout(_gp.syncLoginTimeout);
+    _gp.syncLoginTimeout = null;
     // Normalize: support both the new object shape and a legacy plain-string fallback
     // so that existing sessions during a partial deploy are not broken.
     let googleIdToken, googleAccessToken;
@@ -5602,6 +5373,8 @@ function gpInitProfileHub() {
 
     auth.signInWithCredential(credential)
       .then(async (result) => {
+        if (_gp.syncLoginTimeout) clearTimeout(_gp.syncLoginTimeout);
+        _gp.syncLoginTimeout = null;
         _signInInProgress = false;
         _gp.syncState = 'connected';
         localStorage.setItem('gp_sync_state', 'connected');
@@ -5612,7 +5385,7 @@ function gpInitProfileHub() {
           openTabsCount: tabs.length,
           pinnedTabsCount: dockIcons.querySelectorAll('.dock-btn[data-url]').length,
           vibesCount: GalamtorStore.getVibes().length,
-          registrationDate: "2026-07-12"
+          registrationDate: getRegistrationDate()
         };
         await syncProfileStats(result.user.uid, stats);
 
@@ -5622,6 +5395,8 @@ function gpInitProfileHub() {
         }
       })
       .catch((err) => {
+        if (_gp.syncLoginTimeout) clearTimeout(_gp.syncLoginTimeout);
+        _gp.syncLoginTimeout = null;
         _signInInProgress = false;
         _gp.syncState = 'disconnected';
         localStorage.setItem('gp_sync_state', 'disconnected');
@@ -5681,12 +5456,12 @@ async function gpRenderBookmarksTab() {
         const fav = b.favicon || `https://www.google.com/s2/favicons?domain=${domain}`;
         return `
           <div class="gp-bookmark-item" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(255,255,255,0.015);border:1px solid rgba(255,255,255,0.03);border-radius:10px;transition:all 0.2s ease;gap:10px;">
-            <img src="${fav}" style="width:16px;height:16px;border-radius:3px;flex-shrink:0;" onerror="this.src='https://www.google.com/s2/favicons?domain=google.com'">
-            <div style="flex:1;min-width:0;cursor:pointer;" class="gp-bm-click" data-url="${b.url}">
-              <div style="font-size:13px;font-weight:500;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.title}</div>
-              <div style="font-size:11px;color:rgba(255,255,255,0.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.url}</div>
+            <img class="gp-bookmark-favicon" src="${escapeAttr(safeHttpUrl(fav))}" data-fallback="https://www.google.com/s2/favicons?domain=google.com" style="width:16px;height:16px;border-radius:3px;flex-shrink:0;">
+            <div style="flex:1;min-width:0;cursor:pointer;" class="gp-bm-click" data-url="${escapeAttr(b.url)}">
+              <div style="font-size:13px;font-weight:500;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(b.title)}</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(b.url)}</div>
             </div>
-            <button class="gp-btn-delete-bm" data-id="${b.id}" style="background:transparent;border:none;color:rgba(255,255,255,0.3);font-size:16px;cursor:pointer;padding:4px;border-radius:4px;" title="Өшіру">×</button>
+            <button class="gp-btn-delete-bm" data-id="${escapeAttr(b.id)}" style="background:transparent;border:none;color:rgba(255,255,255,0.3);font-size:16px;cursor:pointer;padding:4px;border-radius:4px;" title="Өшіру">×</button>
           </div>
         `;
       }).join('');
@@ -5703,6 +5478,14 @@ async function gpRenderBookmarksTab() {
         ${bHtml}
       </div>
     `;
+
+    panel.querySelectorAll('.gp-bookmark-favicon').forEach(img => {
+      img.addEventListener('error', () => {
+        const fallbackUrl = img.dataset.fallback;
+        if (fallbackUrl && img.src !== fallbackUrl) img.src = fallbackUrl;
+        else img.remove();
+      });
+    });
 
     panel.querySelectorAll('.gp-bm-click').forEach(el => {
       el.addEventListener('click', () => {
@@ -5731,101 +5514,65 @@ async function gpRenderBookmarksTab() {
     }
   } catch (err) {
     console.error(err);
-    panel.innerHTML = `<div style="color:#ff416c;padding:20px;">Қате: ${err.message}</div>`;
+    panel.textContent = `Қате: ${err.message}`;
   }
 }
 
 async function gpRenderHistoryTab() {
-  const panel = _gp.overlayEl.querySelector('#gp-panel-history');
-  panel.innerHTML = `
-    <div style="display:flex; align-items:center; justify-content:center; padding: 40px;">
-      <span class="gp-spinner"></span>
-    </div>
-  `;
-  
+  const panel = _gp.overlayEl?.querySelector('#gp-panel-history');
+  if (!panel) return;
+  panel.innerHTML = '<div class="gp-history-loading">Тарих жүктелуде…</div>';
   try {
-    const history = (window.galamtorAPI && window.galamtorAPI.getHistory) ? await window.galamtorAPI.getHistory() : [];
-    
-    let historyHtml = '';
-    if (history && history.length > 0) {
-      const groups = {};
-      history.forEach(item => {
-        const dateStr = new Date(item.timestamp).toLocaleDateString('kk-KZ', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
-        if (!groups[dateStr]) groups[dateStr] = [];
-        groups[dateStr].push(item);
-      });
-      
-      for (const [date, items] of Object.entries(groups)) {
-        historyHtml += `
-          <div class="gp-history-group" style="margin-bottom: 20px;">
-            <div class="gp-label" style="margin-bottom: 8px; color: rgba(255,255,255,0.3); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">${date}</div>
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-              ${items.map(item => {
-                const timeStr = new Date(item.timestamp).toLocaleTimeString('kk-KZ', { hour: '2-digit', minute: '2-digit' });
-                return `
-                  <div class="gp-history-item" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.03); border-radius: 10px; transition: all 0.2s ease;">
-                    <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; margin-right: 12px;">
-                      <div class="gp-history-title" style="font-size: 13px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; text-align: left;" title="${item.title}">${item.title}</div>
-                      <div class="gp-history-url" style="font-size: 11px; color: rgba(255,255,255,0.35); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; text-align: left;" title="${item.url}">${item.url}</div>
-                    </div>
-                    <div style="font-size: 11px; color: rgba(255,255,255,0.25); font-weight: 500; flex-shrink: 0;">${timeStr}</div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </div>
-        `;
-      }
-    } else {
-      historyHtml = `
-        <div style="text-align:center; padding: 40px 20px; color: rgba(255,255,255,0.25); font-size: 13px;">
-          Тарих таза. Беттерге кіргенде мұнда көрсетіледі.
-        </div>
-      `;
-    }
-    
-    panel.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; margin-top: 10px;">
-        <h3 style="font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7); margin: 0;">Қарау тарихы</h3>
-        ${(history && history.length > 0) ? `<button class="gp-link-btn-danger" id="gp-clear-history-btn">Тарихты тазалау</button>` : ''}
-      </div>
-      <div class="gp-history-list-container" style="flex: 1; overflow-y: auto; padding-right: 4px;">
-        ${historyHtml}
-      </div>
-    `;
-    
-    const clearBtn = panel.querySelector('#gp-clear-history-btn');
-    if (clearBtn) {
-      clearBtn.addEventListener('click', () => {
-        gpConfirm('Тарихты тазалау?', 'Қарау тарихыңыз толықтай өшіріледі.', async () => {
-          await window.galamtorAPI.clearHistory();
-          showToast('🧹 Тарих сәтті тазартылды');
-          gpRenderHistoryTab();
-        });
-      });
-    }
-
-    panel.querySelectorAll('.gp-history-title, .gp-history-url').forEach(el => {
-      el.addEventListener('click', () => {
-        const url = el.getAttribute('title');
-        if (url) {
-          createTab(url);
-          gpCloseModal();
+    const history = await window.galamtorAPI?.getHistory() || [];
+    if (!panel.isConnected) return;
+    panel.innerHTML = `<div class="gp-history-header"><h3>Қарау тарихы</h3><button class="gp-link-btn-danger" id="gp-clear-history-btn">Тарихты тазалау</button></div>
+      <input class="gp-input" id="gp-history-search" type="search" aria-label="Тарихтан іздеу" placeholder="Атауы немесе мекенжайы бойынша іздеу…">
+      <p id="gp-history-count" class="gp-history-count" role="status" aria-live="polite"></p><div id="gp-history-results" class="gp-history-results"></div>`;
+    const input = panel.querySelector('#gp-history-search');
+    const list = panel.querySelector('#gp-history-results');
+    const count = panel.querySelector('#gp-history-count');
+    const clear = panel.querySelector('#gp-clear-history-btn');
+    clear.disabled = history.length === 0;
+    let limit = 150;
+    function render() {
+      const query = input.value.trim().toLocaleLowerCase();
+      const matches = history.filter(item => `${item.title} ${item.url}`.toLocaleLowerCase().includes(query));
+      count.textContent = `${matches.length} жазба${matches.length > limit ? ` · алғашқы ${limit} көрсетілді` : ''}`;
+      list.replaceChildren();
+      let lastDate = '';
+      matches.slice(0, limit).forEach(item => {
+        const date = new Date(item.timestamp);
+        const dateLabel = formatKazakhDate(date);
+        if (dateLabel !== lastDate) {
+          const label = document.createElement('h4'); label.className = 'gp-history-date'; label.textContent = dateLabel; list.appendChild(label);
+          lastDate = dateLabel;
         }
+        const button = document.createElement('button'); button.className = 'gp-history-entry'; button.type = 'button'; button.title = item.url;
+        const copy = document.createElement('span');
+        const title = document.createElement('strong'); title.textContent = item.title;
+        const address = document.createElement('span'); address.textContent = item.url;
+        const time = document.createElement('time'); time.textContent = date.toLocaleTimeString('kk-KZ', { hour: '2-digit', minute: '2-digit' });
+        copy.append(title, address); button.append(copy, time);
+        button.addEventListener('click', () => { createTab(item.url); gpCloseModal(); });
+        list.appendChild(button);
       });
-    });
-  } catch (err) {
-    console.error(err);
-    panel.innerHTML = `
-      <div style="text-align:center; padding: 20px; color: #ff416c; font-size: 13px;">
-        Тарихты жүктеу сәтсіз аяқталды: ${err.message}
-      </div>
-    `;
-  }
+      if (!matches.length) {
+        const empty = document.createElement('p'); empty.className = 'gp-history-loading';
+        empty.textContent = history.length ? 'Нәтиже табылмады' : 'Тарих таза. Ашылған беттер осында көрінеді.'; list.appendChild(empty);
+      }
+      if (matches.length > limit) {
+        const more = document.createElement('button'); more.className = 'gp-btn gp-btn-secondary'; more.textContent = 'Тағы көрсету';
+        more.addEventListener('click', () => { limit += 150; render(); }); list.appendChild(more);
+      }
+    }
+    input.addEventListener('input', () => { limit = 150; render(); });
+    clear.addEventListener('click', () => gpConfirm('Тарихты тазалау?', 'Қарау тарихыңыз толықтай өшіріледі.', async () => {
+      const saved = await window.galamtorAPI.clearHistory();
+      if (!saved) { showToast('Тарихты тазалау сәтсіз аяқталды'); return; }
+      showToast('Тарих тазартылды'); gpRenderHistoryTab();
+    }));
+    render();
+  } catch { panel.textContent = 'Тарихты жүктеу сәтсіз аяқталды'; }
 }
 
 async function gpRenderDownloadsTab() {
@@ -5892,7 +5639,7 @@ async function gpRenderDownloadsTab() {
           if (item.state === 'completed') {
             statusText = `Аяқталды · ${sizeStr} · ${timeStr}`;
             actionBtnHtml = `
-              <button class="gp-action-link gp-open-file-btn" data-filepath="${item.savePath.replace(/"/g, '&quot;')}">Ашу</button>
+              <button class="gp-action-link gp-open-file-btn" data-filepath="${escapeAttr(item.savePath)}">Ашу</button>
             `;
           } else if (item.state === 'cancelled') {
             statusText = `Бас тартылды · ${sizeStr}`;
@@ -5906,7 +5653,7 @@ async function gpRenderDownloadsTab() {
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
               <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
                 ${getFileIconSVG(item.filename)}
-                <div class="gp-download-filename" style="font-size: 13px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;" title="${item.filename}">${item.filename}</div>
+                <div class="gp-download-filename" style="font-size: 13px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;" title="${escapeAttr(item.filename)}">${escapeHtml(item.filename)}</div>
               </div>
               <div style="flex-shrink: 0;">
                 ${actionBtnHtml}
@@ -6040,62 +5787,36 @@ if (window.galamtorAPI && window.galamtorAPI.onAdBlockedCount) {
 }
 
 // ── Session Auto-Save & Auto-Restore System ──
-let _sessionRestoreComplete = false;
 
 function persistCurrentSession() {
-  try {
-    if (!window.galamtorAPI || !window.galamtorAPI.saveSession) return;
-    const sessionTabs = tabs
-      .filter(t => !t.isIncognito && t.url && !t.isHome)
-      .map((t, i) => ({
-        url: t.url,
-        title: t.title || t.url,
-        isActive: t.id === activeTabId
-      }));
-    window.galamtorAPI.saveSession(sessionTabs).catch(() => {});
-  } catch (err) {
-    console.error('[Session] Persist error:', err);
-  }
+  if (!_sessionRestoreComplete || !window.galamtorAPI?.saveSession) return;
+  const saved = window.GalamtorBrowserState.normalizeSessionTabs(tabs.map(tab => ({
+    url: tab.url, title: tab.title, isHome: tab.isHome, isIncognito: tab.isIncognito,
+    isActive: tab.id === activeTabId, isMuted: tab.isMuted
+  })));
+  window.galamtorAPI.saveSession(saved).catch(error => console.warn('[Session] Save failed:', error.message));
 }
 
 async function restorePreviousSession() {
   try {
-    if (!window.galamtorAPI || !window.galamtorAPI.loadSession) {
-      _sessionRestoreComplete = true;
-      return;
+    if (!window.galamtorAPI?.loadSession) return;
+    const initialTabs = tabs.filter(tab => tab.isHome);
+    const initialActiveId = activeTabId;
+    const saved = window.GalamtorBrowserState.normalizeSessionTabs(await window.galamtorAPI.loadSession());
+    if (!saved.length) return;
+    const restoredIds = saved.map(entry => {
+      const id = createTab(entry.url, false, { background: true, lazy: !entry.isHome, isMuted: entry.isMuted });
+      const tab = tabs.find(t => t.id === id);
+      if (tab) { tab.title = entry.title; updateTabTitle(id, entry.title); }
+      return id;
+    });
+    const selected = saved.findIndex(entry => entry.isActive);
+    if (activeTabId === initialActiveId && tabs.find(tab => tab.id === initialActiveId)?.isHome) {
+      activateTab(restoredIds[selected >= 0 ? selected : restoredIds.length - 1]);
     }
-    const savedTabs = await window.galamtorAPI.loadSession();
-    if (Array.isArray(savedTabs) && savedTabs.length > 0) {
-      const homeTabs = tabs.filter(t => t.isHome);
-      let activeIndex = savedTabs.findIndex(st => st.isActive);
-      if (activeIndex === -1) activeIndex = savedTabs.length - 1;
-
-      savedTabs.forEach((st, i) => {
-        if (st.url) {
-          const tabId = createTab(st.url);
-          // Restore saved title immediately (will be overwritten when page loads)
-          const tab = tabs.find(t => t.id === tabId);
-          if (tab && st.title) {
-            tab.title = st.title;
-            updateTabTitle(tabId, st.title);
-          }
-        }
-      });
-
-      // Activate the tab that was active when session was saved
-      const restoredTabs = tabs.filter(t => !t.isHome);
-      if (restoredTabs[activeIndex]) {
-        activateTab(restoredTabs[activeIndex].id);
-      }
-
-      // Close initial home tabs
-      homeTabs.forEach(ht => closeTab(ht.id));
-    }
-  } catch (err) {
-    console.error('[Session] Restore error:', err);
-  } finally {
-    _sessionRestoreComplete = true;
-  }
+    initialTabs.filter(tab => tab.isHome).forEach(tab => closeTab(tab.id, { remember: false }));
+  } catch (error) { console.error('[Session] Restore failed:', error); }
+  finally { _sessionRestoreComplete = true; persistCurrentSession(); }
 }
 
 // Restore session immediately on DOMContentLoaded (no race condition delay)
@@ -6110,119 +5831,148 @@ window.addEventListener('beforeunload', () => {
 
 // Secure IPC: handle open-image-in-new-tab from main process (replaces executeJavaScript XSS)
 if (window.galamtorAPI && window.galamtorAPI.onOpenImageInNewTab) {
-  window.galamtorAPI.onOpenImageInNewTab((url) => {
-    if (url) createTab(url);
+  window.galamtorAPI.onOpenImageInNewTab((payload) => {
+    const url = typeof payload === 'string' ? payload : payload?.url;
+    if (url) createTab(url, typeof payload === 'object' && payload.isIncognito === true);
+  });
+}
+if (window.galamtorAPI?.onPopupTab) {
+  window.galamtorAPI.onPopupTab((payload) => {
+    const url = typeof payload === 'string' ? payload : payload?.url;
+    if (url) createTab(url, typeof payload === 'object' && payload.isIncognito === true);
   });
 }
 
 // ── Command Palette (Cmd+K / Ctrl+K) ──
 let commandPaletteEl = null;
+let paletteSelection = 0;
+let paletteRequest = 0;
+let palettePreviousFocus = null;
 
 function openCommandPalette() {
   if (!commandPaletteEl) {
     commandPaletteEl = document.createElement('div');
     commandPaletteEl.className = 'command-palette-overlay';
-    commandPaletteEl.innerHTML = `
-      <div class="command-palette-card">
-        <div class="command-palette-input-wrapper">
-          <input type="text" class="command-palette-input" id="cp-input" placeholder="Іздеу (Қойындылар, Тарих, Баптаулар)..." autocomplete="off">
-        </div>
-        <div class="command-palette-results" id="cp-results"></div>
-      </div>
-    `;
+    commandPaletteEl.innerHTML = `<div class="command-palette-card" role="dialog" aria-modal="true" aria-label="Қойындылар мен әрекеттерді іздеу">
+      <div class="command-palette-input-wrapper"><input type="text" class="command-palette-input" id="cp-input" aria-label="Қойындылар, тарих, бетбелгілер және әрекеттер" placeholder="Қойындылар, тарих, бетбелгілер, әрекеттер…" autocomplete="off"></div>
+      <div class="command-palette-results" id="cp-results"></div>
+      <div class="cp-keyboard-hint">↑↓ Таңдау · Enter Ашу · Esc Жабу</div></div>`;
     document.body.appendChild(commandPaletteEl);
-    commandPaletteEl.addEventListener('click', (e) => {
-      if (e.target === commandPaletteEl) closeCommandPalette();
+    commandPaletteEl.addEventListener('click', event => { if (event.target === commandPaletteEl) closeCommandPalette(); });
+    commandPaletteEl.addEventListener('keydown', event => {
+      const rows = [...commandPaletteEl.querySelectorAll('.cp-item')];
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeCommandPalette(); }
+      else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (rows.length) paletteSelection = (paletteSelection + (event.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length;
+        updatePaletteSelection();
+      } else if (event.key === 'Enter' && event.target.id === 'cp-input') {
+        event.preventDefault(); rows[paletteSelection]?.click();
+      } else if (event.key === 'Tab') {
+        const input = commandPaletteEl.querySelector('#cp-input');
+        const focusable = [input, ...rows];
+        if (event.shiftKey && document.activeElement === input) { event.preventDefault(); focusable.at(-1).focus(); }
+        else if (!event.shiftKey && document.activeElement === focusable.at(-1)) { event.preventDefault(); input.focus(); }
+      }
     });
+    commandPaletteEl.querySelector('#cp-input').addEventListener('input', event => renderCommandPaletteResults(event.target.value));
   }
-
+  palettePreviousFocus = document.activeElement;
   const input = commandPaletteEl.querySelector('#cp-input');
   input.value = '';
-  renderCommandPaletteResults('');
   commandPaletteEl.classList.add('active');
-  setTimeout(() => input.focus(), 50);
-
-  input.oninput = (e) => renderCommandPaletteResults(e.target.value);
+  renderCommandPaletteResults('');
+  input.focus();
 }
 
 function closeCommandPalette() {
-  if (commandPaletteEl) commandPaletteEl.classList.remove('active');
+  paletteRequest++;
+  commandPaletteEl?.classList.remove('active');
+  if (palettePreviousFocus?.isConnected) palettePreviousFocus.focus();
 }
 
-function renderCommandPaletteResults(query) {
+function updatePaletteSelection() {
+  commandPaletteEl?.querySelectorAll('.cp-item').forEach((row, index) => {
+    row.classList.toggle('selected', index === paletteSelection);
+    if (index === paletteSelection) row.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+async function renderCommandPaletteResults(query) {
   if (!commandPaletteEl) return;
-  const resultsContainer = commandPaletteEl.querySelector('#cp-results');
-  resultsContainer.innerHTML = '';
-  const q = query.trim().toLowerCase();
-
+  const request = ++paletteRequest;
+  const q = query.trim().toLocaleLowerCase();
   const matches = [];
-
-  // Open Tabs
-  tabs.forEach(t => {
-    if (!q || (t.title && t.title.toLowerCase().includes(q)) || (t.url && t.url.toLowerCase().includes(q))) {
-      matches.push({ type: 'tab', title: t.title || 'Қойынды', sub: t.url || 'Жаңа қойынды', action: () => { activateTab(t.id); closeCommandPalette(); } });
-    }
+  paletteSelection = 0;
+  const includes = (title, url = '') => !q || `${title} ${url}`.toLocaleLowerCase().includes(q);
+  tabs.forEach(tab => {
+    if (includes(tab.title, tab.url)) matches.push({ title: tab.title, sub: `Қойынды · ${tab.url || 'Басты бет'}`, action: () => activateTab(tab.id) });
   });
-
-  // Browser Actions
   const commands = [
-    { title: 'AI Авто-Жүктеу (Ашық сайтты/файлды сақтау)', sub: 'AI Auto-Downloader', action: () => { handleAiDownloadCommand(''); closeCommandPalette(); } },
-    { title: 'Жаңа қойынды ашу', sub: 'Cmd+T', action: () => { createTab(); closeCommandPalette(); } },
-    { title: 'Жеке режимде қойынды ашу (Incognito)', sub: 'Cmd+Shift+N', action: () => { createTab('https://www.google.com', true); closeCommandPalette(); } },
-    { title: 'AdBlock қосу/өшіру', sub: 'Privacy Shield', action: () => { btnAdBlock?.click(); closeCommandPalette(); } },
-    { title: 'Workspace тақтасын ашу', sub: 'Cmd+G', action: () => { gpOpenModal(); closeCommandPalette(); } }
+    ['Жаңа қойынды ашу', '⌘T', 'new-tab'], ['Жеке қойынды ашу', '⇧⌘N', 'new-incognito-tab'],
+    ['Жабылған қойындыны қайта ашу', '⇧⌘T', 'reopen-tab'], ['Беттен іздеу', '⌘F', 'find-in-page'],
+    ['Бетті сақтау', '⌘S', 'save-page'], ['Тарихты ашу', '⌘Y', 'open-history'],
+    ['Бетбелгілерді ашу', '⌘B', 'open-bookmarks'], ['Жүктеулерді ашу', '⌘J', 'open-downloads'],
+    ['Басты бетті баптау', '', 'customize-startpage'], ['Баптаулар', '⌘,', 'open-settings']
   ];
-  commands.forEach(cmd => {
-    if (!q || cmd.title.toLowerCase().includes(q)) {
-      matches.push({ type: 'command', title: cmd.title, sub: cmd.sub, action: cmd.action });
-    }
+  commands.forEach(([title, shortcut, action]) => {
+    if (includes(title)) matches.push({ title, sub: `Әрекет ${shortcut}`, action: () => dispatchBrowserAction(action) });
   });
-
-  matches.slice(0, 10).forEach(item => {
-    const row = document.createElement('div');
-    row.className = 'cp-item';
-    row.innerHTML = `
-      <div class="cp-item-title">${item.title}</div>
-      <div class="cp-item-sub">${item.sub}</div>
-    `;
-    row.onclick = item.action;
-    resultsContainer.appendChild(row);
+  const render = () => {
+    if (request !== paletteRequest || !commandPaletteEl.classList.contains('active')) return;
+    const container = commandPaletteEl.querySelector('#cp-results');
+    container.replaceChildren();
+    paletteSelection = Math.min(paletteSelection, Math.max(0, matches.length - 1));
+    matches.slice(0, 12).forEach(item => {
+      const row = document.createElement('button'); row.type = 'button'; row.className = 'cp-item';
+      const title = document.createElement('span'); title.className = 'cp-item-title'; title.textContent = item.title;
+      const subtitle = document.createElement('span'); subtitle.className = 'cp-item-sub'; subtitle.textContent = item.sub;
+      row.append(title, subtitle);
+      row.addEventListener('click', () => { closeCommandPalette(); item.action(); });
+      container.appendChild(row);
+    });
+    if (!matches.length) { const empty = document.createElement('p'); empty.className = 'cp-empty'; empty.textContent = 'Нәтиже табылмады'; container.appendChild(empty); }
+    updatePaletteSelection();
+  };
+  render();
+  if (!q || !window.galamtorAPI) return;
+  const results = await Promise.allSettled([window.galamtorAPI.getBookmarks(), window.galamtorAPI.getHistory()]);
+  if (request !== paletteRequest) return;
+  const seen = new Set(tabs.map(tab => tab.url));
+  results.forEach((result, index) => {
+    if (result.status !== 'fulfilled' || !Array.isArray(result.value)) return;
+    result.value.forEach(entry => {
+      if (!includes(entry.title, entry.url) || seen.has(entry.url)) return;
+      seen.add(entry.url);
+      matches.push({ title: entry.title, sub: `${index === 0 ? 'Бетбелгі' : 'Тарих'} · ${entry.url}`, action: () => createTab(entry.url) });
+    });
   });
+  render();
 }
-
-// ── Global Keyboard Shortcuts ──
-window.addEventListener('keydown', (e) => {
-  // Cmd+K or Ctrl+K: Command Palette
-  if ((e.metaKey || e.ctrlKey) && (e.key === 'K' || e.key === 'k')) {
-    e.preventDefault();
-    openCommandPalette();
-    return;
-  }
-
-  // Cmd+Shift+N or Ctrl+Shift+N: New Incognito Tab
-  if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'N' || e.key === 'n')) {
-    e.preventDefault();
-    createTab('https://www.google.com', true);
-    showToast('Жеке режим қосылды');
-    return;
-  }
-
-  if (e.key === 'Escape') {
-    closeCommandPalette();
-  }
-});
 
 // ── Welcome Clock & Date Widget ──
 const KK_WEEKDAYS = ['жексенбі', 'дүйсенбі', 'сейсенбі', 'сәрсенбі', 'бейсенбі', 'жұма', 'сенбі'];
 const KK_MONTHS = ['қаңтар', 'ақпан', 'наурыз', 'сәуір', 'мамыр', 'маусым', 'шілде', 'тамыз', 'қыркүйек', 'қазан', 'қараша', 'желтоқсан'];
 
+function formatKazakhDate(date) {
+  if (Number.isNaN(date.getTime())) return '—';
+  return `${date.getDate()} ${KK_MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+}
+
 function updateWelcomeClock() {
   try {
     const timeEl = document.getElementById('clock-time-display');
     const dateEl = document.getElementById('clock-date-display');
+    const now = new Date();
+    const greetingEl = document.getElementById('welcome-greeting');
+    const greeting = window.GalamtorWelcomeUtils?.getKazakhGreeting(now) || 'Қайырлы күн!';
+    if (greetingEl && greetingEl.textContent !== greeting) {
+      greetingEl.textContent = greeting;
+      greetingEl.classList.remove('greeting-change');
+      requestAnimationFrame(() => greetingEl.classList.add('greeting-change'));
+    }
     if (!timeEl || !dateEl) return;
 
-    const now = new Date();
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
     timeEl.textContent = `${hours}:${minutes}`;
@@ -6236,24 +5986,295 @@ function updateWelcomeClock() {
   }
 }
 
-setInterval(updateWelcomeClock, 1000);
+setInterval(updateWelcomeClock, 60 * 1000);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) updateWelcomeClock();
+});
 updateWelcomeClock();
 
-// ── Galamtor AI Assistant — Gemini-Powered Chat ──
+// ── Galamtor AI Assistant ──
 
 // AI Chat State
 const aiChatHistory = [];
 let aiIsProcessing = false;
+let aiLocalStatus = null;
+let aiLocalStatusRequest = null;
+let aiModelPullInProgress = false;
+
+function setAiModelBadge(label, state) {
+  const badge = document.getElementById('ai-model-badge');
+  const widget = document.getElementById('galamtor-bot-widget');
+  if (badge) {
+    badge.textContent = label;
+    badge.dataset.state = state;
+  }
+  if (widget) widget.dataset.aiState = state;
+}
+
+function updateAiLocalSetup(status) {
+  aiLocalStatus = status;
+  const setup = document.getElementById('ai-local-setup');
+  const title = document.getElementById('ai-local-setup-title');
+  const message = document.getElementById('ai-local-setup-message');
+  const installButton = document.getElementById('ai-setup-install-ollama');
+  const pullButton = document.getElementById('ai-setup-pull-model');
+  const cloudNote = document.getElementById('ai-local-cloud-note');
+  const modelName = typeof status?.modelName === 'string' ? status.modelName : 'hermes3';
+
+  if (cloudNote) cloudNote.hidden = !status?.cloudEnabled;
+  if (status?.available && status.installed) {
+    setAiModelBadge('Жергілікті', 'ready');
+    if (setup) setup.hidden = true;
+    return;
+  }
+
+  if (setup) setup.hidden = false;
+  if (status?.available) {
+    setAiModelBadge('Модель керек', 'model-missing');
+    if (title) title.textContent = 'Ollama бар, модельді жүктеу керек';
+    if (message) message.textContent = modelName + ' моделі әлі орнатылмаған. «Модельді орнату» түймесі терминал ашпай-ақ жүктеуді бастайды.';
+    if (installButton) installButton.hidden = true;
+    if (pullButton) {
+      pullButton.hidden = false;
+      pullButton.textContent = '«' + modelName + '» моделін жүктеу';
+    }
+    return;
+  }
+
+  setAiModelBadge(status?.cloudEnabled ? 'Gemini рұқсаты бар' : 'Ollama қажет', 'offline');
+  if (title) title.textContent = 'Жергілікті AI-ды дайындайық';
+  if (message) message.textContent = 'Ollama орнатылмаған немесе іске қосылмаған. Ресми бетін ашып, Ollama-ны орнатыңыз не іске қосыңыз, содан кейін қайта тексеріңіз.';
+  if (installButton) installButton.hidden = false;
+  if (pullButton) pullButton.hidden = true;
+}
+
+async function applyAiProviderStatus() {
+  try {
+    const config = await window.galamtorAPI?.aiGetApiKey?.();
+    if (config?.provider === 'chatgpt') {
+      const state = await window.galamtorAPI?.aiGetChatGPTState?.();
+      const active = state?.profiles?.find(profile => profile.active);
+      const setup = document.getElementById('ai-local-setup');
+      const title = document.getElementById('ai-local-setup-title');
+      const message = document.getElementById('ai-local-setup-message');
+      if (active?.canUsePlan) {
+        setAiModelBadge('ChatGPT жоспары', 'ready');
+        if (setup) setup.hidden = true;
+      } else {
+        setAiModelBadge('ChatGPT кіру қажет', 'offline');
+        if (setup) setup.hidden = false;
+        if (title) title.textContent = 'ChatGPT аккаунтын қосыңыз';
+        if (message) message.textContent = state?.error || 'AI баптауларын ашып, Continue with ChatGPT түймесі арқылы кіріңіз. Ollama жергілікті режим ретінде қолжетімді.';
+      }
+      return;
+    }
+    if (config?.provider === 'gemini') {
+      setAiModelBadge(config.hasApiKey && config.cloudEnabled ? 'Gemini API' : 'Gemini кілті қажет', config.hasApiKey && config.cloudEnabled ? 'ready' : 'offline');
+      if (config.hasApiKey && config.cloudEnabled) {
+        const setup = document.getElementById('ai-local-setup');
+        if (setup) setup.hidden = true;
+      }
+    }
+  } catch {}
+}
+
+async function refreshAiLocalStatus() {
+  if (!window.galamtorAPI?.aiGetLocalStatus) return null;
+  if (aiLocalStatusRequest) return aiLocalStatusRequest;
+
+  if (!aiLocalStatus) setAiModelBadge('Ollama тексерілуде…', 'checking');
+  aiLocalStatusRequest = window.galamtorAPI.aiGetLocalStatus()
+    .then((status) => {
+      updateAiLocalSetup(status || { available: false, installed: false });
+      return applyAiProviderStatus().then(() => aiLocalStatus);
+    })
+    .catch(() => {
+      updateAiLocalSetup({ available: false, installed: false });
+      return applyAiProviderStatus().then(() => aiLocalStatus);
+    })
+    .finally(() => { aiLocalStatusRequest = null; });
+  return aiLocalStatusRequest;
+}
+
+function renderAiModelPullProgress(progress) {
+  const wrap = document.getElementById('ai-model-pull-progress-wrap');
+  const phase = document.getElementById('ai-model-pull-phase');
+  const percent = document.getElementById('ai-model-pull-percent');
+  const bytes = document.getElementById('ai-model-pull-bytes');
+  const bar = document.getElementById('ai-model-pull-progress');
+  if (wrap) wrap.hidden = false;
+
+  const phaseNames = {
+    'pulling manifest': 'Модель туралы ақпарат алынуда…',
+    'verifying sha256 digest': 'Жүктелген файл тексерілуде…',
+    'writing manifest': 'Модель тіркеліп жатыр…',
+    'removing any unused layers': 'Уақытша файлдар тазартылуда…',
+    success: 'Модель дайын!'
+  };
+  if (phase) phase.textContent = progress?.error
+    ? 'Жүктеу тоқтады'
+    : (phaseNames[progress?.status] || (progress?.status?.startsWith('pulling')
+      ? 'Модель жүктелуде…'
+      : 'Модель дайындалып жатыр…'));
+
+  if (bar) {
+    if (Number.isFinite(progress?.percent)) bar.value = progress.percent;
+    else bar.removeAttribute('value');
+  }
+  if (percent) percent.textContent = Number.isFinite(progress?.percent) ? progress.percent + '%' : '';
+  if (bytes) {
+    if (progress?.error) {
+      bytes.textContent = progress.error;
+    } else if (progress?.completed > 0 && progress?.total > 0) {
+      bytes.textContent = formatBytes(progress.completed) + ' / ' + formatBytes(progress.total);
+    } else {
+      bytes.textContent = '';
+    }
+  }
+}
+
+async function openOllamaDownloadPage() {
+  try {
+    const opened = await window.galamtorAPI?.aiOpenOllamaDownload?.();
+    if (!opened) showToast('Ollama жүктеу бетін ашу мүмкін болмады');
+  } catch {
+    showToast('Ollama жүктеу бетін ашу мүмкін болмады');
+  }
+}
+
+async function installAiLocalModel() {
+  if (aiModelPullInProgress) return;
+  aiModelPullInProgress = true;
+  const pullButton = document.getElementById('ai-setup-pull-model');
+  const cancelButton = document.getElementById('ai-setup-cancel-pull');
+  const refreshButton = document.getElementById('ai-setup-refresh');
+  if (pullButton) {
+    pullButton.disabled = true;
+    pullButton.textContent = 'Модель жүктелуде…';
+  }
+  if (cancelButton) {
+    cancelButton.hidden = false;
+    cancelButton.disabled = false;
+  }
+  if (refreshButton) refreshButton.disabled = true;
+  renderAiModelPullProgress({ status: 'pulling manifest' });
+  setBotActivityState('thinking');
+
+  try {
+    const result = await window.galamtorAPI?.aiPullLocalModel?.();
+    if (result?.success) {
+      renderAiModelPullProgress({ status: 'success', percent: 100 });
+      showToast('✅ Жергілікті AI моделі дайын');
+      await refreshAiLocalStatus();
+    } else if (result?.cancelled) {
+      renderAiModelPullProgress({ error: 'Жүктеу тоқтатылды. Қаласаңыз, кейін жалғастыра аласыз.' });
+      showToast('Модель жүктеуі тоқтатылды');
+      await refreshAiLocalStatus();
+    } else {
+      renderAiModelPullProgress({ error: result?.error || 'Модельді жүктеу сәтсіз аяқталды.' });
+    }
+  } catch {
+    renderAiModelPullProgress({ error: 'Жүктеу кезінде байланыс үзілді. Ollama күйін тексеріп, қайталап көріңіз.' });
+  } finally {
+    aiModelPullInProgress = false;
+    if (pullButton) {
+      pullButton.disabled = false;
+      pullButton.textContent = 'Модельді қайта жүктеу';
+    }
+    if (cancelButton) {
+      cancelButton.hidden = true;
+      cancelButton.disabled = false;
+      cancelButton.textContent = 'Жүктеуді тоқтату';
+    }
+    if (refreshButton) refreshButton.disabled = false;
+    setBotActivityState('idle');
+  }
+}
+
+async function cancelAiLocalModelPull() {
+  const cancelButton = document.getElementById('ai-setup-cancel-pull');
+  if (cancelButton) {
+    cancelButton.disabled = true;
+    cancelButton.textContent = 'Тоқтатылып жатыр…';
+  }
+  try {
+    const cancelled = await window.galamtorAPI?.aiCancelLocalModelPull?.();
+    if (!cancelled && aiModelPullInProgress) {
+      if (cancelButton) {
+        cancelButton.disabled = false;
+        cancelButton.textContent = 'Жүктеуді тоқтату';
+      }
+      showToast('Жүктеуді тоқтату мүмкін болмады');
+    }
+  } catch {
+    if (cancelButton) {
+      cancelButton.disabled = false;
+      cancelButton.textContent = 'Жүктеуді тоқтату';
+    }
+    showToast('Жүктеуді тоқтату мүмкін болмады');
+  }
+}
+
+function setBotActivityState(state) {
+  window.GalamtorPetController?.setActivity?.(state);
+  const elements = [
+    document.getElementById('galamtor-bot-open'),
+    document.getElementById('ai-panel-mascot')
+  ];
+  elements.forEach((element) => {
+    if (!element) return;
+    element.classList.toggle('thinking', state === 'thinking');
+    element.classList.toggle('speaking', state === 'speaking');
+  });
+}
+
+function syncBotSpeakButton() {
+  const button = document.getElementById('galamtor-bot-speak');
+  if (!button) return false;
+
+  const messages = document.querySelectorAll('.ai-msg-ai');
+  const latestMessage = messages[messages.length - 1];
+  const hasReply = Boolean(latestMessage && (latestMessage.innerText || latestMessage.textContent || '').trim());
+  button.disabled = !hasReply;
+  button.title = hasReply ? 'Соңғы AI жауабын дыбыстау' : 'Алдымен AI-дан жауап алыңыз';
+  return hasReply;
+}
+
+function setSpeechButtonState(isSpeaking) {
+  const ttsButton = document.getElementById('ai-tts-btn');
+  const botButton = document.getElementById('galamtor-bot-speak');
+  ttsButton?.classList.toggle('speaking', isSpeaking);
+  botButton?.classList.toggle('speaking', isSpeaking);
+  setBotActivityState(isSpeaking ? 'speaking' : 'idle');
+  botButton?.setAttribute('aria-pressed', String(isSpeaking));
+}
+
+function speakLatestAiResponse() {
+  if (!syncBotSpeakButton()) {
+    showToast('Алдымен AI-дан жауап алыңыз');
+    return;
+  }
+  const messages = document.querySelectorAll('.ai-msg-ai');
+  const latestMessage = messages[messages.length - 1];
+  speakKazakhText(latestMessage.innerText || latestMessage.textContent || '');
+}
 
 function speakKazakhText(text) {
   try {
-    const ttsBtn = document.getElementById('ai-tts-btn');
     if (!('speechSynthesis' in window)) {
       showToast('⚠️ Дыбыстау қолжетімсіз');
       return;
     }
+
+    if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+      window.speechSynthesis.cancel();
+      setSpeechButtonState(false);
+      showToast('Дыбыстау тоқтатылды');
+      return;
+    }
+
     window.speechSynthesis.cancel();
-    ttsBtn?.classList.remove('speaking');
+    setSpeechButtonState(false);
 
     const cleanText = (text || '').replace(/<[^>]*>/g, '').trim();
     if (!cleanText) return;
@@ -6266,9 +6287,9 @@ function speakKazakhText(text) {
     const kkVoice = voices.find(v => (v.lang && v.lang.includes('kk')) || (v.name && v.name.toLowerCase().includes('kazakh')));
     if (kkVoice) utterance.voice = kkVoice;
 
-    utterance.onstart = () => ttsBtn?.classList.add('speaking');
-    utterance.onend = () => ttsBtn?.classList.remove('speaking');
-    utterance.onerror = () => ttsBtn?.classList.remove('speaking');
+    utterance.onstart = () => setSpeechButtonState(true);
+    utterance.onend = () => setSpeechButtonState(false);
+    utterance.onerror = () => setSpeechButtonState(false);
 
     window.speechSynthesis.speak(utterance);
     showToast('🔊 Қазақша дыбысталуда...');
@@ -6323,6 +6344,15 @@ function escapeHtml(text) {
   div.textContent = text;
   return div.innerHTML;
 }
+function escapeAttr(text) {
+  return String(text ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+}
+function safeHttpUrl(value) {
+  try {
+    const parsed = new URL(value);
+    return ['http:', 'https:'].includes(parsed.protocol) ? parsed.href : '';
+  } catch { return ''; }
+}
 
 function simpleMarkdownToHtml(text) {
   // Convert markdown to HTML for AI responses — enhanced renderer
@@ -6369,7 +6399,10 @@ function simpleMarkdownToHtml(text) {
   html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
 
   // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, label, target) => {
+    const safeTarget = safeHttpUrl(target.replace(/&amp;/g, '&'));
+    return safeTarget ? `<a href="${escapeAttr(safeTarget)}" target="_blank" rel="noopener noreferrer">${label}</a>` : label;
+  });
 
   // Line breaks (but not inside block elements)
   html = html.replace(/\n/g, '<br>');
@@ -6392,7 +6425,7 @@ function formatTimestamp() {
   return now.toLocaleTimeString('kk-KZ', { hour: '2-digit', minute: '2-digit' });
 }
 
-function addChatMessage(role, content, isHtml = false) {
+function addChatMessage(role, content) {
   const container = document.getElementById('ai-chat-messages');
   if (!container) return;
 
@@ -6409,7 +6442,7 @@ function addChatMessage(role, content, isHtml = false) {
   if (role === 'user') {
     bubble.textContent = content;
   } else {
-    bubble.innerHTML = isHtml ? content : simpleMarkdownToHtml(content);
+    bubble.innerHTML = simpleMarkdownToHtml(content);
   }
 
   const timestamp = document.createElement('div');
@@ -6424,6 +6457,8 @@ function addChatMessage(role, content, isHtml = false) {
   // Store in history for multi-turn conversation
   aiChatHistory.push({ role, content: typeof content === 'string' ? content : '' });
 
+  if (role === 'ai') syncBotSpeakButton();
+
   return bubble;
 }
 
@@ -6431,6 +6466,7 @@ function showTypingIndicator() {
   const container = document.getElementById('ai-chat-messages');
   if (!container) return null;
 
+  setBotActivityState('thinking');
   const indicator = document.createElement('div');
   indicator.className = 'ai-typing-indicator';
   indicator.id = 'ai-typing';
@@ -6443,6 +6479,7 @@ function showTypingIndicator() {
 function removeTypingIndicator() {
   const indicator = document.getElementById('ai-typing');
   if (indicator) indicator.remove();
+  setBotActivityState('idle');
 }
 
 async function getActivePageContent() {
@@ -6459,19 +6496,75 @@ async function getActivePageContent() {
   } catch { return ''; }
 }
 
+function isOfficialAdiletActPage(value) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' && !parsed.username && !parsed.password &&
+      ['adilet.zan.kz', 'old.adilet.zan.kz'].includes(parsed.hostname.toLowerCase()) &&
+      /^\/(?:kaz|rus|eng)\/docs\/[a-z0-9_-]+\/?$/i.test(parsed.pathname);
+  } catch { return false; }
+}
+
+async function aiExplainKzLaw() {
+  if (aiIsProcessing) return;
+  const activeTab = tabs.find(tab => tab.id === activeTabId);
+  if (!activeTab || !isOfficialAdiletActPage(activeTab.url || '')) {
+    addChatMessage('ai', '⚖️ Заңды түсіндіру үшін ресми «Әділет» сайтынан нақты акт бетін ашу керек. Әділетті аштым; актіні таңдап, осы батырманы қайта басыңыз.');
+    createTab('https://adilet.zan.kz/kaz');
+    return;
+  }
+
+  aiIsProcessing = true;
+  addChatMessage('user', `⚖️ Ашық заң актісін түсіндіру: ${activeTab.title || activeTab.url}`);
+  showTypingIndicator();
+  try {
+    const pageContent = await getActivePageContent();
+    const language = localStorage.getItem('galamtor_language') || 'kk';
+    const response = await window.galamtorAPI.aiExplainKzLaw(
+      pageContent,
+      activeTab.title || '',
+      activeTab.url || '',
+      language
+    );
+    removeTypingIndicator();
+    if (response?.text) addChatMessage('ai', response.text);
+    else addChatMessage('ai', `⚖️ ${response?.error || 'Заң мәтінін түсіндіру мүмкін болмады.'}`);
+  } catch (error) {
+    removeTypingIndicator();
+    addChatMessage('ai', `⚠️ Қате: ${error.message || 'Заң мәтінін түсіндіру мүмкін болмады.'}`);
+  } finally {
+    aiIsProcessing = false;
+  }
+}
+
+async function openEgovWithNcaLayerCheck() {
+  const activeTab = tabs.find(tab => tab.id === activeTabId);
+  const isIncognito = !!activeTab?.isIncognito;
+  addChatMessage('ai', '🔐 NCALayer-дің жергілікті TLS байланысын тексеріп, eGov.kz ашып жатырмын. Қол қоюды eGov-та өзіңіз бастағанда ғана жалғастырыңыз.');
+  try {
+    const status = await window.galamtorAPI.checkNcaLayerStatus();
+    if (status?.available) {
+      addChatMessage('ai', '✅ NCALayer 127.0.0.1:13579 мекенжайында жауап берді. eGov-та ЭЦҚ қадамын өзіңіз бастаңыз.');
+    } else if (status?.reason === 'stopped') {
+      addChatMessage('ai', '⚠️ NCALayer-ге қосылмадым. Оны [ресми NCALayer сайтынан](https://ncl.pki.gov.kz/) орнатып, іске қосыңыз. eGov.kz ашылады.');
+    } else if (status?.reason === 'certificate') {
+      addChatMessage('ai', '⚠️ NCALayer сертификатын растау мүмкін болмады. Сертификат сенімін Ұлттық куәландырушы орталықтың ресми нұсқаулығымен тексеріңіз. eGov.kz ашылады.');
+    } else {
+      addChatMessage('ai', '⚠️ NCALayer байланысын тексеру аяқталмады. Бағдарламаның іске қосылғанын және 127.0.0.1 мекенжайына прокси кедергі жасамайтынын тексеріңіз. eGov.kz ашылады.');
+    }
+  } catch {
+    addChatMessage('ai', '⚠️ NCALayer байланысы тексерілмеді. eGov.kz ашылады, қол қою алдында NCALayer іске қосылғанын тексеріңіз.');
+  }
+  createTab('https://egov.kz', isIncognito);
+}
+
 async function sendAiMessage(userPrompt) {
   if (aiIsProcessing || !userPrompt.trim()) return;
   const trimmed = userPrompt.trim();
 
   // If user pasted an API Key starting with AIza into the chat field
   if (trimmed.startsWith('AIza')) {
-    aiIsProcessing = true;
-    addChatMessage('user', '🔑 [API Key енгізілді]');
-    if (window.galamtorAPI && window.galamtorAPI.aiSetApiKey) {
-      await window.galamtorAPI.aiSetApiKey(trimmed);
-      addChatMessage('ai', '✅ **Gemini API кілті сәтті сақталды және белсендірілді!**\n\nЕнді AI-ға кез келген сұрақ қоя аласыз.');
-    }
-    aiIsProcessing = false;
+    addChatMessage('ai', '🔑 API кілтін чатқа емес, ⚙️ **AI баптауларына** енгізіңіз.');
     return;
   }
 
@@ -6602,19 +6695,17 @@ async function aiTranslatePage() {
 // ── AI Sidebar Panel Controller ──
 
 function openAiSidebarPanel() {
+  window.GalamtorPetController?.close?.({ restoreFocus: false });
   const panel = document.getElementById('ai-sidebar-panel');
   if (!panel) return;
 
-  const activeTab = tabs.find(t => t.id === activeTabId);
-  const pageTitleEl = document.getElementById('ai-page-title');
-  if (pageTitleEl) {
-    pageTitleEl.textContent = activeTab ? (activeTab.title || activeTab.url || 'Жаңа қойынды') : 'Жаңа қойынды';
-  }
+  updateAiSidebarPageInfo();
 
   panel.classList.add('active');
   document.body.classList.add('ai-panel-active');
   document.getElementById('btn-toggle-ai-sidebar')?.classList.add('ai-panel-open');
   updateAiSidebarFilesList();
+  refreshAiLocalStatus();
 
   // Focus input
   setTimeout(() => {
@@ -6630,7 +6721,7 @@ function closeAiSidebarPanel() {
   document.getElementById('btn-toggle-ai-sidebar')?.classList.remove('ai-panel-open');
   if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel();
-    document.getElementById('ai-tts-btn')?.classList.remove('speaking');
+    setSpeechButtonState(false);
   }
 }
 
@@ -6639,6 +6730,55 @@ function toggleAiSidebarPanel() {
   if (!panel) return;
   if (panel.classList.contains('active')) closeAiSidebarPanel();
   else openAiSidebarPanel();
+}
+
+function updateAiSidebarPageInfo() {
+  const activeTab = tabs.find(tab => tab.id === activeTabId);
+  const pageTitleEl = document.getElementById('ai-page-title');
+  const safetyEl = document.getElementById('ai-page-security-status');
+  if (pageTitleEl) pageTitleEl.textContent = activeTab ? (activeTab.title || activeTab.url || 'Жаңа қойынды') : 'Жаңа қойынды';
+  if (safetyEl) {
+    safetyEl.textContent = 'Қауіпсіздік тексерілмеген';
+    safetyEl.dataset.state = 'idle';
+    safetyEl.style.color = '';
+  }
+}
+
+async function checkActiveSiteSafety() {
+  const safetyEl = document.getElementById('ai-page-security-status');
+  const activeTab = tabs.find(tab => tab.id === activeTabId);
+  const checkedTabId = activeTab?.id;
+  const checkedTabUrl = activeTab?.url || '';
+  const siteUrl = safeHttpUrl(checkedTabUrl);
+  if (!safetyEl) return;
+  if (!siteUrl) {
+    safetyEl.textContent = 'Алдымен веб-сайт ашыңыз';
+    safetyEl.dataset.state = 'unavailable';
+    return;
+  }
+
+  safetyEl.textContent = 'Сайт тексеріліп жатыр…';
+  safetyEl.dataset.state = 'checking';
+  try {
+    const result = await window.galamtorAPI.qalqanCheckUrl(siteUrl);
+    const latestTab = tabs.find(tab => tab.id === checkedTabId);
+    if (activeTabId !== checkedTabId || latestTab?.url !== checkedTabUrl) return;
+    if (result?.isScam) {
+      safetyEl.textContent = `Күдікті белгі: ${result.reason || 'Qalqan тізімімен сәйкес келді.'}`;
+      safetyEl.dataset.state = 'warning';
+      safetyEl.style.color = '#ff8c8c';
+      return;
+    }
+
+    const secureTransport = new URL(siteUrl).protocol === 'https:';
+    safetyEl.textContent = `${secureTransport ? 'HTTPS шифрланған' : 'HTTP шифрланбаған'} · Qalqan тізімінде белгі табылмады`;
+    safetyEl.dataset.state = secureTransport ? 'checked' : 'warning';
+    safetyEl.style.color = secureTransport ? '#a7e9c0' : '#ffd18a';
+  } catch {
+    safetyEl.textContent = 'Қауіпсіздік тексерісін аяқтау мүмкін болмады';
+    safetyEl.dataset.state = 'error';
+    safetyEl.style.color = '#ffd18a';
+  }
 }
 
 async function updateAiSidebarFilesList() {
@@ -6699,13 +6839,120 @@ function openAiSettings() {
   if (!modal) return;
   modal.classList.add('active');
 
-  // Load existing key
+  // Show status only; the saved secret never leaves the main process.
   if (window.galamtorAPI && window.galamtorAPI.aiGetApiKey) {
-    window.galamtorAPI.aiGetApiKey().then(key => {
+    window.galamtorAPI.aiGetApiKey().then(settings => {
       const input = document.getElementById('ai-api-key-input');
-      if (input && key) input.value = key;
+      const status = document.getElementById('ai-key-status');
+      const cloud = document.getElementById('ai-cloud-enabled');
+      const provider = document.getElementById('ai-provider-mode');
+      if (input) input.value = '';
+      if (status) status.textContent = settings.hasApiKey ? 'API кілті қауіпсіз сақталған' : 'API кілті сақталмаған';
+      if (cloud) cloud.checked = !!settings.cloudEnabled;
+      if (provider) provider.value = settings.provider || 'auto';
     });
   }
+  refreshChatGPTSettings();
+}
+
+function renderChatGPTSettings(state) {
+  const status = document.getElementById('ai-chatgpt-status');
+  const accountSelect = document.getElementById('ai-chatgpt-account');
+  const connect = document.getElementById('ai-chatgpt-connect');
+  const addAccount = document.getElementById('ai-chatgpt-add-account');
+  const cancel = document.getElementById('ai-chatgpt-cancel');
+  const disconnect = document.getElementById('ai-chatgpt-disconnect');
+  if (!status || !accountSelect) return state;
+  const profiles = Array.isArray(state?.profiles) ? state.profiles : [];
+  accountSelect.replaceChildren();
+  for (const profile of profiles) {
+    const option = document.createElement('option');
+    option.value = profile.id;
+    option.textContent = [profile.name, profile.email].filter(Boolean).join(' · ') || 'ChatGPT аккаунты';
+    accountSelect.appendChild(option);
+  }
+  accountSelect.hidden = profiles.length < 2;
+  if (state?.activeProfileId && profiles.some(profile => profile.id === state.activeProfileId)) {
+    accountSelect.value = state.activeProfileId;
+  }
+  const active = profiles.find(profile => profile.active) || profiles.find(profile => profile.id === state?.activeProfileId);
+  if (state?.error) {
+    status.textContent = state.error;
+  } else if (!active) {
+    status.textContent = 'ChatGPT аккаунты қосылмаған. Continue with ChatGPT түймесі қауіпсіз кіруді бастайды.';
+  } else if (active.canUsePlan) {
+    status.textContent = `Қосылған: ${active.name || active.email || 'ChatGPT аккаунты'}. ChatGPT жоспарын қолдануға рұқсат берілген.`;
+  } else {
+    status.textContent = `Қосылған: ${active.name || active.email || 'ChatGPT аккаунты'}. Жоспар лимитін қолдану үшін қайта кіріп, AI рұқсатын беріңіз.`;
+  }
+  if (connect) connect.textContent = active ? 'ChatGPT-ке қайта кіру' : 'Continue with ChatGPT';
+  if (connect) connect.hidden = !!state?.signInInProgress;
+  if (addAccount) addAccount.hidden = !!state?.signInInProgress;
+  if (cancel) cancel.hidden = !state?.signInInProgress;
+  if (disconnect) disconnect.hidden = !active;
+  return state;
+}
+
+async function refreshChatGPTSettings() {
+  if (!window.galamtorAPI?.aiGetChatGPTState) return null;
+  try {
+    const state = await window.galamtorAPI.aiGetChatGPTState();
+    return renderChatGPTSettings(state);
+  } catch {
+    return renderChatGPTSettings({ error: 'ChatGPT байланысының күйін оқу мүмкін болмады.', profiles: [] });
+  }
+}
+
+async function runChatGPTSignIn(profileId = null) {
+  const status = document.getElementById('ai-chatgpt-status');
+  const connect = document.getElementById('ai-chatgpt-connect');
+  const addAccount = document.getElementById('ai-chatgpt-add-account');
+  if (connect) connect.disabled = true;
+  if (addAccount) addAccount.disabled = true;
+  renderChatGPTSettings({ ...(await window.galamtorAPI?.aiGetChatGPTState?.()), signInInProgress: true });
+  if (status) status.textContent = 'Браузерде ChatGPT кіруін аяқтаңыз. Galamtor құпиясөзіңізді сұрамайды.';
+  try {
+    const result = await window.galamtorAPI?.aiChatGPTSignIn?.(profileId);
+    if (!result?.success) {
+      const error = result?.error || 'ChatGPT-ке кіру аяқталмады.';
+      const latest = await window.galamtorAPI?.aiGetChatGPTState?.();
+      renderChatGPTSettings(latest || { profiles: [], error });
+      if (status) status.textContent = error;
+      if (error !== 'ChatGPT-ке кіру тоқтатылды.') showToast(error);
+      return;
+    }
+    const active = result.state?.profiles?.find(profile => profile.active);
+    if (active?.canUsePlan) {
+      const provider = document.getElementById('ai-provider-mode');
+      if (provider) provider.value = 'chatgpt';
+      showToast('✅ ChatGPT жоспары Galamtor AI-ға қосылды');
+    } else {
+      showToast('ChatGPT аккаунты қосылды. AI жоспарын қолдану рұқсатын баптаңыз.');
+    }
+    renderChatGPTSettings(result.state);
+  } catch (error) {
+    if (status) status.textContent = error?.message || 'ChatGPT-ке кіру аяқталмады.';
+  } finally {
+    if (connect) connect.disabled = false;
+    if (addAccount) addAccount.disabled = false;
+    let latest = null;
+    try { latest = await window.galamtorAPI?.aiGetChatGPTState?.(); } catch {}
+    if (latest) renderChatGPTSettings(latest);
+  }
+}
+
+async function disconnectChatGPTAccount() {
+  const state = await window.galamtorAPI?.aiGetChatGPTState?.();
+  const active = state?.profiles?.find(profile => profile.active);
+  if (!active) return;
+  if (!window.confirm('Осы ChatGPT аккаунтын Galamtor-дан ажыратайын ба?')) return;
+  const result = await window.galamtorAPI?.aiChatGPTDisconnect?.(active.id);
+  if (!result?.success) {
+    showToast(result?.error || 'ChatGPT байланысын ажырату мүмкін болмады.');
+    return;
+  }
+  renderChatGPTSettings(result.state || { profiles: [] });
+  showToast(result.revoked ? 'ChatGPT аккаунты ажыратылды' : 'Аккаунт ажыратылды. OpenAI жағындағы сессияны ChatGPT баптауынан да ажыратыңыз.');
 }
 
 function closeAiSettings() {
@@ -6719,8 +6966,23 @@ async function saveAiSettings() {
 
   const apiKey = input.value.trim();
   if (window.galamtorAPI && window.galamtorAPI.aiSetApiKey) {
-    await window.galamtorAPI.aiSetApiKey(apiKey);
-    showToast(apiKey ? '✅ API Key сақталды' : '🔑 API Key жойылды');
+    if (apiKey && !(await window.galamtorAPI.aiSetApiKey(apiKey))) {
+      showToast('API кілтін сақтау мүмкін болмады');
+      return;
+    }
+    const enabled = !!document.getElementById('ai-cloud-enabled')?.checked;
+    if (!(await window.galamtorAPI.aiSetCloudEnabled(enabled))) {
+      showToast('Бұлттық AI үшін алдымен API кілтін енгізіңіз');
+      return;
+    }
+    const provider = document.getElementById('ai-provider-mode')?.value || 'auto';
+    if (!(await window.galamtorAPI.aiSetProvider?.(provider))) {
+      showToast(provider === 'chatgpt'
+        ? 'Алдымен жоспарын пайдалануға рұқсаты бар ChatGPT аккаунтын қосыңыз'
+        : 'Таңдалған AI провайдерін қосу мүмкін болмады. Кілт пен рұқсатты тексеріңіз.');
+      return;
+    }
+    showToast('✅ AI баптаулары сақталды');
     closeAiSettings();
   }
 }
@@ -6731,35 +6993,66 @@ function clearAiChat() {
   aiChatHistory.length = 0;
   container.innerHTML = `
     <div class="ai-welcome-msg">
-      <div class="ai-sparkle-hero">🤖</div>
-      <div class="ai-welcome-title">Galamtor AI көмекшісі</div>
-      <div class="ai-welcome-subtitle">Gemini 2.5 Flash моделімен жұмыс істейді</div>
-      <div class="ai-welcome-hints">
-        <span>📄 Бетті түйіндеу</span>
-        <span>💻 Код жазу</span>
-        <span>🌐 Аударма</span>
-        <span>❓ Сұрақ қою</span>
+      <div class="ai-sparkle-hero" aria-hidden="true">🤖</div>
+      <div class="ai-welcome-copy">
+        <div class="ai-welcome-title">Galamtor AI көмекшісі</div>
+        <div class="ai-welcome-subtitle">Жергілікті Ollama немесе рұқсат етілген Gemini қызметі</div>
+        <div class="ai-welcome-hints">
+          <span>📄 Бетті түйіндеу</span>
+          <span>💻 Код жазу</span>
+          <span>🌐 Аударма</span>
+          <span>❓ Сұрақ қою</span>
+        </div>
       </div>
     </div>
   `;
+  syncBotSpeakButton();
 }
 
 // ── Wire up AI Sidebar Event Listeners ──
 window.addEventListener('DOMContentLoaded', () => {
+  window.GalamtorPetController = window.GalamtorPet?.initialize?.() || null;
   const closeBtn = document.getElementById('ai-panel-close');
   const inputForm = document.getElementById('ai-input-form');
   const inputEl = document.getElementById('ai-panel-input');
   const ttsBtn = document.getElementById('ai-tts-btn');
   const summarizeBtn = document.getElementById('ai-btn-summarize-page');
   const scanBtn = document.getElementById('ai-btn-scan-files');
+  const siteSafetyBtn = document.getElementById('ai-btn-site-safety');
+  const legalExplainBtn = document.getElementById('ai-btn-explain-law');
+  const egovNcaLayerBtn = document.getElementById('ai-btn-egov-ncalayer');
   const translateBtn = document.getElementById('ai-btn-translate');
   const settingsBtn = document.getElementById('ai-panel-settings');
   const settingsSave = document.getElementById('ai-settings-save');
+  const settingsClear = document.getElementById('ai-settings-clear');
   const settingsCancel = document.getElementById('ai-settings-cancel');
+  const chatgptConnect = document.getElementById('ai-chatgpt-connect');
+  const chatgptAddAccount = document.getElementById('ai-chatgpt-add-account');
+  const chatgptCancel = document.getElementById('ai-chatgpt-cancel');
+  const chatgptDisconnect = document.getElementById('ai-chatgpt-disconnect');
+  const chatgptUsage = document.getElementById('ai-chatgpt-usage');
+  const chatgptAccount = document.getElementById('ai-chatgpt-account');
   const clearChatBtn = document.getElementById('ai-clear-chat');
+  const botOpenBtn = document.getElementById('galamtor-bot-open');
+  const botChatBtn = document.getElementById('galamtor-bot-chat');
+  const botSpeakBtn = document.getElementById('galamtor-bot-speak');
+  const installOllamaBtn = document.getElementById('ai-setup-install-ollama');
+  const pullOllamaModelBtn = document.getElementById('ai-setup-pull-model');
+  const cancelOllamaModelBtn = document.getElementById('ai-setup-cancel-pull');
+  const refreshOllamaBtn = document.getElementById('ai-setup-refresh');
 
   closeBtn?.addEventListener('click', closeAiSidebarPanel);
   clearChatBtn?.addEventListener('click', clearAiChat);
+  botOpenBtn?.addEventListener('click', openAiSidebarPanel);
+  botChatBtn?.addEventListener('click', openAiSidebarPanel);
+  botSpeakBtn?.addEventListener('click', speakLatestAiResponse);
+  installOllamaBtn?.addEventListener('click', openOllamaDownloadPage);
+  pullOllamaModelBtn?.addEventListener('click', installAiLocalModel);
+  cancelOllamaModelBtn?.addEventListener('click', cancelAiLocalModelPull);
+  refreshOllamaBtn?.addEventListener('click', refreshAiLocalStatus);
+  window.galamtorAPI?.onAiModelPullProgress?.(renderAiModelPullProgress);
+  refreshAiLocalStatus();
+  syncBotSpeakButton();
 
   // Form submit handles both Enter and button click
   inputForm?.addEventListener('submit', (e) => {
@@ -6770,25 +7063,53 @@ window.addEventListener('DOMContentLoaded', () => {
     sendAiMessage(query);
   });
 
-  ttsBtn?.addEventListener('click', () => {
-    // Speak the last AI message
-    const messages = document.querySelectorAll('.ai-msg-ai');
-    const lastMsg = messages[messages.length - 1];
-    if (lastMsg) speakKazakhText(lastMsg.innerText);
-    else showToast('Дыбыстайтын хабарлама жоқ');
-  });
+  ttsBtn?.addEventListener('click', speakLatestAiResponse);
 
   summarizeBtn?.addEventListener('click', aiSummarizePage);
 
   scanBtn?.addEventListener('click', () => {
     updateAiSidebarFilesList();
-    showToast('Парақша файлдары сканерленді');
+    showToast('Жүктеу сілтемелері тексерілді');
   });
+
+  siteSafetyBtn?.addEventListener('click', checkActiveSiteSafety);
+  legalExplainBtn?.addEventListener('click', aiExplainKzLaw);
+  egovNcaLayerBtn?.addEventListener('click', openEgovWithNcaLayerCheck);
 
   translateBtn?.addEventListener('click', aiTranslatePage);
 
   settingsBtn?.addEventListener('click', openAiSettings);
   settingsSave?.addEventListener('click', saveAiSettings);
+  chatgptConnect?.addEventListener('click', async () => {
+    const state = await window.galamtorAPI?.aiGetChatGPTState?.();
+    const active = state?.profiles?.find(profile => profile.active);
+    await runChatGPTSignIn(active?.id || null);
+  });
+  chatgptAddAccount?.addEventListener('click', () => runChatGPTSignIn(null));
+  chatgptCancel?.addEventListener('click', () => window.galamtorAPI?.aiChatGPTCancelSignIn?.());
+  chatgptDisconnect?.addEventListener('click', disconnectChatGPTAccount);
+  chatgptUsage?.addEventListener('click', () => window.galamtorAPI?.aiChatGPTOpenUsage?.());
+  chatgptAccount?.addEventListener('change', async () => {
+    if (!chatgptAccount.value) return;
+    if (await window.galamtorAPI?.aiChatGPTSetActive?.(chatgptAccount.value)) {
+      const state = await refreshChatGPTSettings();
+      if (state?.profiles?.some(profile => profile.active && profile.canUsePlan)) {
+        const provider = document.getElementById('ai-provider-mode');
+        if (provider) provider.value = 'chatgpt';
+      }
+    } else {
+      showToast('ChatGPT аккаунтын ауыстыру мүмкін болмады');
+    }
+  });
+  settingsClear?.addEventListener('click', async () => {
+    if (await window.galamtorAPI?.aiSetApiKey?.('')) {
+      document.getElementById('ai-cloud-enabled').checked = false;
+      const provider = document.getElementById('ai-provider-mode');
+      if (provider?.value === 'gemini') provider.value = 'local';
+      showToast('🔑 API кілті жойылды');
+      closeAiSettings();
+    }
+  });
   settingsCancel?.addEventListener('click', closeAiSettings);
 
   // Close settings modal on outside click
@@ -6808,63 +7129,16 @@ window.addEventListener('DOMContentLoaded', () => {
 //  CYBER-STEPPE INNOVATIONS SUITE (2026 Qazaqstan Standards)
 // ════════════════════════════════════════════════════════════
 
-const KAZAKH_QUOTES = [
-  { text: "Отан — отбасынан басталады. Білімді ел — бәрін де жеңеді.", author: "Абай Құнанбайұлы" },
-  { text: "Өнер-білім бар жұрттар тастан сарай салғызды...", author: "Ыбырай Алтынсарин" },
-  { text: "Туған жердің қадірін шетте жүрсең білерсің.", author: "Мағжан Жұмабаев" },
-  { text: "Адамның адамшылығы — ақыл, ғылым, жақсы ата, жақсы ана, жақсы құрбы, жақсы ұстаздан болады.", author: "Абай Құнанбайұлы" },
-  { text: "Ел боламын десең — бесігіңді түзе.", author: "Мұхтар Әуезов" },
-  { text: "Адал еңбекпен табылған нан — бәрінен де тәтті.", author: "Шәкәрім Құдайбердіұлы" },
-  { text: "Жүрегіңде от болса, жалыны өшпейді.", author: "Қасым Аманжолов" }
-];
-
 function initCyberSteppeInnovations() {
-  // 1. Dynamic Daily Quote
-  try {
-    const quoteEl = document.getElementById('daily-quote-text');
-    const authorEl = document.getElementById('daily-quote-author');
-    if (quoteEl && authorEl) {
-      const dayIndex = Math.floor(Date.now() / (1000 * 60 * 60 * 24)) % KAZAKH_QUOTES.length;
-      const q = KAZAKH_QUOTES[dayIndex];
-      quoteEl.textContent = q.text;
-      authorEl.textContent = `— ${q.author}`;
-    }
-  } catch (e) {
-    console.error('[CyberSteppe] Quote widget error:', e);
-  }
-
-  // 2. NBRK Currency Rates (Fetch or Resilient Local Fallback)
-  try {
-    fetch('https://open.er-api.com/v6/latest/USD')
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.rates && data.rates.KZT) {
-          const usdToKzt = Math.round(data.rates.KZT * 10) / 10;
-          const eurToKzt = Math.round((data.rates.KZT / data.rates.EUR) * 10) / 10;
-          const rubToKzt = Math.round((data.rates.KZT / data.rates.RUB) * 100) / 100;
-
-          const usdEl = document.getElementById('rate-usd');
-          const eurEl = document.getElementById('rate-eur');
-          const rubEl = document.getElementById('rate-rub');
-          if (usdEl) usdEl.textContent = usdToKzt;
-          if (eurEl) eurEl.textContent = eurToKzt;
-          if (rubEl) rubEl.textContent = rubToKzt;
-        }
-      })
-      .catch(() => {
-        // Fallback already pre-filled in HTML
-      });
-  } catch (e) {}
-
-  // 3. Gov & Fintech Secure Vault Listener
+  // Gov & Fintech Secure Vault Listener
   if (window.galamtorAPI && window.galamtorAPI.onBankingShieldStatus) {
     window.galamtorAPI.onBankingShieldStatus((status) => {
       const vaultBadge = document.getElementById('badge-banking-vault');
       if (vaultBadge) {
         if (status && status.active) {
           vaultBadge.style.display = 'inline-flex';
-          vaultBadge.title = `Fintech Secure Vault белсенді: ${status.host} сайтында экран мен деректер шифрланған`;
-          showToast(`🛡️ Secure Vault: ${status.host} қорғалған ортада ашылды`);
+          vaultBadge.title = `${status.host}: операциялық жүйе деңгейінде скриншоттан қорғау қосылды`;
+          showToast(`🛡️ ${status.host}: скриншоттан қорғау қосылды`);
         } else {
           vaultBadge.style.display = 'none';
         }
@@ -6875,171 +7149,20 @@ function initCyberSteppeInnovations() {
   // 4. Кибер-Қалқан Security Alert Listener
   if (window.galamtorAPI && window.galamtorAPI.onQalqanBlocked) {
     window.galamtorAPI.onQalqanBlocked((info) => {
-      showToast(`🚨 Кибер-Қалқан: Алаяқтық сілтеме бұғатталды!`);
+      const target = tabs.find(tab => {
+        try { return document.querySelector(`.webview-wrapper[data-tab-id="${tab.id}"] webview`)?.getWebContentsId() === info.contentsId; }
+        catch { return false; }
+      });
+      if (target) {
+        target.url = window.GalamtorBrowserState.webURL(info.url) || target.url;
+        target.securityError = info.reason;
+        if (activeTabId === target.id) urlInput.value = target.url;
+        showTabLoadError(target.id, 'Кибер-Қалқан ескертуі', info.reason);
+      } else showToast('Кибер-Қалқан: күдікті сілтеме бұғатталды');
     });
   }
 
-  // 5. Kazakhstan 20 Cities Prayer Schedule & Localization Engine
-  const KZ_CITIES = {
-    almaty: { name: 'Алматы', region: 'Алматы қ.', times: { fajr: '05:32', sunrise: '07:05', dhuhr: '12:44', asr: '15:52', maghrib: '18:22', isha: '19:50' } },
-    astana: { name: 'Астана', region: 'Астана қ. (Елорда)', times: { fajr: '05:43', sunrise: '07:18', dhuhr: '12:56', asr: '16:02', maghrib: '18:32', isha: '20:02' } },
-    shymkent: { name: 'Шымкент', region: 'Шымкент қ.', times: { fajr: '05:45', sunrise: '07:15', dhuhr: '12:58', asr: '16:08', maghrib: '18:38', isha: '20:05' } },
-    aktau: { name: 'Ақтау', region: 'Маңғыстау обл.', times: { fajr: '06:34', sunrise: '08:08', dhuhr: '13:46', asr: '16:54', maghrib: '19:24', isha: '20:55' } },
-    aktobe: { name: 'Ақтөбе', region: 'Ақтөбе обл.', times: { fajr: '06:22', sunrise: '07:56', dhuhr: '13:35', asr: '16:42', maghrib: '19:12', isha: '20:42' } },
-    atyrau: { name: 'Атырау', region: 'Атырау обл.', times: { fajr: '06:30', sunrise: '08:04', dhuhr: '13:42', asr: '16:50', maghrib: '19:20', isha: '20:50' } },
-    karaganda: { name: 'Қарағанды', region: 'Қарағанды обл.', times: { fajr: '05:40', sunrise: '07:14', dhuhr: '12:52', asr: '15:58', maghrib: '18:28', isha: '19:58' } },
-    oskemen: { name: 'Өскемен', region: 'ШҚО', times: { fajr: '05:05', sunrise: '06:40', dhuhr: '12:20', asr: '15:28', maghrib: '18:00', isha: '19:30' } },
-    pavlodar: { name: 'Павлодар', region: 'Павлодар обл.', times: { fajr: '05:22', sunrise: '06:58', dhuhr: '12:38', asr: '15:44', maghrib: '18:15', isha: '19:48' } },
-    semey: { name: 'Семей', region: 'Абай обл.', times: { fajr: '05:12', sunrise: '06:46', dhuhr: '12:26', asr: '15:32', maghrib: '18:05', isha: '19:36' } },
-    taraz: { name: 'Тараз', region: 'Жамбыл обл.', times: { fajr: '05:40', sunrise: '07:10', dhuhr: '12:52', asr: '16:02', maghrib: '18:32', isha: '19:58' } },
-    kostanay: { name: 'Қостанай', region: 'Қостанай обл.', times: { fajr: '05:58', sunrise: '07:35', dhuhr: '13:12', asr: '16:15', maghrib: '18:48', isha: '20:20' } },
-    kyzylorda: { name: 'Қызылорда', region: 'Қызылорда обл.', times: { fajr: '06:05', sunrise: '07:38', dhuhr: '13:18', asr: '16:26', maghrib: '18:56', isha: '20:25' } },
-    oral: { name: 'Орал', region: 'БҚО', times: { fajr: '06:25', sunrise: '08:00', dhuhr: '13:38', asr: '16:45', maghrib: '19:15', isha: '20:45' } },
-    petropavl: { name: 'Петропавл', region: 'СҚО', times: { fajr: '05:46', sunrise: '07:24', dhuhr: '13:02', asr: '16:06', maghrib: '18:38', isha: '20:12' } },
-    turkestan: { name: 'Түркістан', region: 'Түркістан обл.', times: { fajr: '05:50', sunrise: '07:20', dhuhr: '13:02', asr: '16:12', maghrib: '18:42', isha: '20:10' } },
-    kokshetau: { name: 'Көкшетау', region: 'Ақмола обл.', times: { fajr: '05:45', sunrise: '07:22', dhuhr: '13:00', asr: '16:05', maghrib: '18:36', isha: '20:08' } },
-    temirtau: { name: 'Теміртау', region: 'Қарағанды обл.', times: { fajr: '05:41', sunrise: '07:15', dhuhr: '12:53', asr: '15:59', maghrib: '18:29', isha: '19:59' } },
-    taldykorgan: { name: 'Талдықорған', region: 'Жетісу обл.', times: { fajr: '05:25', sunrise: '06:58', dhuhr: '12:37', asr: '15:45', maghrib: '18:15', isha: '19:43' } },
-    zhezkazgan: { name: 'Жезқазған', region: 'Ұлытау обл.', times: { fajr: '05:55', sunrise: '07:28', dhuhr: '13:08', asr: '16:16', maghrib: '18:46', isha: '20:16' } }
-  };
-
-  const getSavedCity = () => localStorage.getItem('galamtor_user_city') || 'almaty';
-
-  const updatePrayerUI = (cityKey) => {
-    const city = KZ_CITIES[cityKey] || KZ_CITIES.almaty;
-    const cityLabel = document.getElementById('current-city-label');
-    const nextPill = document.getElementById('prayer-next-pill');
-    const timelineList = document.getElementById('prayer-timeline-list');
-    const remainingEl = document.getElementById('prayer-time-remaining');
-
-    if (cityLabel) cityLabel.textContent = city.name;
-
-    const now = new Date();
-    const curMins = now.getHours() * 60 + now.getMinutes();
-
-    const prayerOrder = [
-      { id: 'fajr', name: 'Таң', time: city.times.fajr },
-      { id: 'sunrise', name: 'Күн', time: city.times.sunrise },
-      { id: 'dhuhr', name: 'Бесін', time: city.times.dhuhr },
-      { id: 'asr', name: 'Екінді', time: city.times.asr },
-      { id: 'maghrib', name: 'Ақшам', time: city.times.maghrib },
-      { id: 'isha', name: 'Құптан', time: city.times.isha }
-    ];
-
-    prayerOrder.forEach(p => {
-      const [h, m] = p.time.split(':').map(Number);
-      p.mins = h * 60 + m;
-    });
-
-    // Populate individual prayer times in the 5 cards
-    ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].forEach(k => {
-      const el = document.getElementById(`time-${k}`);
-      if (el && city.times[k]) el.textContent = city.times[k];
-    });
-
-    // Determine next prayer among 5 daily obligatory prayers
-    const mainPrayers = prayerOrder.filter(p => p.id !== 'sunrise');
-    let next = mainPrayers.find(p => p.mins > curMins);
-    let minsLeft = 0;
-    if (!next) {
-      next = mainPrayers[0]; // Next day's Fajr
-      minsLeft = (24 * 60 - curMins) + next.mins;
-    } else {
-      minsLeft = next.mins - curMins;
-    }
-
-    const hoursLeft = Math.floor(minsLeft / 60);
-    const minsRemaining = minsLeft % 60;
-    const countdownStr = hoursLeft > 0 ? `${hoursLeft} сағ ${minsRemaining} мин қалды` : `${minsRemaining} мин қалды`;
-
-    // Highlight active-next card
-    document.querySelectorAll('.p-time-item').forEach(item => {
-      item.classList.toggle('active-next', item.dataset.prayer === next.id);
-    });
-
-    if (nextPill) {
-      nextPill.textContent = `${next.name} ${next.time}`;
-    }
-
-    if (remainingEl) {
-      remainingEl.textContent = countdownStr;
-    }
-
-    if (timelineList) {
-      timelineList.textContent = `Таң ${city.times.fajr} · Екінді ${city.times.asr} · Ақшам ${city.times.maghrib}`;
-    }
-  };
-
-  // City Modal Handlers
-  const cityModalDialog = document.getElementById('city-modal-dialog');
-  const cityModalBackdrop = document.getElementById('city-modal-backdrop');
-  const btnCitySelect = document.getElementById('btn-city-select');
-  const btnCloseCityModal = document.getElementById('btn-close-city-modal');
-  const citySearchInput = document.getElementById('city-search-input');
-  const cityGridList = document.getElementById('city-grid-list');
-
-  const openCityModal = () => {
-    if (!cityModalDialog || !cityModalBackdrop) return;
-    renderCityGrid('');
-    if (citySearchInput) citySearchInput.value = '';
-    cityModalDialog.style.display = 'block';
-    cityModalBackdrop.style.display = 'block';
-    if (citySearchInput) citySearchInput.focus();
-  };
-
-  const closeCityModal = () => {
-    if (cityModalDialog) cityModalDialog.style.display = 'none';
-    if (cityModalBackdrop) cityModalBackdrop.style.display = 'none';
-  };
-
-  const selectCity = (cityKey) => {
-    localStorage.setItem('galamtor_user_city', cityKey);
-    updatePrayerUI(cityKey);
-    closeCityModal();
-    const c = KZ_CITIES[cityKey];
-    if (c) showToast(`✓ Қала таңдалды: ${c.name} (намаз кестесі жаңартылды)`);
-  };
-
-  const renderCityGrid = (query) => {
-    if (!cityGridList) return;
-    const currentCity = getSavedCity();
-    const q = (query || '').trim().toLowerCase();
-    cityGridList.innerHTML = '';
-
-    Object.keys(KZ_CITIES).forEach(key => {
-      const c = KZ_CITIES[key];
-      if (q && !c.name.toLowerCase().includes(q) && !c.region.toLowerCase().includes(q)) return;
-
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `city-card-btn ${key === currentCity ? 'active' : ''}`;
-      btn.innerHTML = `
-        <span style="font-weight:700;font-size:12px;">${c.name}</span>
-        <span style="font-size:9.5px;opacity:0.7;">${c.region}</span>
-      `;
-      btn.addEventListener('click', () => selectCity(key));
-      cityGridList.appendChild(btn);
-    });
-  };
-
-  if (btnCitySelect) btnCitySelect.addEventListener('click', (e) => { e.stopPropagation(); openCityModal(); });
-  if (btnCloseCityModal) btnCloseCityModal.addEventListener('click', closeCityModal);
-  if (cityModalBackdrop) cityModalBackdrop.addEventListener('click', closeCityModal);
-  if (citySearchInput) {
-    citySearchInput.addEventListener('input', (e) => renderCityGrid(e.target.value));
-  }
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && cityModalDialog && cityModalDialog.style.display === 'block') {
-      closeCityModal();
-    }
-  });
-
-  // Initial prayer schedule
-  updatePrayerUI(getSavedCity());
-  setInterval(() => updatePrayerUI(getSavedCity()), 60000);
-
-  // 6. Website-Style Breaking News Feed (Жедел Жаңалықтар Жолағы)
+  // 6. Curated source links; no fabricated headlines or timestamps
   try {
     const NEWS_SVGS = {
       tech: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`,
@@ -7051,21 +7174,15 @@ function initCyberSteppeInnovations() {
     };
 
     const PORTAL_NEWS_ITEMS = [
-      { source: "Tengrinews.kz", time: "5 мин бұрын", title: "Қазақстанның жаңа IT инфрақұрылымы мен цифрлық қызметтері қарқынды дамуда", url: "https://tengrinews.kz", svgKey: "tech", gradient: "linear-gradient(135deg, #0288d1 0%, #00bcd4 100%)" },
-      { source: "Informburo.kz", time: "18 мин бұрын", title: "Ұлттық Банк: Валюта нарығы мен теңге бағамының тұрақтылығы туралы мәлімдеме", url: "https://informburo.kz", svgKey: "finance", gradient: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)" },
-      { source: "eGov.kz", time: "32 мин бұрын", title: "Мемлекеттік цифрлық құжаттар мен сервистер енді жаңа форматта қолжетімді", url: "https://egov.kz", svgKey: "gov", gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)" },
-      { source: "Baribar.kz", time: "45 мин бұрын", title: "Қазақ тіліндегі заманауи білім беру және ғылыми жобалар жандануда", url: "https://baribar.kz", svgKey: "edu", gradient: "linear-gradient(135deg, #ec4899 0%, #be185d 100%)" },
-      { source: "Kazinform", time: "1 сағ бұрын", title: "Еліміздің барлық өңірлерінде жаңа инновациялық инфрақұрылым нысандары ашылды", url: "https://inform.kz", svgKey: "innov", gradient: "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)" },
-      { source: "Kolesa.kz", time: "2 сағ бұрын", title: "Қазақстанда электромобильдер мен эко-көліктер инфрақұрылымы кеңеюде", url: "https://kolesa.kz", svgKey: "auto", gradient: "linear-gradient(135deg, #0288d1 0%, #1565c0 100%)" }
+      { source: 'Tengrinews.kz', time: 'Дереккөз', title: 'Tengrinews жаңалықтарын ашу', url: 'https://tengrinews.kz', svgKey: 'tech', gradient: 'linear-gradient(135deg, #0288d1 0%, #00bcd4 100%)' },
+      { source: 'Informburo.kz', time: 'Дереккөз', title: 'Informburo жаңалықтарын ашу', url: 'https://informburo.kz', svgKey: 'finance', gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' },
+      { source: 'eGov.kz', time: 'Ресми сайт', title: 'eGov қызметтерін ашу', url: 'https://egov.kz', svgKey: 'gov', gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' },
+      { source: 'Baribar.kz', time: 'Дереккөз', title: 'Baribar материалдарын ашу', url: 'https://baribar.kz', svgKey: 'edu', gradient: 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)' },
+      { source: 'Kazinform', time: 'Дереккөз', title: 'Kazinform жаңалықтарын ашу', url: 'https://inform.kz', svgKey: 'innov', gradient: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)' },
+      { source: 'Kolesa.kz', time: 'Дереккөз', title: 'Kolesa материалдарын ашу', url: 'https://kolesa.kz', svgKey: 'auto', gradient: 'linear-gradient(135deg, #0288d1 0%, #1565c0 100%)' }
     ];
 
     let currentNewsIndex = 0;
-    const sourceEl = document.getElementById('portal-news-source');
-    const titleEl = document.getElementById('portal-news-title');
-    const timeEl = document.getElementById('portal-news-time');
-    const contentEl = document.getElementById('portal-news-content');
-    const btnPrev = document.getElementById('btn-news-prev');
-    const btnNext = document.getElementById('btn-news-next');
     const btnRefresh = document.getElementById('btn-refresh-news');
 
     const updateCard = (cardId, item) => {
@@ -7095,52 +7212,20 @@ function initCyberSteppeInnovations() {
       const itemNext = PORTAL_NEWS_ITEMS[(idx + 1) % PORTAL_NEWS_ITEMS.length];
       if (!item) return;
 
-      // Legacy single news bar (if present)
-      if (sourceEl) sourceEl.textContent = item.source;
-      if (titleEl) titleEl.textContent = item.title;
-      if (timeEl) timeEl.textContent = item.time;
-      if (contentEl) {
-        contentEl.onclick = () => {
-          if (tabs.length === 0 || !activeTabId) createTab(item.url);
-          else navigateTo(item.url);
-        };
-      }
-
-      // Safari Dual Reading Cards
       updateCard('safari-news-card-0', item);
       updateCard('safari-news-card-1', itemNext);
     };
-
-    if (btnPrev) {
-      btnPrev.addEventListener('click', (e) => {
-        e.stopPropagation();
-        currentNewsIndex = (currentNewsIndex - 1 + PORTAL_NEWS_ITEMS.length) % PORTAL_NEWS_ITEMS.length;
-        renderNews(currentNewsIndex);
-      });
-    }
-
-    if (btnNext) {
-      btnNext.addEventListener('click', (e) => {
-        e.stopPropagation();
-        currentNewsIndex = (currentNewsIndex + 1) % PORTAL_NEWS_ITEMS.length;
-        renderNews(currentNewsIndex);
-      });
-    }
 
     if (btnRefresh) {
       btnRefresh.addEventListener('click', (e) => {
         e.stopPropagation();
         currentNewsIndex = (currentNewsIndex + 2) % PORTAL_NEWS_ITEMS.length;
         renderNews(currentNewsIndex);
-        showToast('📰 Жаңалықтар тізімі жаңартылды');
+        showToast('📰 Дереккөздер ауыстырылды');
       });
     }
 
     renderNews(currentNewsIndex);
-    setInterval(() => {
-      currentNewsIndex = (currentNewsIndex + 2) % PORTAL_NEWS_ITEMS.length;
-      renderNews(currentNewsIndex);
-    }, 7000);
   } catch (err) {
     console.error('[PortalNews] Error initializing news feed:', err);
   }
@@ -7230,20 +7315,27 @@ function renderBookmarksBar() {
   }
 
   bar.style.display = 'flex';
-  container.innerHTML = currentBookmarks.slice(0, 15).map(b => {
+  container.replaceChildren();
+  currentBookmarks.forEach(b => {
     const domain = extractDomain(b.url);
     const fav = b.favicon || `https://www.google.com/s2/favicons?domain=${domain}`;
-    return `
-      <div class="bookmark-bar-item" data-url="${b.url}" title="${b.title} (${b.url})">
-        <img src="${fav}" onerror="this.src='https://www.google.com/s2/favicons?domain=google.com'">
-        <span>${b.title}</span>
-      </div>
-    `;
-  }).join('');
-
-  container.querySelectorAll('.bookmark-bar-item').forEach(item => {
-    item.addEventListener('click', () => {
-      navigateTo(item.dataset.url);
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'bookmark-bar-item';
+    item.dataset.url = b.url;
+    item.title = `${b.title} (${b.url})`;
+    const img = document.createElement('img');
+    img.src = safeHttpUrl(fav) || '';
+    img.onerror = () => { img.onerror = null; img.style.display = 'none'; };
+    const label = document.createElement('span');
+    label.textContent = b.title;
+    item.append(img, label);
+    item.addEventListener('click', (event) => {
+      if (event.metaKey || event.ctrlKey) createTab(item.dataset.url);
+      else navigateTo(item.dataset.url);
+    });
+    item.addEventListener('auxclick', (event) => {
+      if (event.button === 1) { event.preventDefault(); createTab(item.dataset.url); }
     });
     item.addEventListener('contextmenu', (e) => {
       e.preventDefault();
@@ -7251,6 +7343,7 @@ function renderBookmarksBar() {
         removeBookmarkByUrl(item.dataset.url);
       }
     });
+    container.appendChild(item);
   });
 }
 
@@ -7265,7 +7358,9 @@ async function updateBookmarkButtonState() {
   }
 
   try {
-    const isBm = await window.galamtorAPI.isBookmarked(tab.url);
+    const pageUrl = tab.url;
+    const isBm = await window.galamtorAPI.isBookmarked(pageUrl);
+    if (activeTabId !== tab.id || tab.url !== pageUrl) return;
     btn.classList.toggle('bookmarked', !!isBm);
     btn.title = isBm ? 'Бетбелгілерден алып тастау (⌘D)' : 'Осы бетті бетбелгіге қосу (⌘D)';
   } catch (e) {
@@ -7274,7 +7369,8 @@ async function updateBookmarkButtonState() {
 }
 
 async function toggleBookmarkCurrent() {
-  const tab = tabs.find(t => t.id === activeTabId);
+  const active = tabs.find(t => t.id === activeTabId);
+  const tab = active ? { ...active } : null;
   if (!tab || tab.isHome || !tab.url) {
     showToast('⚠️ Басты бетті бетбелгіге қосу мүмкін емес');
     return;
@@ -7295,7 +7391,7 @@ async function toggleBookmarkCurrent() {
         renderBookmarksBar();
         updateBookmarkButtonState();
         showToast('⭐️ Бетбелгілерге сәтті қосылды!');
-      }
+      } else showToast('Бетбелгі сақталмады');
     }
   } catch (err) {
     console.error('[Bookmarks] Toggle error:', err);
@@ -7304,7 +7400,7 @@ async function toggleBookmarkCurrent() {
 
 async function removeBookmarkByUrl(url) {
   try {
-    await window.galamtorAPI.removeBookmark(url);
+    if (!await window.galamtorAPI.removeBookmark(url)) { showToast('Бетбелгі өшірілмеді'); return; }
     currentBookmarks = await window.galamtorAPI.getBookmarks();
     renderBookmarksBar();
     updateBookmarkButtonState();
@@ -7315,7 +7411,7 @@ async function removeBookmarkByUrl(url) {
 }
 
 // ════════════════════════════════════════
-//  LIVE NBRK CURRENCY RATES ENGINE
+//  LIVE EXCHANGE RATES ENGINE
 // ════════════════════════════════════════
 async function updateLiveExchangeRatesUI() {
   try {
@@ -7330,6 +7426,12 @@ async function updateLiveExchangeRatesUI() {
     if (usdEl && rates.USD) usdEl.textContent = rates.USD;
     if (eurEl && rates.EUR) eurEl.textContent = rates.EUR;
     if (rubEl && rates.RUB) rubEl.textContent = rates.RUB;
+    const sourceEl = document.getElementById('currency-source');
+    if (sourceEl) {
+      sourceEl.textContent = rates.updatedAt
+        ? `Анықтамалық бағам • ${new Date(rates.updatedAt).toLocaleDateString('kk-KZ')} • open.er-api.com`
+        : rates.USD ? 'Анықтамалық бағам • уақыт белгісіз' : 'Бағам дерегі қолжетімсіз • open.er-api.com';
+    }
   } catch (err) {
     console.warn('[Rates] Live rates UI error:', err);
   }
@@ -7351,6 +7453,7 @@ function setupFindInPage() {
   if (!bar || !input) return;
 
   function openFindBar() {
+    if (!getActiveWebview() || tabs.find(t => t.id === activeTabId)?.loadFailed) { showToast('Алдымен веб-бетті ашыңыз'); return; }
     bar.style.display = 'flex';
     input.focus();
     input.select();
@@ -7409,35 +7512,50 @@ function setupFindInPage() {
 
   window.openFindInPage = openFindBar;
   window.closeFindInPage = closeFindBar;
+  window.findInPageNext = forward => {
+    if (!findInPageActive) openFindBar();
+    executeFind(input.value.trim(), forward, true);
+  };
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && findInPageActive) { event.preventDefault(); closeFindBar(); }
+  });
 }
 
 // ════════════════════════════════════════
 //  NATIVE APPLICATION MENU DISPATCHER
 // ════════════════════════════════════════
-function setupMenuDispatcher() {
-  if (!window.galamtorAPI || !window.galamtorAPI.onMenuAction) return;
-
-  window.galamtorAPI.onMenuAction((action, data) => {
+function dispatchBrowserAction(action, data) {
+  try {
+    if (action !== 'command-palette' && commandPaletteEl?.classList.contains('active')) closeCommandPalette();
     switch (action) {
       case 'new-tab':
         createTab();
+        urlInput.focus();
         break;
       case 'new-incognito-tab':
         createTab(null, true);
+        urlInput.focus();
         break;
       case 'close-tab':
-        if (activeTabId) closeTab(activeTabId);
+        if (data?.tabId || activeTabId) closeTab(data?.tabId || activeTabId);
         break;
-      case 'reload': {
-        const wv = getActiveWebview();
-        if (wv) wv.reload();
+      case 'reload': reloadActiveTab(); break;
+      case 'force-reload': reloadActiveTab(true); break;
+      case 'reopen-tab': reopenClosedTab(); break;
+      case 'duplicate-tab': duplicateTab(data?.tabId || activeTabId); break;
+      case 'mute-tab': toggleTabMuted(data?.tabId || activeTabId); break;
+      case 'next-tab': cycleTab(1); break;
+      case 'previous-tab': cycleTab(-1); break;
+      case 'select-tab': {
+        const tab = tabs[data === 9 ? tabs.length - 1 : data - 1];
+        if (tab) activateTab(tab.id);
         break;
       }
-      case 'force-reload': {
-        const wv = getActiveWebview();
-        if (wv) wv.reloadIgnoringCache();
-        break;
-      }
+      case 'open-link-tab': createTab(data.url, data.isIncognito === true); break;
+      case 'focus-address': urlInput.focus(); urlInput.select(); break;
+      case 'command-palette': openCommandPalette(); break;
+      case 'find-next': window.findInPageNext?.(true); break;
+      case 'find-previous': window.findInPageNext?.(false); break;
       case 'zoom-in': {
         const wv = getActiveWebview();
         if (wv) {
@@ -7478,15 +7596,12 @@ function setupMenuDispatcher() {
         if (typeof gpOpenModal === 'function') gpOpenModal('profile');
         break;
       case 'customize-startpage': {
+        if (!tabs.find(t => t.id === activeTabId)?.isHome) createTab();
         const btnOpen = document.getElementById('btn-open-customizer');
         if (btnOpen) btnOpen.click();
         break;
       }
-      case 'toggle-ai': {
-        const aiPanel = document.getElementById('ai-sidebar-panel');
-        if (aiPanel) aiPanel.classList.toggle('active');
-        break;
-      }
+      case 'toggle-ai': toggleAiSidebarPanel(); break;
       case 'go-back': {
         const wv = getActiveWebview();
         if (wv && wv.canGoBack()) wv.goBack();
@@ -7513,19 +7628,18 @@ function setupMenuDispatcher() {
         if (wv) wv.print();
         break;
       }
-      case 'save-page': {
-        const tab = tabs.find(t => t.id === activeTabId);
-        if (tab && tab.url) {
-          window.galamtorAPI.downloadURL(tab.url);
-          showToast('💾 Бетті жүктеу басталды');
-        }
-        break;
-      }
+      case 'save-page': saveActivePage(); break;
+      case 'check-update': window.checkBrowserUpdate?.(); break;
       case 'about-qalqan':
-        showToast('🛡️ Кибер-Қалқан: Қазақстанның алаяқтыққа қарсы ұлттық қауіпсіздік сүзгісі');
+        showToast('🛡️ Кибер-Қалқан: белгілі күдікті мекенжайларға арналған сүзгі');
         break;
     }
-  });
+    window.refreshBrowserMenu?.();
+  } catch (error) { console.warn('[Browser action]', action, error); showToast('Әрекет қазір қолжетімсіз'); }
+}
+
+function setupMenuDispatcher() {
+  window.galamtorAPI?.onMenuAction?.(dispatchBrowserAction);
 }
 
 // ════════════════════════════════════════
@@ -7544,7 +7658,7 @@ if (csCurrencyCard) {
     csCurrencyCard.style.transform = 'scale(0.98)';
     setTimeout(() => { csCurrencyCard.style.transform = ''; }, 150);
     await updateLiveExchangeRatesUI();
-    showToast('💱 Валюта бағамы жаңартылды');
+    showToast(document.getElementById('rate-usd')?.textContent === '—' ? 'Бағам дерегі қолжетімсіз' : '💱 Валюта бағамы тексерілді');
   });
 }
 
@@ -7655,14 +7769,14 @@ function initStartPageCustomizer() {
   const valDim = document.getElementById('dim-level-val');
   const sliderBlur = document.getElementById('slider-blur-level');
   const valBlur = document.getElementById('blur-level-val');
+  const hubStyleSelect = document.getElementById('hub-style-select');
 
   // Widget Toggles
   const toggleClock = document.getElementById('toggle-widget-clock');
   const toggleCurrency = document.getElementById('toggle-widget-currency');
   const togglePrayer = document.getElementById('toggle-widget-prayer');
   const toggleNews = document.getElementById('toggle-widget-news');
-  const toggleWisdom = document.getElementById('toggle-widget-wisdom');
-  const toggleShortcuts = document.getElementById('toggle-widget-shortcuts');
+  const quickModeButtons = drawer?.querySelectorAll('[data-start-mode]') || [];
 
   // Widget Target Elements
   const elClock = document.getElementById('welcome-clock-widget');
@@ -7670,30 +7784,30 @@ function initStartPageCustomizer() {
   const elPrayer = document.getElementById('cs-prayer');
   const elBentoHero = document.getElementById('section-bento-hero');
   const elNews = document.getElementById('section-reading-news') || document.getElementById('portal-news-bar');
-  const elWisdom = document.getElementById('wisdom-quote-widget');
-  const elShortcuts = document.getElementById('section-favorites') || document.querySelector('.shortcuts-grid');
 
   if (!drawer || !btnOpen || !bgImage) return;
 
   // Open & Close Drawer
   const openDrawer = () => {
     drawer.classList.add('active');
-    backdrop.classList.add('active');
+    drawer.setAttribute('aria-hidden', 'false');
+    backdrop?.classList.add('active');
+    backdrop?.setAttribute('aria-hidden', 'false');
+    btnOpen.setAttribute('aria-expanded', 'true');
+    btnClose?.focus({ preventScroll: true });
   };
   const closeDrawer = () => {
     drawer.classList.remove('active');
-    backdrop.classList.remove('active');
+    drawer.setAttribute('aria-hidden', 'true');
+    backdrop?.classList.remove('active');
+    backdrop?.setAttribute('aria-hidden', 'true');
+    btnOpen.setAttribute('aria-expanded', 'false');
+    btnOpen.focus({ preventScroll: true });
   };
 
   btnOpen.addEventListener('click', openDrawer);
   if (btnClose) btnClose.addEventListener('click', closeDrawer);
   if (backdrop) backdrop.addEventListener('click', closeDrawer);
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && drawer.classList.contains('active')) {
-      closeDrawer();
-    }
-  });
 
   // VisionOS Pill Tabs Switching (Wallpapers | Video | Widgets)
   const tabPills = drawer.querySelectorAll('.customizer-tab-pill');
@@ -7702,14 +7816,65 @@ function initStartPageCustomizer() {
     video: document.getElementById('tab-pane-video'),
     widgets: document.getElementById('tab-pane-widgets')
   };
+  const initialTab = drawer.querySelector('.customizer-tab-pill.active')?.dataset.tab || 'wallpapers';
+  tabPills.forEach(pill => {
+    const selected = pill.dataset.tab === initialTab;
+    pill.setAttribute('aria-selected', String(selected));
+    pill.tabIndex = selected ? 0 : -1;
+  });
+  Object.entries(tabPanes).forEach(([key, pane]) => {
+    if (pane) pane.setAttribute('aria-hidden', String(key !== initialTab));
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (!drawer.classList.contains('active')) return;
+    if (e.key === 'Escape') {
+      closeDrawer();
+      return;
+    }
+
+    if (e.key === 'Tab') {
+      const focusable = [...drawer.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), summary, a[href], [tabindex]:not([tabindex="-1"])')]
+        .filter(element => element.getClientRects().length > 0 && element.getAttribute('aria-hidden') !== 'true');
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && (document.activeElement === first || !drawer.contains(document.activeElement))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (document.activeElement === last || !drawer.contains(document.activeElement))) {
+        e.preventDefault();
+        first.focus();
+      }
+      return;
+    }
+
+    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key) && e.target.matches('.customizer-tab-pill')) {
+      const tabs = [...tabPills];
+      const index = tabs.indexOf(e.target);
+      const nextIndex = e.key === 'Home' ? 0
+        : e.key === 'End' ? tabs.length - 1
+          : (index + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+      e.preventDefault();
+      tabs[nextIndex].focus();
+      tabs[nextIndex].click();
+    }
+  });
 
   tabPills.forEach(pill => {
     pill.addEventListener('click', () => {
       const targetTab = pill.dataset.tab;
-      tabPills.forEach(p => p.classList.toggle('active', p === pill));
+      tabPills.forEach(p => {
+        const selected = p === pill;
+        p.classList.toggle('active', selected);
+        p.setAttribute('aria-selected', String(selected));
+        p.tabIndex = selected ? 0 : -1;
+      });
       Object.entries(tabPanes).forEach(([key, pane]) => {
         if (pane) {
-          pane.style.display = (key === targetTab) ? 'flex' : 'none';
+          const selected = key === targetTab;
+          pane.style.display = selected ? 'flex' : 'none';
+          pane.setAttribute('aria-hidden', String(!selected));
         }
       });
     });
@@ -7723,15 +7888,15 @@ function initStartPageCustomizer() {
       customUrl: localStorage.getItem('galamtor_custom_url') || '',
       customType: localStorage.getItem('galamtor_custom_type') || 'image',
       customName: localStorage.getItem('galamtor_custom_name') || '',
-      hubStyle: localStorage.getItem('galamtor_hub_style') || 'bento',
-      dim: parseInt(localStorage.getItem('galamtor_dim_level') || '35', 10),
-      blur: parseInt(localStorage.getItem('galamtor_blur_level') || '0', 10),
+      hubStyle: ['astral', 'bento', 'capsule', 'neon', 'ambient'].includes(localStorage.getItem('galamtor_hub_style'))
+        ? localStorage.getItem('galamtor_hub_style')
+        : 'ambient',
+      dim: Math.min(85, Math.max(0, Number(localStorage.getItem('galamtor_dim_level') ?? 35) || 0)),
+      blur: Math.min(16, Math.max(0, Number(localStorage.getItem('galamtor_blur_level') ?? 0) || 0)),
       showClock: localStorage.getItem('galamtor_widget_clock') !== 'false',
       showCurrency: localStorage.getItem('galamtor_widget_currency') !== 'false',
       showPrayer: localStorage.getItem('galamtor_widget_prayer') !== 'false',
-      showNews: localStorage.getItem('galamtor_widget_news') !== 'false',
-      showWisdom: localStorage.getItem('galamtor_widget_wisdom') !== 'false',
-      showShortcuts: localStorage.getItem('galamtor_widget_shortcuts') !== 'false'
+      showNews: localStorage.getItem('galamtor_widget_news') !== 'false'
     };
   };
 
@@ -7742,8 +7907,8 @@ function initStartPageCustomizer() {
         bgVideo.style.display = 'block';
         if (bgVideo.src !== state.customUrl) {
           bgVideo.src = state.customUrl;
-          bgVideo.play().catch(e => console.log('Autoplay handled:', e));
         }
+        if (bgVideo.paused) bgVideo.play().catch(e => console.log('Autoplay handled:', e));
       } else {
         bgVideo.pause();
         bgVideo.style.display = 'none';
@@ -7775,21 +7940,22 @@ function initStartPageCustomizer() {
     if (valBlur) valBlur.textContent = `${state.blur}px`;
 
     // Apply Widgets
-    if (elClock) elClock.style.display = state.showClock ? '' : 'none';
-    if (elCurrency) elCurrency.style.display = state.showCurrency ? '' : 'none';
-    if (elPrayer) elPrayer.style.display = state.showPrayer ? '' : 'none';
-    if (elBentoHero) elBentoHero.style.display = (state.showCurrency || state.showPrayer) ? '' : 'none';
-    if (elNews) elNews.style.display = state.showNews ? '' : 'none';
-    if (elWisdom) elWisdom.style.display = state.showWisdom ? '' : 'none';
-    if (elShortcuts) elShortcuts.style.display = state.showShortcuts ? '' : 'none';
+    const setWidgetVisibility = (el, visible) => {
+      if (!el) return;
+      if (visible) el.style.removeProperty('display');
+      else el.style.setProperty('display', 'none', 'important');
+    };
+    setWidgetVisibility(elClock, state.showClock);
+    setWidgetVisibility(elCurrency, state.showCurrency);
+    setWidgetVisibility(elPrayer, state.showPrayer);
+    setWidgetVisibility(elBentoHero, state.showCurrency || state.showPrayer);
+    setWidgetVisibility(elNews, state.showNews);
 
     // Update checkboxes
     if (toggleClock) toggleClock.checked = state.showClock;
     if (toggleCurrency) toggleCurrency.checked = state.showCurrency;
     if (togglePrayer) togglePrayer.checked = state.showPrayer;
     if (toggleNews) toggleNews.checked = state.showNews;
-    if (toggleWisdom) toggleWisdom.checked = state.showWisdom;
-    if (toggleShortcuts) toggleShortcuts.checked = state.showShortcuts;
 
     // Update preset cards active class
     document.querySelectorAll('.preset-card').forEach(card => {
@@ -7810,9 +7976,7 @@ function initStartPageCustomizer() {
         hub.classList.add(`hub-style-${state.hubStyle}`);
       }
     }
-    document.querySelectorAll('.hub-style-chip').forEach(chip => {
-      chip.classList.toggle('active', chip.dataset.style === state.hubStyle);
-    });
+    if (hubStyleSelect) hubStyleSelect.value = state.hubStyle;
   };
 
   // Render Preset Cards
@@ -7859,6 +8023,7 @@ function initStartPageCustomizer() {
       if (window.galamtorAPI && window.galamtorAPI.pickCustomWallpaper) {
         try {
           const res = await window.galamtorAPI.pickCustomWallpaper();
+          if (res?.canceled) return;
           if (res && !res.canceled && res.fileUrl) {
             handleCustomFile(res.fileUrl, res.mediaType, res.originalName);
             return;
@@ -7911,9 +8076,10 @@ function initStartPageCustomizer() {
   }
 
   // Widget Checkboxes with full state synchronization
-  const bindToggle = (toggleEl, key, elTarget, label) => {
+  const bindToggle = (toggleEl, key, label) => {
     if (!toggleEl) return;
     const update = (checked) => {
+      clearQuickModeSelection();
       localStorage.setItem(key, checked ? 'true' : 'false');
       toggleEl.checked = checked;
       const curr = loadState();
@@ -7924,39 +8090,84 @@ function initStartPageCustomizer() {
     toggleEl.addEventListener('change', (e) => {
       update(e.target.checked);
     });
-
-    const row = toggleEl.closest('.toggle-row');
-    if (row) {
-      row.addEventListener('click', (e) => {
-        if (e.target === toggleEl) return;
-        e.preventDefault();
-        update(!toggleEl.checked);
-      });
-    }
   };
 
-  bindToggle(toggleClock, 'galamtor_widget_clock', elClock, 'Сағат виджеті');
-  bindToggle(toggleCurrency, 'galamtor_widget_currency', elCurrency, 'Ұлттық Банк бағамы');
-  bindToggle(togglePrayer, 'galamtor_widget_prayer', elPrayer, 'Намаз кестесі');
-  bindToggle(toggleNews, 'galamtor_widget_news', elNews, 'Жаңалықтар');
-  bindToggle(toggleWisdom, 'galamtor_widget_wisdom', elWisdom, 'Ғұламалар даналығы');
-  bindToggle(toggleShortcuts, 'galamtor_widget_shortcuts', elShortcuts, 'Қазақстандық қызметтер');
+  bindToggle(toggleClock, 'galamtor_widget_clock', 'Сағат пен күн');
+  bindToggle(toggleCurrency, 'galamtor_widget_currency', 'Валюта бағамы');
+  bindToggle(togglePrayer, 'galamtor_widget_prayer', 'Намаз кестесі');
+  bindToggle(toggleNews, 'galamtor_widget_news', 'Пайдалы дереккөздер');
+  localStorage.removeItem('galamtor_shortcuts');
+  localStorage.removeItem('galamtor_widget_shortcuts');
+  localStorage.removeItem('galamtor_widget_wisdom');
 
-  // Hub Style Selector Clicks
-  document.querySelectorAll('.hub-style-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      const style = chip.dataset.style;
+  const quickModes = {
+    focus: {
+      title: 'Фокус', style: 'ambient', widgets: {
+        clock: true, currency: false, prayer: false, news: false
+      }
+    },
+    daily: {
+      title: 'Күнделікті', style: 'capsule', widgets: {
+        clock: true, currency: true, prayer: false, news: true
+      }
+    },
+    full: {
+      title: 'Толық', style: 'bento', widgets: {
+        clock: true, currency: true, prayer: true, news: true
+      }
+    }
+  };
+  const getMatchingQuickMode = (state) => {
+    const widgets = {
+      clock: state.showClock,
+      currency: state.showCurrency,
+      prayer: state.showPrayer,
+      news: state.showNews
+    };
+    return Object.entries(quickModes).find(([, mode]) =>
+      state.hubStyle === mode.style &&
+      Object.entries(mode.widgets).every(([name, visible]) => widgets[name] === visible)
+    )?.[0] || null;
+  };
+  const updateQuickModeSelection = (state = loadState()) => {
+    const selectedMode = getMatchingQuickMode(state);
+    quickModeButtons.forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.startMode === selectedMode));
+    });
+  };
+  const clearQuickModeSelection = () => quickModeButtons.forEach(button => button.setAttribute('aria-pressed', 'false'));
+  quickModeButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const mode = quickModes[button.dataset.startMode];
+      if (!mode) return;
+      localStorage.setItem('galamtor_hub_style', mode.style);
+      Object.entries(mode.widgets).forEach(([name, visible]) => {
+        localStorage.setItem(`galamtor_widget_${name}`, String(visible));
+      });
+      const state = loadState();
+      applyWallpaper(state);
+      updateQuickModeSelection(state);
+      showToast(`✓ Көрініс: ${mode.title}`);
+    });
+  });
+
+  // Native select keeps every style available without filling the drawer with five large cards.
+  if (hubStyleSelect) {
+    hubStyleSelect.addEventListener('change', () => {
+      const style = hubStyleSelect.value;
+      if (!['astral', 'bento', 'capsule', 'neon', 'ambient'].includes(style)) return;
       localStorage.setItem('galamtor_hub_style', style);
       const curr = loadState();
       applyWallpaper(curr);
-      const title = chip.querySelector('.chip-title') ? chip.querySelector('.chip-title').textContent : style;
-      showToast(`✓ Виджет стилі: ${title}`);
+      clearQuickModeSelection();
+      showToast('✓ Виджет көрінісі өзгертілді');
     });
-  });
+  }
 
   // Initial Apply
   const initial = loadState();
   applyWallpaper(initial);
+  updateQuickModeSelection(initial);
 }
 
 // Bootstrap Start Page Customizer
@@ -7983,5 +8194,7 @@ window.toggleMediaPlayback = toggleMediaPlayback;
 window.skipMediaTrack = skipMediaTrack;
 window.updateLiveExchangeRatesUI = updateLiveExchangeRatesUI;
 
-
-
+// Start-page shortcuts use the same actions as the browser menu.
+document.querySelectorAll('[data-welcome-action]').forEach(button => {
+  button.addEventListener('click', () => dispatchBrowserAction(button.dataset.welcomeAction));
+});

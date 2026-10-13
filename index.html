@@ -2,6 +2,7 @@
 <html lang="kk">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' https: blob: data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.googleapis.com wss://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebaseapp.com https://open.er-api.com wss://127.0.0.1:13579; frame-src 'none'; object-src 'none'; base-uri 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Galamtor</title>
   <link rel="stylesheet" href="style.css">
@@ -20,7 +21,7 @@
 
       <!-- Tab Strip with Drag & Drop -->
       <div id="tab-strip">
-        <div id="tabs-container">
+        <div id="tabs-container" role="tablist" aria-label="Ашық қойындылар">
           <!-- Tabs rendered by JS — each is draggable -->
         </div>
         <button id="btn-new-tab" class="icon-btn-sm" title="Жаңа қойынды (⌘T)">
@@ -52,17 +53,15 @@
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
             </button>
             <!-- Galamtor Lens Button -->
-            <button type="button" id="btn-lens" class="lens-btn" title="Galamtor Lens — суретпен іздеу">
+            <button type="button" id="btn-lens" class="lens-btn" title="Google Lens ашу — камераны басып, сурет таңдаңыз">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             </button>
-            <!-- Hidden file input for Lens -->
-            <input type="file" id="lens-file-input" accept="image/*" style="display:none">
           </div>
         </form>
 
         <div class="nav-actions">
           <!-- Gov & Fintech Secure Vault Status Badge -->
-          <div id="badge-banking-vault" class="vault-status-pill" title="Gov & Fintech Secure Vault белсенді: Экран мен кэш шифрланған" style="display:none;">
+          <div id="badge-banking-vault" class="vault-status-pill" title="Банк бетін ашқанда скриншоттан қорғау қосылады" style="display:none;">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#00f2fe" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             <span>VAULT</span>
           </div>
@@ -74,6 +73,9 @@
           </button>
           <button id="btn-home" class="nav-btn" title="Басты бет">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </button>
+          <button id="btn-browser-menu" class="nav-btn" type="button" title="Браузер мәзірі" aria-label="Браузер мәзірі" aria-haspopup="menu" aria-expanded="false" aria-controls="browser-menu">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
           </button>
         </div>
       </div>
@@ -94,7 +96,7 @@
       <!-- Arc-Style Sidebar Dock (Drop Zone for Pinning) -->
       <aside id="sidebar">
         <div class="sidebar-logo" id="btn-workspace" title="Workspace & Profile">G</div>
-        <button class="dock-btn" id="btn-toggle-ai-sidebar" title="Galamtor AI Көмекші & Авто-Жүктеу" style="margin-top: 6px;">
+        <button class="dock-btn" id="btn-toggle-ai-sidebar" title="Galamtor AI көмекшісі және сайт қауіпсіздігі" style="margin-top: 6px;">
           <span class="dock-badge ai-badge-bg">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/><path d="M5 3L6.25 6.75L10 8L6.25 9.25L5 13L3.75 9.25L0 8L3.75 6.75L5 3Z" opacity="0.6"/></svg>
           </span>
@@ -170,8 +172,8 @@
 
         <!-- Floating Find In Page Bar (⌘F) -->
         <div id="find-in-page-bar" class="find-in-page-bar" style="display:none;">
-          <input type="text" id="find-input" placeholder="Беттен іздеу..." autocomplete="off" spellcheck="false">
-          <span id="find-count" class="find-count">0/0</span>
+          <input type="text" id="find-input" aria-label="Беттен іздеу" placeholder="Беттен іздеу..." autocomplete="off" spellcheck="false">
+          <span id="find-count" class="find-count" role="status" aria-live="polite">0/0</span>
           <button type="button" id="find-prev" class="find-btn" title="Алдыңғы (⇧Enter)">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
           </button>
@@ -193,7 +195,7 @@
           </div>
 
           <!-- Floating Customization Button -->
-          <button id="btn-open-customizer" class="welcome-customize-btn" title="Басты бетті баптау (Тұсқағаз, MP4, Виджеттер)">
+          <button id="btn-open-customizer" class="welcome-customize-btn" title="Басты бетті баптау (Тұсқағаз, MP4, Виджеттер)" aria-expanded="false" aria-controls="customizer-drawer">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="4" y1="21" x2="4" y2="14"></line>
               <line x1="4" y1="10" x2="4" y2="3"></line>
@@ -211,11 +213,13 @@
           <div class="welcome-content">
             <!-- Dynamic Clock & Date Widget -->
             <div id="welcome-clock-widget" class="welcome-clock-widget">
-              <div class="clock-time" id="clock-time-display">12:00</div>
-              <div class="clock-date" id="clock-date-display">25 шілде</div>
+              <div class="clock-time" id="clock-time-display">--:--</div>
+              <div class="clock-date" id="clock-date-display"></div>
             </div>
 
-            <h1 class="welcome-logo">Galamtor</h1>
+            <div class="welcome-brand-mark">ҒАЛАМТОР <span aria-hidden="true">·</span> ҚАЗАҚША ШОЛҒЫШ</div>
+            <h1 class="welcome-logo" id="welcome-greeting" aria-live="polite">Қайырлы күн!</h1>
+            <p class="welcome-tagline">Бүгін неден бастаймыз?</p>
 
             <!-- Search with Lens Drop Zone (Delicate Cyan Capsule from Screenshot) -->
             <form id="welcome-search-form" class="welcome-search-form">
@@ -233,109 +237,27 @@
               <div id="lens-drop-overlay" class="lens-drop-overlay">
                 <div class="lens-drop-content">
                   <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                  <span>Суретті осында сүйреңіз</span>
+                  <span>Жалпыға ашық сурет сілтемесін осында сүйреңіз</span>
                 </div>
               </div>
             </form>
 
-            <!-- ── SECTION 1: Safari Favorites Row (Таңдаулы сайттар) ── -->
-            <section class="safari-section" id="section-favorites">
-              <div class="safari-section-heading">
-                <span>Таңдаулы сайттар</span>
-              </div>
-              <div class="safari-favorites-row shortcuts-grid">
-                <!-- Kaspi.kz -->
-                <div class="safari-fav-item shortcut-card" data-url="https://kaspi.kz" title="Kaspi.kz — Төлемдер, аударымдар мен сауда">
-                  <div class="safari-fav-icon sc-icon kaspi-bg">
-                    <svg viewBox="0 0 32 32" width="26" height="26" fill="white">
-                      <path d="M7 6h5v8.5L18.5 6h6l-8.5 10 9.5 10h-6.2L12 16.5V26H7V6z"/>
-                    </svg>
-                  </div>
-                  <span class="safari-fav-label sc-label">Kaspi.kz</span>
-                </div>
-
-                <!-- eGov.kz -->
-                <div class="safari-fav-item shortcut-card" data-url="https://egov.kz" title="eGov.kz — Мемлекеттік қызметтер порталы">
-                  <div class="safari-fav-icon sc-icon egov-bg">
-                    <svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M16 3L3 9v4c0 8.5 5.5 15.5 13 17 7.5-1.5 13-8.5 13-17V9L16 3z" fill="rgba(255,255,255,0.18)"/>
-                      <path d="M16 10v12M10 16h12" stroke-width="2.4"/>
-                    </svg>
-                  </div>
-                  <span class="safari-fav-label sc-label">eGov.kz</span>
-                </div>
-
-                <!-- Enbek.kz -->
-                <div class="safari-fav-item shortcut-card" data-url="https://enbek.kz" title="Enbek.kz — Мемлекеттік жұмыс пен еңбек порталы">
-                  <div class="safari-fav-icon sc-icon enbek-bg">
-                    <svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="4" y="9" width="24" height="18" rx="4" fill="rgba(255,255,255,0.18)"/>
-                      <path d="M11 9V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v3"/>
-                      <line x1="4" y1="16" x2="28" y2="16"/>
-                    </svg>
-                  </div>
-                  <span class="safari-fav-label sc-label">Enbek.kz</span>
-                </div>
-
-                <!-- Tengrinews.kz -->
-                <div class="safari-fav-item shortcut-card" data-url="https://tengrinews.kz" title="Tengrinews — Соңғы жаңалықтар">
-                  <div class="safari-fav-icon sc-icon tengri-bg">
-                    <svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="4" y="5" width="24" height="22" rx="4" fill="rgba(255,255,255,0.15)"/>
-                      <path d="M9 11h14M9 16h14M9 21h8" stroke-width="2.2"/>
-                    </svg>
-                  </div>
-                  <span class="safari-fav-label sc-label">Tengrinews</span>
-                </div>
-
-                <!-- Kolesa.kz -->
-                <div class="safari-fav-item shortcut-card" data-url="https://kolesa.kz" title="Kolesa.kz — Автокөлік маркетплейсі">
-                  <div class="safari-fav-icon sc-icon kolesa-bg">
-                    <svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="16" cy="16" r="12" fill="rgba(255,255,255,0.15)"/>
-                      <circle cx="16" cy="16" r="4"/>
-                      <line x1="16" y1="4" x2="16" y2="12"/>
-                      <line x1="6.5" y1="21.5" x2="13.5" y2="18"/>
-                      <line x1="25.5" y1="21.5" x2="18.5" y2="18"/>
-                    </svg>
-                  </div>
-                  <span class="safari-fav-label sc-label">Kolesa.kz</span>
-                </div>
-
-                <!-- Krisha.kz -->
-                <div class="safari-fav-item shortcut-card" data-url="https://krisha.kz" title="Krisha.kz — Жылжымайтын мүлік маркетплейсі">
-                  <div class="safari-fav-icon sc-icon krisha-bg">
-                    <svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M4 13L16 4l12 9v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V13z" fill="rgba(255,255,255,0.15)"/>
-                      <path d="M12 29V17h8v12"/>
-                    </svg>
-                  </div>
-                  <span class="safari-fav-label sc-label">Krisha.kz</span>
-                </div>
-
-                <!-- YouTube -->
-                <div class="safari-fav-item shortcut-card" data-url="https://youtube.com" title="YouTube — Бейнероликтер">
-                  <div class="safari-fav-icon sc-icon youtube-bg">
-                    <svg viewBox="0 0 32 32" width="26" height="26" fill="white">
-                      <path d="M29.5 9.2a3.8 3.8 0 0 0-2.7-2.7C24.4 6 16 6 16 6s-8.4 0-10.8.5a3.8 3.8 0 0 0-2.7 2.7C2 11.6 2 16 2 16s0 4.4.5 6.8a3.8 3.8 0 0 0 2.7 2.7C7.6 26 16 26 16 26s8.4 0 10.8-.5a3.8 3.8 0 0 0 2.7-2.7c.5-2.4.5-6.8.5-6.8s0-4.4-.5-6.8zM13 20.5v-9l8 4.5-8 4.5z"/>
-                    </svg>
-                  </div>
-                  <span class="safari-fav-label sc-label">YouTube</span>
-                </div>
-              </div>
-            </section>
-
-            <!-- ── SECTION 2: Valuta Baǵamy Bento Card from Screenshot 3 ── -->
+            <!-- ── SECTION 1: Валюта бағамы Bento Card ── -->
+            <nav class="welcome-actions" aria-label="Жылдам әрекеттер">
+              <button data-welcome-action="reopen-tab">Жабылған қойындыны қайтару</button>
+              <button data-welcome-action="open-history">Тарих</button>
+              <button data-welcome-action="open-bookmarks">Бетбелгілер</button>
+              <button data-welcome-action="command-palette">Командалар ⌘K</button>
+            </nav>
             <section class="safari-section" id="section-bento-hero">
               <div id="cyber-steppe-hub" class="valuta-card-container">
-                <!-- Valuta Baǵamy Card (Ultra-delicate from Screenshot 3) -->
-                <div class="valuta-card-delicate" id="cs-currency" title="KASE ресми биржалық бағамы">
+                <!-- Валюта бағамы Card (Ultra-delicate from Screenshot 3) -->
+                <div class="valuta-card-delicate" id="cs-currency" title="Бағамды жаңарту">
                   <div class="valuta-card-header">
                     <div class="valuta-title-col">
-                      <h4 class="valuta-title">Valuta Baǵamy</h4>
-                      <p class="valuta-subtitle">Real-time Kazakkine exchange:</p>
+                      <h4 class="valuta-title">Валюта бағамы</h4>
+                      <p class="valuta-subtitle" id="currency-source">Анықтамалық бағам • open.er-api.com</p>
                     </div>
-                    <span class="valuta-trend-badge" id="kzt-trend-pill">+1.2%</span>
                   </div>
 
                   <div class="valuta-card-body">
@@ -343,102 +265,72 @@
                       <div class="valuta-rate-row">
                         <span class="v-flag">🇺🇸</span>
                         <span class="v-code">USD</span>
-                        <span class="v-val"><span id="rate-usd">449.9</span> ₸</span>
-                        <span class="v-diff">+1.01 ₸</span>
+                        <span class="v-val"><span id="rate-usd">—</span> ₸</span>
                       </div>
                       <div class="valuta-rate-row">
                         <span class="v-flag">🇪🇺</span>
                         <span class="v-code">EUR</span>
-                        <span class="v-val"><span id="rate-eur">504.1</span> ₸</span>
-                        <span class="v-diff">+0.35 ₸</span>
+                        <span class="v-val"><span id="rate-eur">—</span> ₸</span>
                       </div>
                       <div class="valuta-rate-row">
                         <span class="v-flag">🇷🇺</span>
                         <span class="v-code">RUB</span>
-                        <span class="v-val"><span id="rate-rub">5.29</span> ₸</span>
-                        <span class="v-diff">+0.04 ₸</span>
+                        <span class="v-val"><span id="rate-rub">—</span> ₸</span>
                       </div>
                     </div>
 
-                    <div class="valuta-sparkline-box">
-                      <svg viewBox="0 0 160 56" class="valuta-sparkline-svg" preserveAspectRatio="none">
-                        <defs>
-                          <linearGradient id="v-green-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.32"/>
-                            <stop offset="100%" stop-color="#ffffff" stop-opacity="0.0"/>
-                          </linearGradient>
-                        </defs>
-                        <path d="M 0,42 Q 18,48 35,40 T 70,32 T 105,26 T 130,22 L 160,8 L 160,56 L 0,56 Z" fill="url(#v-green-grad)"/>
-                        <path d="M 0,42 Q 18,48 35,40 T 70,32 T 105,26 T 130,22 L 160,8" fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-                        <circle cx="160" cy="8" r="3" fill="#ffffff"/>
-                      </svg>
-                    </div>
                   </div>
                 </div>
 
-                <!-- Hidden Prayer Sub-card preserved for toggle/script compatibility -->
-                <div class="safari-bento-sub prayer-widget" id="cs-prayer" style="display: none !important;">
-                  <button type="button" id="btn-city-select" class="city-pill-btn" style="display:none;"><span id="current-city-label">Астана</span></button>
-                  <span id="prayer-next-pill" style="display:none;"></span>
-                  <span id="prayer-time-remaining" style="display:none;"></span>
-                  <span id="time-fajr" style="display:none;"></span>
-                  <span id="time-dhuhr" style="display:none;"></span>
-                  <span id="time-asr" style="display:none;"></span>
-                  <span id="time-maghrib" style="display:none;"></span>
-                  <span id="time-isha" style="display:none;"></span>
+                <div class="safari-bento-sub prayer-widget" id="cs-prayer">
+                  <strong>Намаз уақыты</strong>
+                  <p>Қалаңыздың кестесін ҚМДБ сайтынан қараңыз.</p>
+                  <a href="https://www.muftyat.kz/kk/namaz_times/" target="_blank" rel="noopener">Ресми кестені ашу ↗</a>
                 </div>
               </div>
             </section>
 
-            <!-- ── SECTION 3: Safari Reading List Style News Cards (Ел жаңалықтары) ── -->
+            <!-- ── SECTION 2: Curated source links ── -->
             <section class="safari-section" id="section-reading-news">
               <div class="safari-section-heading">
-                <span>Ел жаңалықтары</span>
-                <span class="safari-section-action" id="btn-refresh-news" title="Жаңалықтарды жаңарту">
+                <span>Пайдалы дереккөздер</span>
+                <button type="button" class="safari-section-action" id="btn-refresh-news" title="Басқа дереккөздер">
                   <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;vertical-align:middle;"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                  Жаңарту
-                </span>
+                  Басқа
+                </button>
               </div>
               <div class="safari-reading-grid" id="portal-news-bar">
                 <!-- Card 1 -->
-                <div class="safari-reading-card" id="safari-news-card-0">
+                <button type="button" class="safari-reading-card" id="safari-news-card-0">
                   <div class="safari-reading-thumb thumb-tech">
                     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                   </div>
                   <div class="safari-reading-meta">
-                    <span class="safari-reading-title" id="safari-news-title-0">Қазақстанның цифрлық экожүйесінде жаңа AI жобалар іске қосылды</span>
+                    <span class="safari-reading-title" id="safari-news-title-0">Tengrinews жаңалықтарын ашу</span>
                     <div class="safari-reading-subline">
                       <span class="safari-source-tag" id="safari-news-src-0">Tengrinews.kz</span>
-                      <span class="safari-time-tag" id="safari-news-time-0">15 мин бұрын</span>
+                      <span class="safari-time-tag" id="safari-news-time-0">Дереккөз</span>
                     </div>
                   </div>
-                </div>
+                </button>
 
                 <!-- Card 2 -->
-                <div class="safari-reading-card" id="safari-news-card-1">
+                <button type="button" class="safari-reading-card" id="safari-news-card-1">
                   <div class="safari-reading-thumb thumb-gov">
                     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                   </div>
                   <div class="safari-reading-meta">
-                    <span class="safari-reading-title" id="safari-news-title-1">Мемлекеттік электронды құжаттар реформасы жаңа форматта қолжетімді</span>
+                    <span class="safari-reading-title" id="safari-news-title-1">eGov қызметтерін ашу</span>
                     <div class="safari-reading-subline">
                       <span class="safari-source-tag" id="safari-news-src-1">eGov.kz</span>
-                      <span class="safari-time-tag" id="safari-news-time-1">30 мин бұрын</span>
+                      <span class="safari-time-tag" id="safari-news-time-1">Ресми сайт</span>
                     </div>
                   </div>
-                </div>
+                </button>
               </div>
             </section>
 
-            <!-- Daily Historical Kazakh Wisdom / Quote Widget -->
-            <div id="wisdom-quote-widget" class="wisdom-quote-widget">
-              <span class="quote-symbol">«</span>
-              <span id="daily-quote-text" class="daily-quote-text">Отан — отбасынан басталады. Білімді ел — бәрін де жеңеді.</span>
-              <span class="quote-symbol">»</span>
-              <div id="daily-quote-author" class="daily-quote-author">— Абай Құнанбайұлы</div>
-            </div>
-
-            <footer class="welcome-footer"><span>Қазақстанның ұлттық браузері</span></footer>
+            <footer class="welcome-footer"><span>Қазақ тіліндегі браузер</span></footer>
           </div>
         </div>
 
@@ -487,6 +379,97 @@
       </div>
     </div>
 
+    <!-- Floating Galamtor AI companion. The chat itself stays in the existing AI panel. -->
+    <div id="galamtor-bot-widget" class="galamtor-bot-widget" role="group" aria-label="Galamtor AI көмекшісінің жылдам батырмалары">
+      <button id="galamtor-bot-open" class="galamtor-bot-open" type="button" aria-label="Galamtor AI чатын ашу" title="Galamtor AI чатын ашу">
+        <span id="galamtor-pet-live-art" class="galamtor-pet-art" aria-hidden="true"></span>
+        <span id="galamtor-pet-live-accessory" class="galamtor-pet-accessory galamtor-pet-live-accessory" aria-hidden="true" hidden></span>
+        <span class="galamtor-bot-status" aria-hidden="true"></span>
+      </button>
+      <div class="galamtor-bot-actions" role="group" aria-label="Көмекші әрекеттер">
+        <button id="galamtor-pet-customize" class="galamtor-bot-action" type="button" aria-label="Серікті баптау" title="Серікті баптау" aria-haspopup="dialog" aria-expanded="false" aria-controls="galamtor-pet-studio">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6 4 4M4 20l4-.8L19 8a2.8 2.8 0 0 0-4-4L4 15z"/><path d="M12 20h8"/></svg>
+        </button>
+        <span class="galamtor-bot-action-divider" aria-hidden="true"></span>
+        <button id="galamtor-bot-chat" class="galamtor-bot-action" type="button" aria-label="AI чатын ашу" title="AI чатын ашу">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
+        </button>
+        <span class="galamtor-bot-action-divider" aria-hidden="true"></span>
+        <button id="galamtor-bot-speak" class="galamtor-bot-action" type="button" aria-label="Соңғы AI жауабын дыбыстау" title="Соңғы AI жауабын дыбыстау" disabled>
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
+        </button>
+      </div>
+      <aside id="galamtor-pet-studio" class="galamtor-pet-studio" role="dialog" aria-labelledby="galamtor-pet-studio-title" hidden>
+        <header class="pet-studio-header">
+          <div>
+            <span class="pet-studio-eyebrow">ҒАЛАМТОР · СЕРІКТЕР</span>
+            <h2 id="galamtor-pet-studio-title">Өз серігіңді жаса</h2>
+          </div>
+          <button id="galamtor-pet-close" class="pet-studio-close" type="button" aria-label="Серікті баптауды жабу">×</button>
+        </header>
+        <section class="pet-preview-card" aria-label="Серіктің алдын ала көрінісі">
+          <div class="pet-preview-stage">
+            <div id="galamtor-pet-preview-art" class="galamtor-pet-art pet-preview-art" aria-hidden="true"></div>
+            <span id="galamtor-pet-preview-accessory" class="galamtor-pet-accessory pet-preview-accessory" aria-hidden="true" hidden></span>
+          </div>
+          <div class="pet-preview-copy">
+            <strong id="galamtor-pet-preview-name">Самал</strong>
+            <span id="galamtor-pet-preview-role">Жел серігі</span>
+            <p id="galamtor-pet-preview-note">Жылдам ойлап, жайлы бағыт көрсетеді.</p>
+          </div>
+        </section>
+        <div class="pet-studio-actions">
+          <button id="galamtor-pet-demo" type="button">Қимылын көрсету <span aria-hidden="true">↗</span></button>
+        </div>
+        <section class="pet-control-group" aria-labelledby="galamtor-pet-choose-title">
+          <h3 id="galamtor-pet-choose-title">Серігіңді таңда</h3>
+          <div id="galamtor-pet-catalog" class="pet-catalog"></div>
+        </section>
+        <div class="pet-control-grid">
+          <label class="pet-field pet-field-wide" for="galamtor-pet-name">
+            <span>Аты</span>
+            <input id="galamtor-pet-name" type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Серігіңе ат қой">
+          </label>
+          <fieldset class="pet-field pet-field-wide pet-color-field">
+            <legend>Түс палитрасы</legend>
+            <div class="pet-color-options">
+              <button type="button" data-pet-color="sky" aria-label="Көк аспан түсі" title="Көк аспан"><span></span></button>
+              <button type="button" data-pet-color="mint" aria-label="Жалбыз түсі" title="Жалбыз"><span></span></button>
+              <button type="button" data-pet-color="violet" aria-label="Күлгін түс" title="Күлгін"><span></span></button>
+              <button type="button" data-pet-color="sun" aria-label="Күн шуағы түсі" title="Күн шуағы"><span></span></button>
+            </div>
+          </fieldset>
+          <label class="pet-field" for="galamtor-pet-accessory">
+            <span>Аксессуар</span>
+            <select id="galamtor-pet-accessory">
+              <option value="none">Аксессуарсыз</option>
+              <option value="spark">Жұлдызша</option>
+              <option value="headphones">Құлаққап</option>
+              <option value="scarf">Шарф</option>
+              <option value="moon">Ай белгісі</option>
+            </select>
+          </label>
+          <label class="pet-field" for="galamtor-pet-temperament">
+            <span>Мінезі</span>
+            <select id="galamtor-pet-temperament">
+              <option value="curious">Қызыққұмар</option>
+              <option value="calm">Сабырлы</option>
+              <option value="dreamy">Арманшыл</option>
+            </select>
+          </label>
+        </div>
+        <footer class="pet-studio-footer">
+          <span id="galamtor-pet-save-status" role="status" aria-live="polite">Таңдауларың осы құрылғыда сақталады.</span>
+          <div>
+            <button id="galamtor-pet-randomize" type="button">Кездейсоқ образ</button>
+            <button id="galamtor-pet-reset" type="button">Әдепкіге қайтару</button>
+          </div>
+          <small>Пет баптаулары осы құрылғыда қалады, аккаунтқа жіберілмейді.</small>
+        </footer>
+      </aside>
+      <span id="galamtor-bot-live-status" class="sr-only" role="status" aria-live="polite"></span>
+    </div>
+
     <!-- Right-click Context Menu for Sidebar -->
     <div id="context-menu" class="context-menu">
       <button class="context-menu-item" id="ctx-open">Ашу</button>
@@ -501,17 +484,18 @@
     <div id="ai-sidebar-panel" class="ai-sidebar-panel">
       <div class="ai-panel-header">
         <div class="ai-panel-title-group">
+          <img id="ai-panel-mascot" class="ai-panel-mascot" src="assets/galamtor-bot.svg" alt="" aria-hidden="true" width="30" height="34">
           <span class="ai-panel-title">Galamtor AI</span>
-          <span class="ai-model-badge">Gemini 2.5 Flash</span>
+          <span id="ai-model-badge" class="ai-model-badge" data-state="checking" aria-live="polite">Ollama тексерілуде…</span>
         </div>
         <div class="ai-header-actions">
-          <button id="ai-panel-settings" class="ai-panel-settings-btn" title="AI Баптаулары" aria-label="AI Settings">
+          <button id="ai-panel-settings" class="ai-panel-settings-btn" title="AI Баптаулары" aria-label="AI Баптаулары">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           </button>
-          <button id="ai-clear-chat" class="ai-panel-settings-btn" title="Чатты тазарту" aria-label="Clear chat">
+          <button id="ai-clear-chat" class="ai-panel-settings-btn" title="Чатты тазарту" aria-label="Чатты тазарту">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
           </button>
-          <button id="ai-panel-close" class="ai-panel-close-btn" title="Жабу" aria-label="Close AI panel">
+          <button id="ai-panel-close" class="ai-panel-close-btn" title="Жабу" aria-label="AI панелін жабу">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -525,7 +509,38 @@
             <span>Белсенді сайт</span>
           </div>
           <div id="ai-page-title" class="ai-card-title">Жаңа қойынды</div>
+          <div id="ai-page-security-status" class="ai-page-security-status" role="status" aria-live="polite">Қауіпсіздік тексерілмеген</div>
         </div>
+
+        <section id="ai-local-setup" class="ai-local-setup" aria-labelledby="ai-local-setup-title" hidden>
+          <div class="ai-local-setup-heading">
+            <span class="ai-local-setup-icon" aria-hidden="true">✦</span>
+            <div>
+              <h3 id="ai-local-setup-title">Жергілікті AI-ды дайындайық</h3>
+              <p id="ai-local-setup-message">Galamtor Ollama қызметін тексеріп жатыр.</p>
+            </div>
+          </div>
+          <ol class="ai-local-setup-steps">
+            <li>Ollama-ны орнатып, қолданбасын іске қосыңыз.</li>
+            <li>Модельді бір рет жүктеңіз — шамамен 4,7 ГБ.</li>
+            <li>Содан кейін чат осы құрылғыда жергілікті жұмыс істейді.</li>
+          </ol>
+          <p id="ai-local-cloud-note" class="ai-local-cloud-note" hidden>Бұлттық Gemini рұқсаты қосулы: жергілікті Ollama дайын болмаса, сұрақтар Gemini-ге жіберілуі мүмкін.</p>
+          <div id="ai-model-pull-progress-wrap" class="ai-model-pull-progress-wrap" hidden>
+            <div class="ai-model-pull-progress-label">
+              <span id="ai-model-pull-phase">Модель жүктелуде…</span>
+              <span id="ai-model-pull-percent"></span>
+            </div>
+            <progress id="ai-model-pull-progress" max="100"></progress>
+            <div id="ai-model-pull-bytes" class="ai-model-pull-bytes" role="status" aria-live="polite"></div>
+          </div>
+          <div class="ai-local-setup-actions">
+            <button id="ai-setup-install-ollama" class="ai-setup-secondary" type="button">Ollama жүктеу</button>
+            <button id="ai-setup-pull-model" class="ai-setup-primary" type="button" hidden>Модельді орнату</button>
+            <button id="ai-setup-cancel-pull" class="ai-setup-secondary" type="button" hidden>Жүктеуді тоқтату</button>
+            <button id="ai-setup-refresh" class="ai-setup-secondary" type="button">Қайта тексеру</button>
+          </div>
+        </section>
 
         <!-- Detected Direct Files Section (collapsible) -->
         <details class="ai-section ai-files-section" id="ai-files-details">
@@ -541,14 +556,17 @@
         <!-- AI Chat Messages Container -->
         <div id="ai-chat-messages" class="ai-chat-messages">
           <div class="ai-welcome-msg">
-            <div class="ai-sparkle-hero">🤖</div>
-            <div class="ai-welcome-title">Galamtor AI көмекшісі</div>
-            <div class="ai-welcome-subtitle">Gemini 2.5 Flash моделімен жұмыс істейді</div>
-            <div class="ai-welcome-hints">
-              <span>📄 Бетті түйіндеу</span>
-              <span>💻 Код жазу</span>
-              <span>🌐 Аударма</span>
-              <span>❓ Сұрақ қою</span>
+            <div class="ai-sparkle-hero" aria-hidden="true">🤖</div>
+            <div class="ai-welcome-copy">
+              <div class="ai-welcome-title">Galamtor AI көмекшісі</div>
+              <div class="ai-welcome-subtitle">Ollama · ChatGPT жоспары · Gemini</div>
+              <div class="ai-welcome-hints">
+                <span>📄 Бетті түйіндеу</span>
+                <span>💻 Код жазу</span>
+                <span>🌐 Аударма</span>
+                <span>⚖️ Заңды түсіндіру</span>
+                <span>❓ Сұрақ қою</span>
+              </div>
             </div>
           </div>
         </div>
@@ -561,7 +579,19 @@
           </button>
           <button id="ai-btn-scan-files" class="ai-chip-btn">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            <span>Авто-жүктеу</span>
+            <span>Файл сілтемелері</span>
+          </button>
+          <button id="ai-btn-site-safety" class="ai-chip-btn">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+            <span>Сайт қауіпсіздігі</span>
+          </button>
+          <button id="ai-btn-explain-law" class="ai-chip-btn" title="Ресми Әділет актісін тек жергілікті AI арқылы түсіндіру">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path d="M8 7h8M8 11h8"/></svg>
+            <span>Заңды түсіндіру</span>
+          </button>
+          <button id="ai-btn-egov-ncalayer" class="ai-chip-btn" title="NCALayer байланысын тексеріп, eGov.kz ашу">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6M9 9h.01M15 9h.01M9 12h.01M15 12h.01"/></svg>
+            <span>eGov / ЭЦҚ</span>
           </button>
           <button id="ai-btn-translate" class="ai-chip-btn">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg>
@@ -584,13 +614,39 @@
 
       <!-- AI Settings Modal -->
       <div id="ai-settings-modal" class="ai-settings-modal">
-        <div class="ai-settings-card">
-          <div class="ai-settings-title">AI Баптаулары</div>
+        <div class="ai-settings-card" role="dialog" aria-modal="true" aria-labelledby="ai-settings-title">
+          <div class="ai-settings-title" id="ai-settings-title">AI Баптаулары</div>
+          <label class="ai-settings-label" for="ai-provider-mode">AI провайдері</label>
+          <select id="ai-provider-mode" class="ai-settings-select">
+            <option value="local">Жергілікті Ollama</option>
+            <option value="chatgpt">ChatGPT жоспары</option>
+            <option value="gemini">Gemini API</option>
+            <option value="auto">Авто: Ollama → Gemini</option>
+          </select>
+          <p class="ai-settings-hint">ChatGPT жоспарының лимиті ортақ. Әр сұрау өзіңіз жібергенде ғана осы құрылғыдан OpenAI-ге тікелей жіберіледі.</p>
+          <section class="ai-chatgpt-connection" aria-labelledby="ai-chatgpt-heading">
+            <div class="ai-settings-label" id="ai-chatgpt-heading">ChatGPT аккаунты</div>
+            <p id="ai-chatgpt-status" class="ai-settings-hint" role="status" aria-live="polite">Байланыс күйі тексерілуде…</p>
+            <label class="ai-settings-label" for="ai-chatgpt-account">Қолданылатын аккаунт</label>
+            <select id="ai-chatgpt-account" class="ai-settings-select" hidden></select>
+            <div class="ai-settings-actions ai-chatgpt-actions">
+              <button id="ai-chatgpt-connect" class="ai-settings-save-btn" type="button">Continue with ChatGPT</button>
+              <button id="ai-chatgpt-add-account" class="ai-settings-cancel-btn" type="button">Басқа аккаунт қосу</button>
+              <button id="ai-chatgpt-cancel" class="ai-settings-cancel-btn" type="button" hidden>Кіруді тоқтату</button>
+              <button id="ai-chatgpt-disconnect" class="ai-settings-cancel-btn" type="button" hidden>Аккаунтты ажырату</button>
+              <button id="ai-chatgpt-usage" class="ai-settings-cancel-btn" type="button">Usage лимитін қарау</button>
+            </div>
+          </section>
+          <div class="ai-settings-divider" aria-hidden="true"></div>
+          <div class="ai-settings-subtitle">Gemini баптаулары</div>
           <label class="ai-settings-label" for="ai-api-key-input">Gemini API Key</label>
-          <input type="password" id="ai-api-key-input" class="ai-settings-input" placeholder="AIza...">
-          <p class="ai-settings-hint">Тегін алу: <a href="https://aistudio.google.com/apikey" target="_blank" id="ai-key-link">Google AI Studio</a></p>
+          <input type="password" id="ai-api-key-input" class="ai-settings-input" placeholder="Жаңа API кілтін енгізіңіз">
+          <p id="ai-key-status" class="ai-settings-hint"></p>
+          <label class="ai-settings-hint"><input type="checkbox" id="ai-cloud-enabled"> Авто режимінде Ollama жауап бермесе, сұрағым мен қолданылған бет мәтінін Gemini-ге жіберуге рұқсат етемін</label>
+          <p class="ai-settings-hint">API кілті бөлек есептеледі: <a href="https://aistudio.google.com/apikey" target="_blank" id="ai-key-link">Google AI Studio</a> · <a href="https://galamtor.web.app/privacy.html" target="_blank">Құпиялылық</a></p>
           <div class="ai-settings-actions">
             <button id="ai-settings-save" class="ai-settings-save-btn">Сақтау</button>
+            <button id="ai-settings-clear" class="ai-settings-cancel-btn">Кілтті өшіру</button>
             <button id="ai-settings-cancel" class="ai-settings-cancel-btn">Жабу</button>
           </div>
         </div>
@@ -602,16 +658,16 @@
   <!-- ═══════════════════════════════════════════════
        START PAGE CUSTOMIZER DRAWER & BACKDROP
        ═══════════════════════════════════════════════ -->
-  <div id="customizer-backdrop" class="customizer-backdrop"></div>
-  <aside id="customizer-drawer" class="customizer-drawer">
+  <div id="customizer-backdrop" class="customizer-backdrop" aria-hidden="true"></div>
+  <aside id="customizer-drawer" class="customizer-drawer" role="dialog" aria-modal="true" aria-labelledby="customizer-title" aria-hidden="true">
     <div class="customizer-header-bar">
-      <div class="customizer-segmented-bar">
-        <button type="button" class="customizer-tab-pill active" data-tab="wallpapers">Тұсқағаз</button>
-        <button type="button" class="customizer-tab-pill" data-tab="video">Видео</button>
-        <span class="customizer-bar-sep">|</span>
-        <button type="button" class="customizer-tab-pill" data-tab="widgets">Виджеттер</button>
+      <span id="customizer-title" class="sr-only">Басты бетті баптау</span>
+      <div class="customizer-segmented-bar" role="tablist" aria-label="Басты бетті баптау бөлімдері">
+        <button type="button" class="customizer-tab-pill active" id="customizer-tab-wallpapers" role="tab" aria-selected="true" aria-controls="tab-pane-wallpapers" data-tab="wallpapers">Тұсқағаз</button>
+        <button type="button" class="customizer-tab-pill" id="customizer-tab-video" role="tab" aria-selected="false" aria-controls="tab-pane-video" data-tab="video">Видео</button>
+        <button type="button" class="customizer-tab-pill" id="customizer-tab-widgets" role="tab" aria-selected="false" aria-controls="tab-pane-widgets" data-tab="widgets">Виджеттер</button>
       </div>
-      <button id="btn-close-customizer" class="customizer-close-btn" title="Жабу (Esc)">
+      <button type="button" id="btn-close-customizer" class="customizer-close-btn" title="Жабу (Esc)" aria-label="Баптауларды жабу">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -621,7 +677,7 @@
 
     <div class="customizer-body">
       <!-- TAB 1: WALLPAPERS (Active by default) -->
-      <div class="customizer-tab-pane active" id="tab-pane-wallpapers">
+      <div class="customizer-tab-pane active" id="tab-pane-wallpapers" role="tabpanel" aria-labelledby="customizer-tab-wallpapers">
         <div class="presets-grid" id="presets-grid">
           <!-- 3x3 grid rendered by JS -->
         </div>
@@ -645,7 +701,7 @@
       </div>
 
       <!-- TAB 2: VIDEO & CUSTOM MEDIA -->
-      <div class="customizer-tab-pane" id="tab-pane-video" style="display:none;">
+      <div class="customizer-tab-pane" id="tab-pane-video" role="tabpanel" aria-labelledby="customizer-tab-video" style="display:none;">
         <div class="custom-media-uploader">
           <button type="button" id="btn-upload-custom-wallpaper" class="btn-custom-upload">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -672,112 +728,79 @@
       </div>
 
       <!-- TAB 3: WIDGETS & STYLES -->
-      <div class="customizer-tab-pane" id="tab-pane-widgets" style="display:none;">
+      <div class="customizer-tab-pane" id="tab-pane-widgets" role="tabpanel" aria-labelledby="customizer-tab-widgets" style="display:none;">
         <div class="customizer-section-title">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 5px;"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-          <span>ВИДЖЕТТЕР ДИЗАЙНЫ (5 СТИЛЬ)</span>
+          <span>КӨРІНІС</span>
         </div>
-        <div class="hub-style-selector" id="hub-style-selector">
-          <button type="button" class="hub-style-chip" data-style="astral">
-            <span class="chip-icon">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            </span>
-            <span class="chip-title">Нұрлы Астрал & Теңге</span>
+        <div class="start-page-modes" role="group" aria-label="Басты беттің жылдам көріністері">
+          <button type="button" class="start-page-mode" data-start-mode="focus" aria-pressed="false">
+            <span class="start-page-mode-index" aria-hidden="true">01</span>
+            <span class="start-page-mode-copy"><strong>Фокус</strong><small>Сағат және іздеу</small></span>
           </button>
-          <button type="button" class="hub-style-chip active" data-style="bento">
-            <span class="chip-icon">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="18" rx="2"></rect><rect x="13" y="3" width="8" height="18" rx="2"></rect></svg>
-            </span>
-            <span class="chip-title">Егіз Bento Карточка</span>
+          <button type="button" class="start-page-mode" data-start-mode="daily" aria-pressed="false">
+            <span class="start-page-mode-index" aria-hidden="true">02</span>
+            <span class="start-page-mode-copy"><strong>Күнделікті</strong><small>Бағам мен жаңалықтар</small></span>
           </button>
-          <button type="button" class="hub-style-chip" data-style="capsule">
-            <span class="chip-icon">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="6"></rect></svg>
-            </span>
-            <span class="chip-title">Біртұтас Элегант Капсула</span>
-          </button>
-          <button type="button" class="hub-style-chip" data-style="neon">
-            <span class="chip-icon">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            </span>
-            <span class="chip-title">Cyber-Steppe Неон HUD</span>
-          </button>
-          <button type="button" class="hub-style-chip" data-style="ambient">
-            <span class="chip-icon">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-            </span>
-            <span class="chip-title">Минималистік Горизонт</span>
+          <button type="button" class="start-page-mode" data-start-mode="full" aria-pressed="false">
+            <span class="start-page-mode-index" aria-hidden="true">03</span>
+            <span class="start-page-mode-copy"><strong>Толық</strong><small>Барлық виджет көрсетіледі</small></span>
           </button>
         </div>
+        <p class="start-page-modes-hint">Таңдалған режим тұсқағазыңызды өзгертпейді.</p>
+
+        <label for="hub-style-select" class="customizer-control-label">Виджет стилі</label>
+        <select id="hub-style-select" class="customizer-select">
+          <option value="ambient">Минималистік горизонт</option>
+          <option value="bento">Карточкалар</option>
+          <option value="astral">Нұрлы астрал</option>
+          <option value="capsule">Элегант капсула</option>
+          <option value="neon">Неон HUD</option>
+        </select>
 
         <div class="customizer-section-title" style="margin-top: 18px;">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 5px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-          <span>БАСТЫ БЕТ ВИДЖЕТТЕРІ</span>
+          <span>БАСТЫ БЕТ</span>
         </div>
         <div class="widget-toggles-list">
           <label class="toggle-row">
-            <span class="toggle-name">Сағат пен күн (Clock & Date)</span>
+            <span class="toggle-name">Сағат пен күн</span>
             <input type="checkbox" id="toggle-widget-clock" checked />
-            <span class="toggle-switch"></span>
-          </label>
-          <label class="toggle-row">
-            <span class="toggle-name">Ұлттық Банк бағамы (USD / EUR / RUB)</span>
-            <input type="checkbox" id="toggle-widget-currency" checked />
-            <span class="toggle-switch"></span>
-          </label>
-          <label class="toggle-row">
-            <span class="toggle-name">Намаз уақыты (ҚМДБ)</span>
-            <input type="checkbox" id="toggle-widget-prayer" checked />
-            <span class="toggle-switch"></span>
-          </label>
-          <label class="toggle-row">
-            <span class="toggle-name">Жедел жаңалықтар жолағы (Portal News)</span>
-            <input type="checkbox" id="toggle-widget-news" checked />
-            <span class="toggle-switch"></span>
-          </label>
-          <label class="toggle-row">
-            <span class="toggle-name">Ғұламалар сөзі мен даналық (Wisdom Quote)</span>
-            <input type="checkbox" id="toggle-widget-wisdom" checked />
-            <span class="toggle-switch"></span>
-          </label>
-          <label class="toggle-row">
-            <span class="toggle-name">Қазақстандық сервистер (Kaspi, eGov, ...)</span>
-            <input type="checkbox" id="toggle-widget-shortcuts" checked />
-            <span class="toggle-switch"></span>
+            <span class="toggle-switch" aria-hidden="true"></span>
           </label>
         </div>
+        <details class="widget-advanced" open>
+          <summary><span>Қосымша виджеттер</span><span class="widget-advanced-count">3</span></summary>
+          <div class="widget-toggles-list">
+            <label class="toggle-row">
+              <span class="toggle-name">Валюта бағамы</span>
+              <input type="checkbox" id="toggle-widget-currency" checked />
+              <span class="toggle-switch" aria-hidden="true"></span>
+            </label>
+            <label class="toggle-row">
+              <span class="toggle-name">Намаз кестесі</span>
+              <input type="checkbox" id="toggle-widget-prayer" checked />
+              <span class="toggle-switch" aria-hidden="true"></span>
+            </label>
+            <label class="toggle-row">
+              <span class="toggle-name">Пайдалы дереккөздер</span>
+              <input type="checkbox" id="toggle-widget-news" checked />
+              <span class="toggle-switch" aria-hidden="true"></span>
+            </label>
+          </div>
+        </details>
       </div>
     </div>
   </aside>
 
-  <!-- ═══════════════════════════════════════════════
-       CITY SELECTION MODAL (Локализация / Қала таңдау)
-       ═══════════════════════════════════════════════ -->
-  <div id="city-modal-backdrop" class="city-modal-backdrop" style="display:none;"></div>
-  <div id="city-modal-dialog" class="city-modal-dialog" style="display:none;">
-    <div class="city-modal-header">
-      <div class="city-modal-title">
-        <h4>
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          Қазақстан қаласын таңдаңыз
-        </h4>
-        <p>Намаз кестесі мен жергілікті ақпарат таңдалған қалаға қарай дәл есептеледі</p>
-      </div>
-      <button type="button" id="btn-close-city-modal" class="city-modal-close" title="Жабу">✕</button>
-    </div>
-    <div class="city-search-box">
-      <input type="text" id="city-search-input" placeholder="Қаланы іздеу (Астана, Алматы, Шымкент, Ақтау...)" autocomplete="off" />
-    </div>
-    <div class="city-grid-list" id="city-grid-list">
-      <!-- Generated by JS for all 20 Kazakhstan cities -->
-    </div>
-  </div>
-
   <!-- Firebase SDK Compatibility Libraries -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-  
+  <script src="vendor/firebase-compat.js"></script>
+  <script src="url-utils.js"></script>
+  <script src="lens-utils.js"></script>
+  <script src="browser-state.js"></script>
+  <script src="welcome-utils.js"></script>
+  <script src="pet-companion.js"></script>
   <script src="renderer.js"></script>
+  <script src="browser-controls.js"></script>
 </body>
 </html>

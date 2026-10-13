@@ -1,9 +1,38 @@
-const { app, BrowserWindow, nativeImage, Menu, MenuItem, globalShortcut, ipcMain, shell, session, systemPreferences } = require('electron');
+const { app, BrowserWindow, nativeImage, Menu, MenuItem, ipcMain, shell, session, systemPreferences, safeStorage, webContents, dialog } = require('electron');
 const path = require('path');
 const http = require('http');
 const https = require('https');
 const url = require('url');
 const fs = require('fs');
+const crypto = require('crypto');
+const { readJsonFile, writeJsonAtomic } = require('./profile-storage');
+const { validateAuthCallback } = require('./auth-utils');
+const { isPhishingOrScam, isYouTubeURL } = require('./security-utils');
+const { checkOllamaStatus, pullOllamaModel } = require('./ollama-client');
+const { createChatGPTPlanClient, ChatGPTPlanError } = require('./chatgpt-plan');
+const { checkNcaLayer } = require('./ncalayer-diagnostics');
+const {
+  createLegalExplanationPrompts,
+  hasVerifiableLegalEvidence,
+  extractLegalPurposeSentence
+} = require('./legal-assistant');
+const { isRecord, webURL, normalizeHistory, normalizeSessionTabs, normalizeBookmarks, normalizeDownloads } = require('./browser-state');
+
+if (!app.isPackaged) {
+  const developmentProfile = process.env.GALAMTOR_DEV_PROFILE
+    ? path.resolve(process.env.GALAMTOR_DEV_PROFILE)
+    : path.join(app.getPath('appData'), 'Galamtor Development');
+  fs.mkdirSync(developmentProfile, { recursive: true });
+  app.setPath('userData', developmentProfile);
+}
+
+if (!app.requestSingleInstanceLock()) app.quit();
+app.on('second-instance', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+});
 
 // ── Auto-Updater System ──
 let autoUpdater = null;
@@ -23,24 +52,16 @@ try {
   console.log('[AutoUpdater] electron-updater available during packaged release builds.');
 }
 
-// Standard macOS Chrome User-Agent to avoid YouTube and web service degradation
-const STANDARD_CHROME_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.186 Safari/537.36';
-app.userAgentFallback = STANDARD_CHROME_UA;
-
-// Enable macOS autofill, password generation, overlay scrollbars and smooth media playback
-app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
-app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
+// Keep Chromium's normal user-gesture rules for media and browser automation.
 app.commandLine.appendSwitch('enable-features', 'PasswordGeneration,PasswordImport,OverlayScrollbar');
 
-if (!app.isPackaged) {
-  require('electron-reload')(__dirname, {
-    electron: path.join(__dirname, 'node_modules', 'electron', 'dist', 'Electron.app', 'Contents', 'MacOS', 'Electron')
-  });
-}
-
 let mainWindow = null;
+let chatGPTPlanClient = null;
 let authServer = null;
+let authState = null;
+let authTimeout = null;
 let currentLanguage = 'kk'; // Default system-wide context-menu language
+const recentPopupTimes = new WeakMap();
 
 // The Firebase Hosting origins that the auth-redirect page is served from.
 const AUTH_REDIRECT_ORIGIN = 'https://galamtor.web.app';
@@ -63,11 +84,13 @@ function getCorsHeaders(req) {
     'Access-Control-Max-Age':               '86400'
   };
 }
-const CORS_HEADERS = getCorsHeaders();
 
 // ── Unified Context Menu Translations ──
 const CONTEXT_MENU_TRANSLATIONS = {
   kk: {
+    openLinkInNewTab: 'Сілтемені жаңа қойындыда ашу',
+    copyLinkAddress: 'Сілтемені көшіру',
+    cut: 'Қиып алу',
     openImageInNewTab: 'Суретті жаңа қойындыда ашу',
     copyImage: 'Суретті көшіру',
     copyImageAddress: 'Сурет сілтемесін көшіру',
@@ -77,6 +100,9 @@ const CONTEXT_MENU_TRANSLATIONS = {
     inspectElement: 'Кодты көру'
   },
   ru: {
+    openLinkInNewTab: 'Открыть ссылку в новой вкладке',
+    copyLinkAddress: 'Копировать адрес ссылки',
+    cut: 'Вырезать',
     openImageInNewTab: 'Открыть изображение в новой вкладке',
     copyImage: 'Копировать изображение',
     copyImageAddress: 'Копировать адрес изображения',
@@ -86,6 +112,9 @@ const CONTEXT_MENU_TRANSLATIONS = {
     inspectElement: 'Просмотреть код'
   },
   en: {
+    openLinkInNewTab: 'Open Link in New Tab',
+    copyLinkAddress: 'Copy Link Address',
+    cut: 'Cut',
     openImageInNewTab: 'Open Image in New Tab',
     copyImage: 'Copy Image',
     copyImageAddress: 'Copy Image Address',
@@ -104,6 +133,9 @@ function getContextTranslation(key) {
 // ── Native macOS / Application Menu (Full Kazakh Localization & Shortcuts) ──
 function sendMenuAction(action, data) {
   if (mainWindow && !mainWindow.isDestroyed()) {
+    if (['focus-address', 'find-in-page', 'find-next', 'find-previous', 'command-palette', 'new-tab',
+      'new-incognito-tab', 'open-settings', 'open-history', 'open-bookmarks', 'open-downloads',
+      'customize-startpage', 'toggle-ai'].includes(action)) mainWindow.webContents.focus();
     mainWindow.webContents.send('menu-action', action, data);
   }
 }
@@ -119,12 +151,7 @@ function setApplicationMenu() {
         { role: 'about', label: 'Galamtor туралы' },
         {
           label: 'Жаңартуларды тексеру...',
-          click: () => {
-            if (autoUpdater) {
-              autoUpdater.checkForUpdates().catch(err => log.error('Manual update check error:', err));
-            }
-            sendMenuAction('check-update');
-          }
+          click: () => sendMenuAction('check-update')
         },
         { type: 'separator' },
         {
@@ -163,6 +190,13 @@ function setApplicationMenu() {
         accelerator: 'CmdOrCtrl+W',
         click: () => sendMenuAction('close-tab')
       },
+      {
+        label: 'Жабылған қойындыны қайта ашу',
+        accelerator: 'Shift+CmdOrCtrl+T',
+        click: () => sendMenuAction('reopen-tab')
+      },
+      { label: 'Қойындыны көшіру', click: () => sendMenuAction('duplicate-tab') },
+      { label: 'Қойынды дыбысын қосу/өшіру', click: () => sendMenuAction('mute-tab') },
       { type: 'separator' },
       {
         label: 'Бетті сақтау...',
@@ -197,7 +231,11 @@ function setApplicationMenu() {
         label: 'Беттен іздеу...',
         accelerator: 'CmdOrCtrl+F',
         click: () => sendMenuAction('find-in-page')
-      }
+      },
+      { label: 'Келесі сәйкестік', accelerator: 'CmdOrCtrl+G', click: () => sendMenuAction('find-next') },
+      { label: 'Алдыңғы сәйкестік', accelerator: 'Shift+CmdOrCtrl+G', click: () => sendMenuAction('find-previous') },
+      { type: 'separator' },
+      { label: 'Мекенжайды енгізу', accelerator: 'CmdOrCtrl+L', click: () => sendMenuAction('focus-address') }
     ]
   });
 
@@ -205,6 +243,8 @@ function setApplicationMenu() {
   template.push({
     label: 'Көрініс',
     submenu: [
+      { label: 'Қойындылар мен әрекеттерді іздеу...', accelerator: 'CmdOrCtrl+K', click: () => sendMenuAction('command-palette') },
+      { type: 'separator' },
       {
         label: 'Қайта жүктеу',
         accelerator: 'CmdOrCtrl+R',
@@ -315,6 +355,9 @@ function setApplicationMenu() {
   template.push({
     label: 'Терезе',
     submenu: [
+      { label: 'Келесі қойынды', accelerator: 'Control+Tab', click: () => sendMenuAction('next-tab') },
+      { label: 'Алдыңғы қойынды', accelerator: 'Control+Shift+Tab', click: () => sendMenuAction('previous-tab') },
+      { type: 'separator' },
       { role: 'minimize', label: 'Кішірейту' },
       { role: 'zoom', label: 'Масштабтау' },
       ...(isMac ? [
@@ -354,14 +397,19 @@ function setApplicationMenu() {
 // ── IPC Sender Validation ──
 function validateSender(event) {
   const senderUrl = event.senderFrame ? event.senderFrame.url : '';
-  if (senderUrl.startsWith('file://') || senderUrl.startsWith('devtools://')) {
-    return true;
-  }
-  if (!senderUrl) {
-    return false;
-  }
+  const mainFrame = mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents.mainFrame;
+  if (event.sender === mainWindow?.webContents && event.senderFrame === mainFrame &&
+      senderUrl === url.pathToFileURL(path.join(__dirname, 'index.html')).href) return true;
   console.warn(`[Security Alert] Blocked invalid IPC sender: ${senderUrl}`);
   return false;
+}
+
+function isIncognitoWebContents(contents) {
+  try {
+    return contents?.session === session.fromPartition('incognito');
+  } catch {
+    return false;
+  }
 }
 
 // ── History Manager System ──
@@ -371,25 +419,12 @@ function getHistoryPath() {
 }
 
 function loadHistory() {
-  try {
-    const historyPath = getHistoryPath();
-    if (fs.existsSync(historyPath)) {
-      const data = fs.readFileSync(historyPath, 'utf8');
-      return JSON.parse(data) || [];
-    }
-  } catch (err) {
-    console.error('[History] Failed to load history:', err);
-  }
-  return [];
+  return normalizeHistory(readJsonFile(getHistoryPath(), [], Array.isArray));
 }
 
-function saveHistory(history) {
-  try {
-    const historyPath = getHistoryPath();
-    fs.writeFileSync(historyPath, JSON.stringify(history, null, 2), 'utf8');
-  } catch (err) {
-    console.error('[History] Failed to save history:', err);
-  }
+function saveHistory(history, options = {}) {
+  try { return writeJsonAtomic(getHistoryPath(), normalizeHistory(history), { ...options, isValid: Array.isArray }); }
+  catch (error) { console.error('[History] Failed to save:', error.message); return false; }
 }
 
 // ── Settings Persistence ──
@@ -398,44 +433,23 @@ function getSettingsPath() {
 }
 
 function loadSettings() {
-  try {
-    const settingsPath = getSettingsPath();
-    if (fs.existsSync(settingsPath)) {
-      const data = fs.readFileSync(settingsPath, 'utf8');
-      return JSON.parse(data) || {};
-    }
-  } catch (err) {
-    console.error('[Settings] Failed to load:', err);
-  }
-  return {};
+  return readJsonFile(getSettingsPath(), {}, isRecord);
 }
 
 function saveSettings(settings) {
-  try {
-    const settingsPath = getSettingsPath();
-    const existing = loadSettings();
-    const merged = { ...existing, ...settings };
-    fs.writeFileSync(settingsPath, JSON.stringify(merged, null, 2), 'utf8');
-  } catch (err) {
-    console.error('[Settings] Failed to save:', err);
-  }
+  if (!isRecord(settings)) return false;
+  try { return writeJsonAtomic(getSettingsPath(), { ...loadSettings(), ...settings }, { isValid: isRecord }); }
+  catch (error) { console.error('[Settings] Failed to save:', error.message); return false; }
 }
 
 function addHistoryEntry(entry) {
-  if (!entry || typeof entry.url !== 'string') return;
-  
-  const cleanUrl = entry.url.replace(/<[^>]*>/g, '');
-  const cleanTitle = (entry.title || 'Жаңа қойынды').replace(/<[^>]*>/g, '');
-  const timestamp = entry.timestamp || Date.now();
-
-  let history = loadHistory();
-  history.unshift({ url: cleanUrl, title: cleanTitle, timestamp });
-
-  if (history.length > MAX_HISTORY) {
-    history = history.slice(0, MAX_HISTORY);
-  }
-
-  saveHistory(history);
+  const [clean] = normalizeHistory([entry]);
+  if (!clean) return false;
+  const history = loadHistory();
+  const previous = history[0];
+  if (previous?.url === clean.url && Math.abs(clean.timestamp - previous.timestamp) < 2000) history.shift();
+  history.unshift(clean);
+  return saveHistory(history.slice(0, MAX_HISTORY));
 }
 
 // ── Session Auto-Restore System ──
@@ -444,25 +458,12 @@ function getSessionPath() {
 }
 
 function loadSession() {
-  try {
-    const sessionPath = getSessionPath();
-    if (fs.existsSync(sessionPath)) {
-      const data = fs.readFileSync(sessionPath, 'utf8');
-      return JSON.parse(data) || [];
-    }
-  } catch (err) {
-    console.error('[Session] Failed to load session:', err);
-  }
-  return [];
+  return normalizeSessionTabs(readJsonFile(getSessionPath(), [], Array.isArray));
 }
 
 function saveSession(sessionTabs) {
-  try {
-    const sessionPath = getSessionPath();
-    fs.writeFileSync(sessionPath, JSON.stringify(sessionTabs || [], null, 2), 'utf8');
-  } catch (err) {
-    console.error('[Session] Failed to save session:', err);
-  }
+  try { return writeJsonAtomic(getSessionPath(), normalizeSessionTabs(sessionTabs), { isValid: Array.isArray }); }
+  catch (error) { console.error('[Session] Failed to save:', error.message); return false; }
 }
 
 // ── Bookmarks Manager System ──
@@ -471,15 +472,8 @@ function getBookmarksPath() {
 }
 
 function loadBookmarks() {
-  try {
-    const bPath = getBookmarksPath();
-    if (fs.existsSync(bPath)) {
-      const data = fs.readFileSync(bPath, 'utf8');
-      return JSON.parse(data) || [];
-    }
-  } catch (err) {
-    console.error('[Bookmarks] Failed to load bookmarks:', err);
-  }
+  const stored = readJsonFile(getBookmarksPath(), null, Array.isArray);
+  if (stored !== null) return normalizeBookmarks(stored);
   // Default Kazakh digital ecosystem bookmarks
   return [
     { id: 'bm_1', title: 'Kaspi.kz', url: 'https://kaspi.kz', favicon: 'https://kaspi.kz/favicon.ico', createdAt: Date.now() },
@@ -492,48 +486,50 @@ function loadBookmarks() {
 }
 
 function saveBookmarks(bookmarks) {
-  try {
-    const bPath = getBookmarksPath();
-    fs.writeFileSync(bPath, JSON.stringify(bookmarks, null, 2), 'utf8');
-  } catch (err) {
-    console.error('[Bookmarks] Failed to save bookmarks:', err);
-  }
+  try { return writeJsonAtomic(getBookmarksPath(), normalizeBookmarks(bookmarks), { isValid: Array.isArray }); }
+  catch (error) { console.error('[Bookmarks] Failed to save:', error.message); return false; }
 }
 
-// ── Live NBRK Currency Rates System ──
-let cachedRates = { USD: 485.5, EUR: 532.0, RUB: 5.25, CNY: 68.2, updatedAt: Date.now() };
+// ── Exchange rates from open.er-api.com ──
+let cachedRates = { USD: null, EUR: null, RUB: null, CNY: null, updatedAt: 0, fetchedAt: 0 };
 
 async function fetchLiveExchangeRates() {
   return new Promise((resolve) => {
-    https.get('https://open.er-api.com/v6/latest/USD', { timeout: 4000 }, (res) => {
+    const req = https.get('https://open.er-api.com/v6/latest/USD', (res) => {
       let data = '';
-      res.on('data', chunk => data += chunk);
+      res.on('data', chunk => {
+        data += chunk;
+        if (data.length > 256000) req.destroy(new Error('Response too large'));
+      });
       res.on('end', () => {
         try {
           const parsed = JSON.parse(data);
-          if (parsed && parsed.rates && parsed.rates.KZT) {
+          if (parsed?.result === 'success' && parsed.rates && Number.isFinite(parsed.rates.KZT) && parsed.rates.KZT > 0) {
             const usdKzt = parsed.rates.KZT;
-            const eurKzt = parsed.rates.EUR ? (usdKzt / parsed.rates.EUR) : 532.0;
-            const rubKzt = parsed.rates.RUB ? (usdKzt / parsed.rates.RUB) : 5.25;
-            const cnyKzt = parsed.rates.CNY ? (usdKzt / parsed.rates.CNY) : 68.2;
+            const eurKzt = parsed.rates.EUR ? (usdKzt / parsed.rates.EUR) : null;
+            const rubKzt = parsed.rates.RUB ? (usdKzt / parsed.rates.RUB) : null;
+            const cnyKzt = parsed.rates.CNY ? (usdKzt / parsed.rates.CNY) : null;
             cachedRates = {
               USD: parseFloat(usdKzt.toFixed(1)),
-              EUR: parseFloat(eurKzt.toFixed(1)),
-              RUB: parseFloat(rubKzt.toFixed(2)),
-              CNY: parseFloat(cnyKzt.toFixed(1)),
-              updatedAt: Date.now()
+              EUR: !Number.isFinite(eurKzt) ? null : parseFloat(eurKzt.toFixed(1)),
+              RUB: !Number.isFinite(rubKzt) ? null : parseFloat(rubKzt.toFixed(2)),
+              CNY: !Number.isFinite(cnyKzt) ? null : parseFloat(cnyKzt.toFixed(1)),
+              updatedAt: Number.isFinite(parsed.time_last_update_unix) ? parsed.time_last_update_unix * 1000 : 0,
+              fetchedAt: Date.now()
             };
-            NBRK_RATES.USD = cachedRates.USD;
-            NBRK_RATES.EUR = cachedRates.EUR;
-            NBRK_RATES.RUB = cachedRates.RUB;
-            NBRK_RATES.CNY = cachedRates.CNY;
+            EXCHANGE_RATES.USD = cachedRates.USD;
+            EXCHANGE_RATES.EUR = cachedRates.EUR;
+            EXCHANGE_RATES.RUB = cachedRates.RUB;
+            EXCHANGE_RATES.CNY = cachedRates.CNY;
             resolve(cachedRates);
             return;
           }
         } catch (e) {}
         resolve(cachedRates);
       });
-    }).on('error', () => resolve(cachedRates));
+    });
+    req.setTimeout(5000, () => req.destroy(new Error('Timed out')));
+    req.on('error', () => resolve(cachedRates));
   });
 }
 
@@ -555,6 +551,15 @@ function setupAdBlocker() {
   const filter = { urls: ['http://*/*', 'https://*/*'] };
   
   const handleRequest = (details, callback) => {
+    if (details.resourceType === 'mainFrame') {
+      const scan = isPhishingOrScam(details.url);
+      if (scan.isScam) {
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('qalqan-blocked', {
+          url: details.url, reason: scan.reason, contentsId: details.webContentsId
+        });
+        return callback({ cancel: true });
+      }
+    }
     if (!adBlockEnabled) {
       return callback({ cancel: false });
     }
@@ -565,12 +570,7 @@ function setupAdBlocker() {
       
       // CRITICAL: Protect YouTube & Google Video player media streams
       // Canceling ad/telemetry endpoints from youtube.com triggers YouTube's anti-adblock video crash ("Что-то пошло не так")
-      const isYouTubeContext = 
-        (details.initiator && (details.initiator.includes('youtube.com') || details.initiator.includes('googlevideo.com'))) ||
-        (details.referrer && (details.referrer.includes('youtube.com') || details.referrer.includes('googlevideo.com'))) ||
-        hostname.includes('youtube.com') ||
-        hostname.includes('googlevideo.com') ||
-        hostname.includes('ytimg.com');
+      const isYouTubeContext = [details.initiator, details.referrer, details.url].some(isYouTubeURL);
 
       if (isYouTubeContext) {
         return callback({ cancel: false });
@@ -598,104 +598,35 @@ function setupAdBlocker() {
 }
 
 // ── Ұлттық Кибер-Қалқан (Cyber Qalqan Anti-Phishing) ──
-const QALQAN_BLOCKLIST = [
-  'invest-kaspi.com', 'kaspi-bonus.kz', 'halyk-invest-bot.com',
-  'tengri-coin.net', 'bitcoin-astana.kz', 'egov-kz.online',
-  'egov-login.com', 'mygov-kz.ru', 'kaspi-login.ru', 'kaspi-pay.online',
-  'kaspi-prize.kz', 'halyk-win.com', 'gos-viplaty.kz', 'fond-kompensatsii.kz',
-  'kaspi-credit-online.kz', 'egov-posobie.kz'
-];
-
-function isPhishingOrScam(targetUrl) {
-  try {
-    const parsed = new url.URL(targetUrl);
-    const host = parsed.hostname.toLowerCase();
-    
-    // 1. Direct blocklist check
-    if (QALQAN_BLOCKLIST.some(d => host === d || host.endsWith('.' + d))) {
-      return { isScam: true, reason: 'Белгілі алаяқтық немесе фишингтік ресурс тізімінде анықталды.' };
-    }
-    
-    // 2. Legitimate KZ service verification
-    const isLegitKaspi = host === 'kaspi.kz' || host.endsWith('.kaspi.kz');
-    const isLegiteGov = host === 'egov.kz' || host.endsWith('.egov.kz');
-    const isLegitHalyk = host === 'halykbank.kz' || host.endsWith('.halykbank.kz') || host === 'homebank.kz' || host.endsWith('.homebank.kz');
-    
-    // 3. Phishing heuristic checks
-    if (!isLegitKaspi && /kaspi.*(?:login|pay|bonus|prize|invest|money|cash)/i.test(host)) {
-      return { isScam: true, reason: 'Kaspi.kz брендін заңсыз пайдаланған күдікті фишингтік сілтеме.' };
-    }
-    if (!isLegiteGov && /egov.*(?:login|free|bonus|viplata|posobie)/i.test(host)) {
-      return { isScam: true, reason: 'eGov.kz мемлекеттік порталын қайталаған жалған парақша.' };
-    }
-    if (!isLegitHalyk && /halyk.*(?:invest|bonus|win|kassa)/i.test(host)) {
-      return { isScam: true, reason: 'Halyk Bank атын жамылған жалған инвестициялық сайт.' };
-    }
-  } catch (e) {}
-  return { isScam: false };
-}
-
-function getCyberQalqanWarningHtml(urlStr, reason) {
-  return `<!DOCTYPE html>
-<html lang="kk">
-<head>
-  <meta charset="UTF-8">
-  <title>Кибер-Қалқан Ескертуі | Ғаламтор</title>
-  <style>
-    body { margin: 0; background: #0c0808; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; }
-    .card { max-width: 540px; padding: 40px; background: rgba(36, 12, 12, 0.9); border: 1.5px solid #ff3b30; border-radius: 16px; text-align: center; box-shadow: 0 10px 40px rgba(255, 59, 48, 0.3); }
-    .icon { font-size: 56px; margin-bottom: 16px; }
-    h1 { color: #ff453a; margin: 0 0 12px; font-size: 26px; }
-    .target-url { font-family: monospace; font-size: 13px; color: #ff9f0a; word-break: break-all; background: rgba(0,0,0,0.5); padding: 8px 12px; border-radius: 6px; margin: 12px 0; }
-    p { color: #d1d1d6; line-height: 1.6; font-size: 14.5px; margin: 0 0 18px; }
-    .btn-back { background: #ff3b30; color: #fff; border: none; padding: 12px 28px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: transform 0.2s; }
-    .btn-back:hover { transform: scale(1.04); }
-    .sub { font-size: 11.5px; color: #8e8e93; margin-top: 18px; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="icon">🛡️</div>
-    <h1>Ұлттық Кибер-Қалқан Ескертуі</h1>
-    <div class="target-url">${urlStr}</div>
-    <p>Бұл сайт <strong>Ғаламтордың ұлттық қауіпсіздік сүзгісімен бұғатталды</strong>.<br>${reason}</p>
-    <p style="font-size:13px; color:#ff9f0a;">Қаржылық деректеріңіз бен SMS-кодтарды енгізбеңіз!</p>
-    <button class="btn-back" onclick="history.back()">← Қауіпсіз орынға қайту</button>
-    <div class="sub">Қазақстанның киберқауіпсіздік экожүйесімен қорғалған</div>
-  </div>
-</body>
-</html>`;
-}
-
 // ── Gov & Fintech Secure Vault ──
 const BANKING_DOMAINS = ['kaspi.kz', 'egov.kz', 'halykbank.kz', 'homebank.kz', 'enbek.kz', 'cabinet.salyk.kz', 'stat.gov.kz'];
 let isBankingShieldActive = false;
 
 function checkBankingShield(targetUrl) {
+  let host = '';
   try {
-    const host = new url.URL(targetUrl).hostname.toLowerCase();
-    const isBanking = BANKING_DOMAINS.some(d => host === d || host.endsWith('.' + d));
-    isBankingShieldActive = isBanking;
-    
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      // Enable native OS screenshot protection on macOS / Windows
-      if (typeof mainWindow.setContentProtection === 'function') {
-        mainWindow.setContentProtection(isBanking);
-      }
-      mainWindow.webContents.send('banking-shield-status', { active: isBanking, host });
+    host = new url.URL(targetUrl).hostname.toLowerCase();
+  } catch {}
+  const isBanking = !!host && BANKING_DOMAINS.some(d => host === d || host.endsWith('.' + d));
+  isBankingShieldActive = isBanking;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (typeof mainWindow.setContentProtection === 'function') {
+      mainWindow.setContentProtection(isBanking);
     }
-  } catch (e) {}
+    mainWindow.webContents.send('banking-shield-status', { active: isBanking, host });
+  }
 }
 
 // ── Qazaq AI Context Engine: Currency & Measurement Conversion ──
-const NBRK_RATES = { USD: 485.5, EUR: 532.0, RUB: 5.25, CNY: 68.2 };
+const EXCHANGE_RATES = { USD: null, EUR: null, RUB: null, CNY: null };
 
 function convertUnitsAndCurrency(text) {
   if (typeof text !== 'string') return text;
   let out = text;
   // USD to KZT
   out = out.replace(/\$(\d+(?:\.\d{1,2})?)/g, (match, val) => {
-    const kzt = Math.round(parseFloat(val) * NBRK_RATES.USD);
+    if (!EXCHANGE_RATES.USD) return match;
+    const kzt = Math.round(parseFloat(val) * EXCHANGE_RATES.USD);
     return `${match} (≈ ${kzt.toLocaleString('kk-KZ')} ₸)`;
   });
   // Miles to KM
@@ -723,25 +654,12 @@ function getDownloadsPath() {
 }
 
 function loadDownloads() {
-  try {
-    const downloadsPath = getDownloadsPath();
-    if (fs.existsSync(downloadsPath)) {
-      const data = fs.readFileSync(downloadsPath, 'utf8');
-      return JSON.parse(data) || [];
-    }
-  } catch (err) {
-    console.error('[Downloads] Failed to load downloads history:', err);
-  }
-  return [];
+  return normalizeDownloads(readJsonFile(getDownloadsPath(), [], Array.isArray));
 }
 
-function saveDownloads(downloads) {
-  try {
-    const downloadsPath = getDownloadsPath();
-    fs.writeFileSync(downloadsPath, JSON.stringify(downloads, null, 2), 'utf8');
-  } catch (err) {
-    console.error('[Downloads] Failed to save downloads history:', err);
-  }
+function saveDownloads(downloads, options = {}) {
+  try { return writeJsonAtomic(getDownloadsPath(), normalizeDownloads(downloads), { ...options, isValid: Array.isArray }); }
+  catch (error) { console.error('[Downloads] Failed to save:', error.message); return false; }
 }
 
 function addDownloadEntry(entry) {
@@ -751,7 +669,10 @@ function addDownloadEntry(entry) {
 }
 
 // ── OAuth Handshake Loopback Server ──
-function startAuthServer(win) {
+function startAuthServer(win, state) {
+  if (authTimeout) clearTimeout(authTimeout);
+  authTimeout = null;
+  authState = state;
   if (authServer) {
     console.log('[AuthServer] Stale server detected — closing before restart.');
     authServer.close();
@@ -763,6 +684,13 @@ function startAuthServer(win) {
   authServer = http.createServer((req, res) => {
     console.log(`[AuthServer] Incoming: ${req.method} ${req.url}`);
     const parsedUrl = url.parse(req.url, true);
+    const originAllowed = ALLOWED_AUTH_ORIGINS.includes(req.headers.origin);
+    const hostAllowed = req.headers.host === '127.0.0.1:4242';
+    if (!originAllowed || !hostAllowed) {
+      res.writeHead(403, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' });
+      res.end('Forbidden');
+      return;
+    }
 
     if (req.method === 'OPTIONS' && parsedUrl.pathname === '/callback') {
       res.writeHead(204, getCorsHeaders(req));
@@ -771,6 +699,11 @@ function startAuthServer(win) {
     }
 
     if (req.method === 'POST' && parsedUrl.pathname === '/callback') {
+      if (!(req.headers['content-type'] || '').startsWith('application/json')) {
+        res.writeHead(415, getCorsHeaders(req));
+        res.end();
+        return;
+      }
       let rawBody = '';
 
       const bodyTimeout = setTimeout(() => {
@@ -780,7 +713,10 @@ function startAuthServer(win) {
 
       req.setEncoding('utf8');
 
-      req.on('data', chunk => { rawBody += chunk; });
+      req.on('data', chunk => {
+        rawBody += chunk;
+        if (rawBody.length > 65536) req.destroy();
+      });
 
       req.on('end', () => {
         clearTimeout(bodyTimeout);
@@ -795,26 +731,15 @@ function startAuthServer(win) {
           return;
         }
 
-        const { googleIdToken, googleAccessToken, email, displayName, photoURL, uid } = payload;
-        console.log(`[AuthServer] Payload parsed. googleIdToken present: ${!!googleIdToken}, googleAccessToken present: ${!!googleAccessToken}, email: ${email}`);
-
-        if (!googleIdToken && !googleAccessToken) {
-          console.warn('[AuthServer] Neither googleIdToken nor googleAccessToken received.');
-          res.writeHead(422, { ...getCorsHeaders(req), 'Content-Type': 'text/plain' });
-          res.end('Unprocessable: missing credential tokens');
+        const callback = validateAuthCallback(payload, authState);
+        if (callback.status !== 200) {
+          res.writeHead(callback.status, { ...getCorsHeaders(req), 'Content-Type': 'text/plain' });
+          res.end(callback.message);
           return;
         }
-
         const targetWin = win || mainWindow;
         if (targetWin && !targetWin.isDestroyed()) {
-          targetWin.webContents.send('firebase-auth-token', {
-            googleIdToken,
-            googleAccessToken,
-            email,
-            displayName,
-            photoURL,
-            uid
-          });
+          targetWin.webContents.send('firebase-auth-token', callback.payload);
           console.log('[AuthServer] Forwarded google credential to Renderer.');
         } else {
           console.warn('[AuthServer] Target window unavailable — token dropped!');
@@ -847,21 +772,22 @@ function startAuthServer(win) {
   });
 
   authServer.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      console.error('[AuthServer] Port 4242 already in use. Killing occupant and retrying...');
-      authServer = null;
-      setTimeout(() => startAuthServer(win || mainWindow), 500);
-    } else {
-      console.error('[AuthServer] Server error:', err);
-    }
+    console.error('[AuthServer] Server error:', err);
+    authServer = null;
+    authState = null;
+    if (win && !win.isDestroyed()) win.webContents.send('auth-server-error', err.code || 'UNKNOWN');
   });
 
   authServer.listen(4242, '127.0.0.1', () => {
     console.log('[AuthServer] Listening on http://127.0.0.1:4242');
+    authTimeout = setTimeout(stopAuthServer, 10 * 60 * 1000);
   });
 }
 
 function stopAuthServer() {
+  if (authTimeout) clearTimeout(authTimeout);
+  authTimeout = null;
+  authState = null;
   if (authServer) {
     authServer.close(() => console.log('[AuthServer] Closed cleanly.'));
     authServer = null;
@@ -894,11 +820,12 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    mainWindow.focus();
   });
 }
 
 function setupAutoUpdater() {
-  if (!autoUpdater) return;
+  if (!autoUpdater || !app.isPackaged) return;
   const { dialog } = require('electron');
 
   setTimeout(() => {
@@ -925,6 +852,10 @@ function setupAutoUpdater() {
         if (mainWindow) mainWindow.webContents.send('update:download');
       }
     });
+  });
+
+  autoUpdater.on('update-not-available', info => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('update-not-available', { version: info.version });
   });
 
   autoUpdater.on('download-progress', (progressObj) => {
@@ -960,88 +891,68 @@ app.whenReady().then(() => {
     app.dock.setIcon(image);
   }
 
-  createWindow();
-
-  // ── Auto-Updater Initialization ──
-  setupAutoUpdater();
-
-  // Establish Apple Shortcuts and Application menu
-  setApplicationMenu();
-
   // Enable spellcheck languages at session level
   session.defaultSession.setSpellCheckerLanguages(['kk', 'ru', 'en']);
-
-  // Set standard macOS Chrome User-Agent across all sessions
-  session.defaultSession.setUserAgent(STANDARD_CHROME_UA);
-  try {
-    session.fromPartition('incognito').setUserAgent(STANDARD_CHROME_UA);
-  } catch (e) {}
-
-  // ── Smart Header Manager for Google Auth & Privacy Shield ──
-  const SAFARI_AUTH_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15';
-
-  // Clear any stale Google BotGuard marker cookies that force "insecure browser" blocks
-  try {
-    session.defaultSession.clearStorageData({
-      storages: ['cookies'],
-      origin: 'https://accounts.google.com'
-    }).catch(() => {});
-  } catch (e) {}
-
-  const handleHeaders = (details, callback) => {
-    const requestHeaders = details.requestHeaders || {};
-    const urlStr = (details.url || '').toLowerCase();
-
-    // Bypass Google's embedded webview block by serving standard macOS Safari headers on Google account endpoints
-    if (urlStr.includes('accounts.google.com') || urlStr.includes('accounts.youtube.com')) {
-      requestHeaders['User-Agent'] = SAFARI_AUTH_UA;
-      delete requestHeaders['sec-ch-ua'];
-      delete requestHeaders['sec-ch-ua-mobile'];
-      delete requestHeaders['sec-ch-ua-platform'];
-      delete requestHeaders['sec-ch-ua-platform-version'];
-      delete requestHeaders['sec-ch-ua-full-version-list'];
-    } else {
-      requestHeaders['User-Agent'] = STANDARD_CHROME_UA;
-    }
-
-    callback({ requestHeaders });
-  };
-
-  session.defaultSession.webRequest.onBeforeSendHeaders(handleHeaders);
-  try {
-    session.fromPartition('incognito').webRequest.onBeforeSendHeaders(handleHeaders);
-  } catch (e) {}
 
   // ── Setup AdBlocker & Privacy Shield Engine ──
   setupAdBlocker();
 
-  // Protect local application shell with CSP, without interfering with external website headers
+  // Protect the application shell; guest sites retain their own response headers.
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    if (details.url && details.url.startsWith('file://')) {
+    if (details.url === url.pathToFileURL(path.join(__dirname, 'index.html')).href) {
       return callback({
         responseHeaders: {
           ...details.responseHeaders,
-          'Content-Security-Policy': ["default-src 'self' 'unsafe-inline' 'unsafe-eval' data: https: wss: blob:;"]
+          'Content-Security-Policy': ["default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' https: blob: data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.googleapis.com wss://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebaseapp.com https://open.er-api.com wss://127.0.0.1:13579; frame-src 'none'; object-src 'none'; base-uri 'none'"]
         }
       });
     }
     callback({ responseHeaders: details.responseHeaders });
   });
 
+  const permittedTypes = new Set(['media', 'geolocation', 'notifications', 'clipboard-read', 'display-capture']);
+  for (const browserSession of [session.defaultSession, session.fromPartition('incognito')]) {
+    const permissionGrants = new Set(); // Grants never cross normal/private sessions.
+    browserSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+      let origin;
+      try { origin = new URL(details.requestingUrl || webContents.getURL()).origin; } catch { callback(false); return; }
+      if (!origin.startsWith('https://') || !permittedTypes.has(permission)) { callback(false); return; }
+      const grantKey = `${origin}:${permission}`;
+      if (permission !== 'media' && permissionGrants.has(grantKey)) { callback(true); return; }
+      const { dialog } = require('electron');
+      dialog.showMessageBox(mainWindow, {
+        type: 'question',
+        message: `${origin} — ${permission} рұқсатын беру керек пе?`,
+        buttons: ['Рұқсат беру', 'Бас тарту'],
+        defaultId: 1,
+        cancelId: 1
+      }).then(({ response }) => {
+        if (response === 0 && permission !== 'media') permissionGrants.add(grantKey);
+        callback(response === 0);
+      }).catch(() => callback(false));
+    });
+    browserSession.setPermissionCheckHandler((_webContents, permission, requestingOrigin) =>
+      permissionGrants.has(`${requestingOrigin}:${permission}`));
+  }
+
   // ── Setup Downloads Monitor System ──
-  session.defaultSession.on('will-download', (event, item, webContents) => {
+  for (const downloadSession of [session.defaultSession, session.fromPartition('incognito')]) {
+  downloadSession.on('will-download', (event, item, contents) => {
+    const isIncognito = isIncognitoWebContents(contents);
     const downloadId = 'dl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
     const fileName = item.getFilename();
-    const totalBytes = item.getTotalBytes();
+    let totalBytes = item.getTotalBytes();
 
     item.on('updated', (event, state) => {
       if (state === 'progressing') {
+        totalBytes = item.getTotalBytes();
         const receivedBytes = item.getReceivedBytes();
         const percent = totalBytes > 0 ? Math.round((receivedBytes / totalBytes) * 100) : 0;
         
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('download-progress', {
             id: downloadId,
+            isIncognito,
             filename: fileName,
             receivedBytes,
             totalBytes,
@@ -1053,6 +964,7 @@ app.whenReady().then(() => {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('download-progress', {
             id: downloadId,
+            isIncognito,
             filename: fileName,
             receivedBytes: item.getReceivedBytes(),
             totalBytes,
@@ -1066,6 +978,7 @@ app.whenReady().then(() => {
     item.once('done', (event, state) => {
       const meta = {
         id: downloadId,
+        isIncognito,
         filename: fileName,
         savePath: item.getSavePath(),
         totalBytes,
@@ -1073,7 +986,7 @@ app.whenReady().then(() => {
         completedAt: Date.now()
       };
 
-      if (state === 'completed') {
+      if (state === 'completed' && !isIncognito) {
         addDownloadEntry(meta);
       }
 
@@ -1082,23 +995,19 @@ app.whenReady().then(() => {
       }
     });
   });
+  }
 
-  // Register system-wide Command+G recall shortcut
-  globalShortcut.register('CommandOrControl+G', () => {
-    if (mainWindow) {
-      mainWindow.show();
-      mainWindow.focus();
-    }
-  });
+  createWindow();
+  setupAutoUpdater();
+  setApplicationMenu();
+
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
-app.on('will-quit', () => {
-  globalShortcut.unregisterAll();
-});
+app.on('will-quit', stopAuthServer);
 
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
@@ -1112,37 +1021,65 @@ app.on('web-contents-created', (event, contents) => {
   // Propagate spellchecker languages to nested guest webviews
   contents.session.setSpellCheckerLanguages(['kk', 'ru', 'en']);
 
+  contents.on('will-attach-webview', (attachEvent, webPreferences, params) => {
+    let parsed;
+    try { parsed = new URL(params.src); } catch { attachEvent.preventDefault(); return; }
+    if (!['https:', 'http:'].includes(parsed.protocol)) { attachEvent.preventDefault(); return; }
+    delete webPreferences.preload;
+    webPreferences.nodeIntegration = false;
+    webPreferences.contextIsolation = true;
+    webPreferences.sandbox = true;
+    webPreferences.webSecurity = true;
+  });
+
+  contents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || !(input.control || input.meta) || input.alt || input.shift) return;
+    if (/^[1-9]$/.test(input.key)) {
+      event.preventDefault();
+      sendMenuAction('select-tab', Number(input.key));
+    }
+  });
+
+  contents.setWindowOpenHandler(({ url: popupUrl }) => {
+    try {
+      const parsed = new URL(popupUrl);
+      if (['https:', 'http:'].includes(parsed.protocol) && mainWindow && !mainWindow.isDestroyed()) {
+        const recent = (recentPopupTimes.get(contents) || []).filter(time => Date.now() - time < 5000);
+        if (recent.length < 3) {
+          recent.push(Date.now());
+          recentPopupTimes.set(contents, recent);
+          mainWindow.webContents.send('open-popup-tab', {
+            url: popupUrl,
+            isIncognito: isIncognitoWebContents(contents)
+          });
+        }
+      }
+    } catch {}
+    return { action: 'deny' };
+  });
+
   // ── Кибер-Қалқан & Banking Shield navigation interception ──
   const handleNavSecurity = (e, navUrl) => {
     if (!navUrl || typeof navUrl !== 'string') return;
+    if (contents === mainWindow?.webContents) {
+      if (navUrl !== url.pathToFileURL(path.join(__dirname, 'index.html')).href) e.preventDefault();
+      return;
+    }
+    let parsed;
+    try { parsed = new URL(navUrl); } catch { e.preventDefault(); return; }
+    if (!['http:', 'https:'].includes(parsed.protocol)) { e.preventDefault(); return; }
     const scan = isPhishingOrScam(navUrl);
     if (scan.isScam) {
       e.preventDefault();
-      const warningHTML = getCyberQalqanWarningHtml(navUrl, scan.reason);
-      contents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(warningHTML)}`);
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('qalqan-blocked', { url: navUrl, reason: scan.reason });
+        mainWindow.webContents.send('qalqan-blocked', { url: navUrl, reason: scan.reason, contentsId: contents.id });
       }
       return;
     }
-    checkBankingShield(navUrl);
   };
 
   contents.on('will-navigate', handleNavSecurity);
   contents.on('will-redirect', handleNavSecurity);
-
-  // Dynamic User-Agent adjustment for Google Auth endpoints to bypass BotGuard embedded webview restrictions
-  const handleNavUA = (e, navUrl) => {
-    if (!navUrl || typeof navUrl !== 'string') return;
-    const u = navUrl.toLowerCase();
-    if (u.includes('accounts.google.com') || u.includes('accounts.youtube.com')) {
-      try { contents.setUserAgent(SAFARI_AUTH_UA); } catch (err) {}
-    } else {
-      try { contents.setUserAgent(STANDARD_CHROME_UA); } catch (err) {}
-    }
-  };
-  contents.on('will-navigate', handleNavUA);
-  contents.on('will-redirect', handleNavUA);
 
   contents.on('select-file', (e, path, callback) => {
     e.preventDefault();
@@ -1158,11 +1095,19 @@ app.on('web-contents-created', (event, contents) => {
   });
 
   contents.on('context-menu', (e, params) => {
-    // If the right-click is on an editable field, allow the native OS context menu (including macOS AutoFill)
-    if (params.isEditable) {
-      return;
-    }
     const menu = new Menu();
+    const linkUrl = webURL(params.linkURL);
+    if (linkUrl) {
+      menu.append(new MenuItem({
+        label: getContextTranslation('openLinkInNewTab'),
+        click: () => sendMenuAction('open-link-tab', { url: linkUrl, isIncognito: isIncognitoWebContents(contents) })
+      }));
+      menu.append(new MenuItem({
+        label: getContextTranslation('copyLinkAddress'),
+        click: () => require('electron').clipboard.writeText(linkUrl)
+      }));
+      menu.append(new MenuItem({ type: 'separator' }));
+    }
 
     // 1. Image-specific options
     if (params.mediaType === 'image') {
@@ -1172,7 +1117,10 @@ app.on('web-contents-created', (event, contents) => {
           click: () => {
             const win = BrowserWindow.getFocusedWindow();
             if (win) {
-              win.webContents.send('open-image-in-new-tab', params.srcURL);
+              win.webContents.send('open-image-in-new-tab', {
+                url: params.srcURL,
+                isIncognito: isIncognitoWebContents(contents)
+              });
             }
           }
         }));
@@ -1204,6 +1152,8 @@ app.on('web-contents-created', (event, contents) => {
     }
     
     if (params.isEditable) {
+      menu.append(new MenuItem({ label: getContextTranslation('cut'), role: 'cut' }));
+      if (!hasText) menu.append(new MenuItem({ label: getContextTranslation('copy'), role: 'copy' }));
       menu.append(new MenuItem({
         label: getContextTranslation('paste'),
         role: 'paste'
@@ -1240,10 +1190,11 @@ app.on('web-contents-created', (event, contents) => {
 
 // ── IPC Handlers with Sender Validation ──
 ipcMain.handle('update:check', (event) => {
-  if (!validateSender(event) || !autoUpdater) return false;
+  if (!validateSender(event) || !autoUpdater || !app.isPackaged) return false;
   autoUpdater.checkForUpdates().catch(err => log.error('Manual update check error:', err));
   return true;
 });
+ipcMain.handle('browser:info', event => validateSender(event) ? { version: app.getVersion() } : {});
 ipcMain.handle('update:download', (event) => {
   if (!validateSender(event) || !autoUpdater) return false;
   autoUpdater.downloadUpdate();
@@ -1258,8 +1209,9 @@ ipcMain.handle('update:install', (event) => {
 ipcMain.on('start-google-login', (event) => {
   if (!validateSender(event)) return;
   const win = BrowserWindow.fromWebContents(event.sender);
-  startAuthServer(win);
-  shell.openExternal('https://galamtor.web.app/?mode=login');
+  authState = crypto.randomBytes(32).toString('hex');
+  startAuthServer(win, authState);
+  shell.openExternal(`${AUTH_REDIRECT_ORIGIN}/auth.html?mode=login&state=${authState}`);
 });
 
 ipcMain.on('stop-auth-server', (event) => {
@@ -1287,7 +1239,7 @@ ipcMain.handle('history:get', (event) => {
 
 ipcMain.handle('history:clear', (event) => {
   if (!validateSender(event)) return;
-  saveHistory([]);
+  return saveHistory([], { backup: false });
 });
 
 ipcMain.handle('downloads:get', (event) => {
@@ -1297,7 +1249,38 @@ ipcMain.handle('downloads:get', (event) => {
 
 ipcMain.handle('downloads:clear', (event) => {
   if (!validateSender(event)) return;
-  saveDownloads([]);
+  return saveDownloads([], { backup: false });
+});
+
+ipcMain.handle('cache:clear', async (event) => {
+  if (!validateSender(event)) return false;
+  try {
+    const sessions = [session.defaultSession, session.fromPartition('incognito')];
+    await Promise.all(sessions.map(browserSession => browserSession.clearCache()));
+    return true;
+  } catch (err) {
+    console.error('[Cache] Failed to clear browser cache:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('page:save', async (event, contentsId) => {
+  if (!validateSender(event) || !Number.isInteger(contentsId)) return { error: 'Құқық жоқ.' };
+  const guest = webContents.fromId(contentsId);
+  if (!guest || guest.isDestroyed() || guest.hostWebContents !== mainWindow.webContents || !webURL(guest.getURL())) {
+    return { error: 'Алдымен веб-бетті ашыңыз.' };
+  }
+  try {
+    const safeTitle = (guest.getTitle() || 'Galamtor page').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 100);
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Бетті сақтау', defaultPath: path.join(app.getPath('downloads'), `${safeTitle}.html`),
+      filters: [{ name: 'HTML', extensions: ['html'] }]
+    });
+    if (result.canceled || !result.filePath) return { cancelled: true };
+    if (guest.isDestroyed()) return { error: 'Қойынды жабылды.' };
+    await guest.savePage(result.filePath, 'HTMLComplete');
+    return { saved: true };
+  } catch (error) { return { error: 'Бетті сақтау сәтсіз аяқталды.' }; }
 });
 
 ipcMain.handle('shell:open-path', async (event, filePath) => {
@@ -1328,7 +1311,7 @@ ipcMain.handle('adblock:get-stats', (event) => {
 
 ipcMain.handle('session:save', (event, sessionTabs) => {
   if (!validateSender(event)) return;
-  saveSession(sessionTabs);
+  return saveSession(sessionTabs);
 });
 
 ipcMain.handle('session:load', (event) => {
@@ -1344,6 +1327,9 @@ ipcMain.handle('bookmarks:get', (event) => {
 
 ipcMain.handle('bookmarks:add', (event, bookmark) => {
   if (!validateSender(event) || !bookmark || !bookmark.url) return false;
+  try {
+    if (!['http:', 'https:'].includes(new URL(bookmark.url).protocol)) return false;
+  } catch { return false; }
   let bookmarks = loadBookmarks();
   const idx = bookmarks.findIndex(b => b.url === bookmark.url);
   if (idx >= 0) {
@@ -1357,16 +1343,14 @@ ipcMain.handle('bookmarks:add', (event, bookmark) => {
       createdAt: Date.now()
     });
   }
-  saveBookmarks(bookmarks);
-  return true;
+  return saveBookmarks(bookmarks);
 });
 
 ipcMain.handle('bookmarks:remove', (event, idOrUrl) => {
   if (!validateSender(event) || !idOrUrl) return false;
   let bookmarks = loadBookmarks();
   bookmarks = bookmarks.filter(b => b.id !== idOrUrl && b.url !== idOrUrl);
-  saveBookmarks(bookmarks);
-  return true;
+  return saveBookmarks(bookmarks);
 });
 
 ipcMain.handle('bookmarks:check', (event, url) => {
@@ -1386,6 +1370,9 @@ ipcMain.handle('rates:get', async (event) => {
 
 ipcMain.handle('download:trigger', (event, url) => {
   if (!validateSender(event) || typeof url !== 'string') return false;
+  try {
+    if (!['http:', 'https:'].includes(new URL(url).protocol)) return false;
+  } catch { return false; }
   try {
     if (mainWindow && mainWindow.webContents) {
       mainWindow.webContents.downloadURL(url);
@@ -1424,33 +1411,126 @@ function getAiSettingsPath() {
   return path.join(app.getPath('userData'), 'ai_settings.json');
 }
 
-function loadGeminiApiKey() {
-  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.startsWith('AIza')) {
-    return process.env.GEMINI_API_KEY;
+function getChatGPTClient() {
+  if (!chatGPTPlanClient) {
+    chatGPTPlanClient = createChatGPTPlanClient({
+      appDataPath: app.getPath('userData'),
+      safeStorage,
+      openExternal: target => shell.openExternal(target)
+    });
   }
-  try {
-    const settingsPath = getAiSettingsPath();
-    if (fs.existsSync(settingsPath)) {
-      const data = fs.readFileSync(settingsPath, 'utf8');
-      const settings = JSON.parse(data);
-      if (settings.apiKey && settings.apiKey.startsWith('AIza')) return settings.apiKey;
-    }
-  } catch (err) {
-    console.error('[AI] Failed to load settings:', err);
-  }
-  return '';
+  return chatGPTPlanClient;
 }
 
-function saveGeminiApiKey(apiKey) {
+function loadAiSettings() {
   try {
     const settingsPath = getAiSettingsPath();
-    fs.writeFileSync(settingsPath, JSON.stringify({ apiKey }, null, 2), 'utf8');
+    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    if (settings.apiKey) {
+      if (!safeStorage.isEncryptionAvailable()) return { cloudEnabled: false };
+      const migrated = {
+        cloudEnabled: false,
+        encryptedApiKey: safeStorage.encryptString(settings.apiKey).toString('base64')
+      };
+      writeJsonAtomic(settingsPath, migrated, { backup: false, isValid: isRecord });
+      fs.chmodSync(settingsPath, 0o600);
+      return migrated;
+    }
+    return settings;
+  } catch { return { cloudEnabled: false }; }
+}
+
+function writeAiSettings(settings) {
+  try {
+    writeJsonAtomic(getAiSettingsPath(), settings, { backup: false, isValid: isRecord });
+    fs.chmodSync(getAiSettingsPath(), 0o600);
     return true;
   } catch (err) {
     console.error('[AI] Failed to save settings:', err);
     return false;
   }
 }
+
+function loadGeminiApiKey() {
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.startsWith('AIza')) {
+    return process.env.GEMINI_API_KEY;
+  }
+  try {
+    const settings = loadAiSettings();
+    if (settings.encryptedApiKey && safeStorage.isEncryptionAvailable())
+      return safeStorage.decryptString(Buffer.from(settings.encryptedApiKey, 'base64'));
+  } catch (err) { console.error('[AI] Failed to decrypt key:', err); }
+  return '';
+}
+
+function saveGeminiApiKey(apiKey) {
+  if (apiKey === '') return writeAiSettings({ cloudEnabled: false });
+  if (typeof apiKey !== 'string' || !/^AIza[\w-]{20,}$/.test(apiKey) || !safeStorage.isEncryptionAvailable()) return false;
+  const settings = loadAiSettings();
+  return writeAiSettings({
+    cloudEnabled: !!settings.cloudEnabled,
+    encryptedApiKey: safeStorage.encryptString(apiKey).toString('base64')
+  });
+}
+
+function getLocalAIModelName() {
+  const modelName = String(process.env.OLLAMA_MODEL || 'hermes3').trim();
+  return /^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,99}$/.test(modelName) ? modelName : 'hermes3';
+}
+
+let activeOllamaPull = null;
+
+ipcMain.handle('ai:ollama-status', async (event) => {
+  if (!validateSender(event)) return { available: false, installed: false, cloudEnabled: false };
+  const modelName = getLocalAIModelName();
+  const status = await checkOllamaStatus(modelName);
+  return { ...status, modelName, cloudEnabled: !!loadAiSettings().cloudEnabled };
+});
+
+ipcMain.handle('ai:ollama-pull', async (event) => {
+  if (!validateSender(event)) return { success: false, error: 'Құқық жоқ.' };
+  if (activeOllamaPull) return { success: false, error: 'Модель қазір жүктеліп жатыр.' };
+
+  const modelName = getLocalAIModelName();
+  const sender = event.sender;
+  const controller = new AbortController();
+  const onSenderDestroyed = () => controller.abort();
+  sender.once('destroyed', onSenderDestroyed);
+  activeOllamaPull = { senderId: sender.id, controller };
+  try {
+    const status = await checkOllamaStatus(modelName);
+    if (controller.signal.aborted) return { success: false, cancelled: true, error: 'Модель жүктеуі тоқтатылды.' };
+    if (!status.available) {
+      return { success: false, error: 'Алдымен Ollama-ны орнатып, іске қосыңыз.' };
+    }
+    if (status.installed) return { success: true, alreadyInstalled: true };
+    const result = await pullOllamaModel(modelName, (progress) => {
+      if (sender.isDestroyed()) return;
+      try { sender.send('ai:ollama-pull-progress', progress); } catch {}
+    }, { signal: controller.signal });
+    return result;
+  } finally {
+    if (activeOllamaPull?.controller === controller) activeOllamaPull = null;
+    sender.removeListener('destroyed', onSenderDestroyed);
+  }
+});
+
+ipcMain.handle('ai:ollama-pull-cancel', (event) => {
+  if (!validateSender(event) || activeOllamaPull?.senderId !== event.sender.id) return false;
+  activeOllamaPull.controller.abort();
+  return true;
+});
+
+ipcMain.handle('ai:open-ollama-download', async (event) => {
+  if (!validateSender(event)) return false;
+  try {
+    await shell.openExternal('https://ollama.com/download');
+    return true;
+  } catch (error) {
+    console.error('[AI] Could not open Ollama download page:', error);
+    return false;
+  }
+});
 
 function requestSingleGeminiModel(apiVersion, modelName, apiKey, systemInstruction, userPrompt, chatHistory) {
   return new Promise((resolve) => {
@@ -1484,12 +1564,17 @@ function requestSingleGeminiModel(apiVersion, modelName, apiKey, systemInstructi
 
     const req = https.request(options, (res) => {
       let data = '';
-      res.on('data', (chunk) => { data += chunk; });
+      res.on('data', (chunk) => {
+        data += chunk;
+        if (data.length > 2_000_000) req.destroy(new Error('Response too large'));
+      });
       res.on('end', () => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           try {
             const parsed = JSON.parse(data);
-            const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text || 'Жауап бос.';
+            const text = (parsed.candidates?.[0]?.content?.parts || [])
+              .filter(part => !part.thought && typeof part.text === 'string')
+              .map(part => part.text).join('\n') || 'Жауап бос.';
             resolve({ success: true, text });
           } catch (e) {
             resolve({ success: false, statusCode: res.statusCode, error: 'API жауабын оқу мүмкін болмады.' });
@@ -1509,110 +1594,152 @@ function requestSingleGeminiModel(apiVersion, modelName, apiKey, systemInstructi
       resolve({ success: false, statusCode: 0, rawError: e.message });
     });
 
+    req.setTimeout(30_000, () => req.destroy(new Error('Request timed out')));
+
     req.write(payload);
     req.end();
   });
 }
 
 async function callGeminiAPI(systemInstruction, userPrompt, chatHistory) {
+  if (!loadAiSettings().cloudEnabled) {
+    return { error: 'Бұлттық AI өшірулі. ⚙️ Баптауларда Gemini қызметіне рұқсат беріңіз немесе Ollama іске қосыңыз.' };
+  }
   const apiKey = loadGeminiApiKey();
   if (!apiKey || !apiKey.startsWith('AIza')) {
     return {
-      error: '🔑 **Gemini API кілті орнатылмаған.**\n\nGoogle AI Studio API кілті `AIza...` әріптерінен басталуы тиіс. [aistudio.google.com/apikey](https://aistudio.google.com/apikey) сайтынан 10 секундта тегін API кілт алып, оң жақ жоғарғы ⚙️ **Баптаулар** батырмасына қойыңыз.'
+      error: '🔑 **Gemini API кілті орнатылмаған.**\n\nGoogle AI Studio API кілтін [aistudio.google.com/apikey](https://aistudio.google.com/apikey) бетінен алып, ⚙️ **AI баптауларына** енгізіңіз.'
     };
   }
 
-  const targets = [
-    { apiVersion: 'v1beta', model: 'gemini-2.5-flash' },
-    { apiVersion: 'v1beta', model: 'gemini-2.0-flash' },
-    { apiVersion: 'v1beta', model: 'gemini-1.5-flash' },
-    { apiVersion: 'v1beta', model: 'gemini-2.0-flash-lite' }
-  ];
+  const targets = (process.env.GEMINI_MODEL ? [process.env.GEMINI_MODEL] : ['gemini-3.5-flash-lite', 'gemini-2.5-flash'])
+    .map(model => ({ apiVersion: 'v1beta', model }));
 
   let hadQuotaError = false;
+  let lastFailure = null;
 
   for (const target of targets) {
     const res = await requestSingleGeminiModel(target.apiVersion, target.model, apiKey, systemInstruction, userPrompt, chatHistory);
     if (res.success) {
       return { text: res.text };
     }
+    lastFailure = res;
 
     const rawLower = (res.rawError || '').toLowerCase();
     const isQuotaErr = res.statusCode === 429 || rawLower.includes('quota') || rawLower.includes('resource_exhausted');
 
     if (isQuotaErr) {
       hadQuotaError = true;
+      break;
     }
+    if (![403, 404].includes(res.statusCode)) break;
   }
 
   if (hadQuotaError) {
     return {
-      error: '⚠️ **Gemini API тегін лимиті толды.**\n\nGoogle AI Studio жобаңызда бұл модельге тегін сұраныс лимиті уақытша толысты. [aistudio.google.com/apikey](https://aistudio.google.com/apikey) сайтынан жаңа тегін API Key жасап, ⚙️ **Баптаулар** батырмасына қойыңыз немесе 1 минут күтіңіз.'
+      error: '⚠️ **Gemini API лимитіне жетті.**\n\nGoogle AI Studio жобасының шектеуін тексеріңіз немесе кейінірек қайталаңыз.'
     };
+  }
+
+  if (lastFailure?.statusCode === 403 || lastFailure?.statusCode === 401) {
+    return { error: '⚠️ Gemini кілтіне немесе таңдалған модельге қолжетімділік жоқ. AI Studio баптауларын тексеріңіз.' };
+  }
+  if (lastFailure?.statusCode === 404) {
+    return { error: '⚠️ Таңдалған Gemini моделі қолжетімсіз. GEMINI_MODEL баптауын тексеріңіз.' };
   }
 
   return { error: '⚠️ **Желілік сұраныс сәтсіз.**\n\nБайланысты тексеріп, қайта қайталаңыз.' };
 }
 
-const { spawn } = require('child_process');
-
-function startLocalAIServerProcess() {
-  try {
-    const candidatePaths = [
-      process.env.LOCAL_AI_SCRIPT,
-      path.join(__dirname, '../galamtor-hermes-core/src/index.js'),
-      '/Users/dev/Desktop/galamtor-hermes-core/src/index.js',
-      path.join(__dirname, '../galamtor-local-ai/serve_local.py'),
-      path.join(process.cwd(), 'galamtor-local-ai/serve_local.py'),
-      '/Users/dev/Desktop/galamtor-local-ai/serve_local.py'
-    ].filter(Boolean);
-
-    const scriptPath = candidatePaths.find(p => fs.existsSync(p));
-    if (scriptPath) {
-      const runner = scriptPath.endsWith('.js') ? 'node' : 'python3';
-      const proc = spawn(runner, [scriptPath], { detached: true, stdio: 'ignore' });
-      proc.unref();
-      console.log(`[Local AI] Local AI server launched from ${scriptPath} on port 8080`);
+async function callConfiguredAI(systemInstruction, userPrompt, chatHistory = [], requestOptions = {}) {
+  const provider = loadAiSettings().provider || 'auto';
+  if (provider === 'chatgpt') {
+    try {
+      return await getChatGPTClient().streamResponse({ systemInstruction, userPrompt, chatHistory });
+    } catch (error) {
+      return { error: error instanceof ChatGPTPlanError ? error.message : 'ChatGPT сұрауын аяқтау мүмкін болмады. Қайталап көріңіз.' };
     }
-  } catch (err) {
-    console.error('[Local AI] Server launch error:', err);
   }
+  if (provider === 'gemini') return await callGeminiAPI(systemInstruction, userPrompt, chatHistory);
+
+  const localRes = await callLocalAIServer(systemInstruction, userPrompt, chatHistory, requestOptions);
+  if (localRes.success) return { text: localRes.text };
+  if (provider === 'local') {
+    return { error: localRes.reason === 'timeout'
+      ? 'Жергілікті Ollama ұзақ жауап берді. Қысқарақ сұрақ қойып немесе Ollama күйін тексеріп көріңіз.'
+      : 'Жергілікті Ollama іске қосылмаған. AI баптауларынан басқа провайдерді таңдаңыз немесе Ollama-ны іске қосыңыз.' };
+  }
+  // Legacy auto mode preserves the prior local-first, explicitly opted-in Gemini fallback.
+  return await callGeminiAPI(systemInstruction, userPrompt, chatHistory);
 }
 
-// Auto-start Local AI server process
-startLocalAIServerProcess();
-
-function callLocalAIServer(prompt, pageContext) {
+function callLocalAIServer(systemInstruction, prompt, chatHistory = [], requestOptions = {}) {
   return new Promise((resolve) => {
-    const payload = JSON.stringify({ prompt, pageContext });
+    const history = Array.isArray(chatHistory) ? chatHistory.slice(-10).filter(message =>
+      typeof message?.content === 'string' && ['user', 'assistant'].includes(message.role)) : [];
+    const ollamaOptions = {};
+    if (Number.isInteger(requestOptions.numCtx)) {
+      ollamaOptions.num_ctx = Math.max(1024, Math.min(requestOptions.numCtx, 32768));
+    }
+    if (Number.isInteger(requestOptions.numPredict)) {
+      ollamaOptions.num_predict = Math.max(64, Math.min(requestOptions.numPredict, 2048));
+    }
+    if (Number.isFinite(requestOptions.temperature)) {
+      ollamaOptions.temperature = Math.max(0, Math.min(requestOptions.temperature, 2));
+    }
+    const payload = JSON.stringify({
+      model: getLocalAIModelName(),
+      stream: false,
+      ...(Object.keys(ollamaOptions).length ? { options: ollamaOptions } : {}),
+      messages: [
+        { role: 'system', content: systemInstruction },
+        ...history.map(message => ({ role: message.role, content: message.content.slice(0, 8000) })),
+        { role: 'user', content: String(prompt).slice(0, 20000) }
+      ]
+    });
     const options = {
       hostname: '127.0.0.1',
-      port: 8080,
-      path: '/ai/chat',
+      port: 11434,
+      path: '/api/chat',
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(payload)
       },
-      timeout: 25000 // 25s for local M1 Pro Hermes 3 generation
+      timeout: Number.isInteger(requestOptions.timeoutMs)
+        ? Math.max(1000, Math.min(requestOptions.timeoutMs, 180000))
+        : 60000
     };
 
     const req = http.request(options, (res) => {
       let data = '';
-      res.on('data', (chunk) => { data += chunk; });
+      res.on('data', (chunk) => {
+        data += chunk;
+        if (data.length > 2_000_000) req.destroy(new Error('Response too large'));
+      });
       res.on('end', () => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           try {
             const parsed = JSON.parse(data);
-            if (parsed.text) resolve({ success: true, text: parsed.text });
+            if (parsed.message?.content) resolve({
+              success: true,
+              text: parsed.message.content,
+              truncated: parsed.done_reason === 'length'
+            });
             else resolve({ success: false });
           } catch { resolve({ success: false }); }
-        } else resolve({ success: false });
+        } else resolve({ success: false, reason: 'http', statusCode: res.statusCode });
       });
     });
 
-    req.on('error', () => resolve({ success: false }));
-    req.on('timeout', () => { req.destroy(); resolve({ success: false }); });
+    req.on('error', (error) => resolve({
+      success: false,
+      reason: error?.code === 'ECONNREFUSED' ? 'unavailable' : 'network'
+    }));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve({ success: false, reason: 'timeout' });
+    });
     req.write(payload);
     req.end();
   });
@@ -1635,35 +1762,87 @@ ipcMain.handle('ai:chat', async (event, { prompt, pageContext, chatHistory }) =>
 
   // Instant smart response for common Kazakh greetings without API call
   if (['салем', 'сәлем', 'привет', 'hello', 'hi', 'қалайсың', 'хәл қалай', 'сәлеметсіз бе'].includes(cleanPrompt)) {
-    return { text: 'Сәлеметсіз бе! Мен **Galamtor AI** көмекшісімін. Сізге қалай көмектесе аламын?\n\n- 📄 **Бетті түйіндеу** батырмасын басыңыз\n- ⬇️ **Авто-жүктеу** арқылы файлдарды сақтаңыз\n- 🌐 **Аудару** арқылы қазақшаға аударыңыз' };
+    return { text: 'Сәлеметсіз бе! Мен **Galamtor AI** көмекшісімін. Сізге қалай көмектесе аламын?\n\n- 📄 **Бетті түйіндеу** батырмасын басыңыз\n- ⬇️ **Файл сілтемелері** арқылы беттегі жүктеулерді қараңыз\n- 🌐 **Аудару** арқылы қазақшаға аударыңыз' };
   }
 
-  // 1. Try local M1 Pro AI server first
-  const localRes = await callLocalAIServer(prompt, pageContext);
-  if (localRes.success) {
-    return { text: localRes.text };
-  }
-
-  // 2. Fallback to Gemini Cloud API
-  let userPrompt = prompt;
+  // The selected provider only receives content after this user-initiated request.
+  let userPrompt = String(prompt || '').slice(0, 8000);
   if (pageContext && (pageContext.title || pageContext.url)) {
-    userPrompt = `Ашық бет: "${pageContext.title || ''}"\nURL: ${pageContext.url || ''}\n\nСұрақ: ${prompt}`;
+    userPrompt = `Ашық бет: "${String(pageContext.title || '').slice(0, 500)}"\nURL: ${String(pageContext.url || '').slice(0, 2000)}\n\nСұрақ: ${userPrompt}`;
   }
-  return await callGeminiAPI(GALAMTOR_SYSTEM_PROMPT, userPrompt, chatHistory);
+  return await callConfiguredAI(GALAMTOR_SYSTEM_PROMPT, userPrompt, chatHistory);
 });
 
 ipcMain.handle('ai:summarize', async (event, { pageContent, pageTitle, pageUrl }) => {
   if (!validateSender(event)) return { error: 'Құқық жоқ.' };
 
-  // Try local M1 Pro server first for summary
-  const localRes = await callLocalAIServer(`Бетті түйінде: ${pageTitle}`, { title: pageTitle, url: pageUrl });
-  if (localRes.success) {
-    return { text: localRes.text };
+  const systemPrompt = 'Сен веб-беттерді қысқаша түйіндейтін AI көмекшісісің. Жауапты тек қазақ тілінде жаз. Негізгі ойларды нөмірлеп жаз. Markdown қолдан.';
+  const userPrompt = `Тақырыбы: ${String(pageTitle || 'Белгісіз').slice(0, 500)}\nСілтеме: ${String(pageUrl || '').slice(0, 2000)}\n\nМәтін:\n${String(pageContent || '').slice(0, 20000)}\n\nОсы мәтіннің қысқаша түйіндемесін жаз.`;
+  if (!String(pageContent || '').trim()) return { error: 'Бет мәтіні алынбады. Бұл бетті түйіндеу мүмкін емес.' };
+  return await callConfiguredAI(systemPrompt, userPrompt);
+});
+
+ipcMain.handle('egov:ncalayer-status', async (event) => {
+  if (!validateSender(event)) return { available: false, reason: 'unreachable' };
+  return await checkNcaLayer();
+});
+
+function createLegalExplanationFallback(request, reason) {
+  const messages = {
+    unverified: 'Жергілікті AI жауабын заң мәтінімен растай алмадым, сондықтан оның түсіндірмесін көрсетпедім.',
+    truncated: 'Жергілікті AI жауабы толық келмеді, сондықтан оның түсіндірмесін көрсетпедім.',
+    timeout: 'Жергілікті AI жауабы ұзаққа созылды, сондықтан тексерілмеген түсіндірмені көрсетпедім.',
+    unavailable: 'Жергілікті Ollama іске қосылмаған. Заң мәтіні басқа AI қызметіне жіберілген жоқ.',
+    failed: 'Жергілікті AI заң мәтінін өңдей алмады. Заң мәтіні басқа AI қызметіне жіберілген жоқ.'
+  };
+  const purpose = extractLegalPurposeSentence(request.sourceContent);
+  let summary = '';
+  if (purpose) {
+    const evidence = purpose.replace(/[.!?]+$/u, '').split(/\s+/u).slice(-8).join(' ');
+    summary = request.language === 'ru'
+      ? `\n\nПо смыслу фрагмента закон регулирует общественные отношения, связанные с правовыми актами. Подтверждение: «${evidence}».`
+      : `\n\nҮзіндідегі мағына: заң құқықтық актілерге қатысты қоғамдық қатынастарды реттейді. Дәлел: «${evidence}».`;
+  } else {
+    summary = '\n\nҮзіндіден заңның мақсатын анықтайтын сөйлем табылмады. Толық актіні Әділеттің ресми бетінен қараңыз.';
+  }
+  const excerptNote = request.wasTruncated
+    ? `\n\nТек алғашқы ${request.analyzedCharacters} таңба қаралды; бұл толық құжаттың талдауы емес.`
+    : '';
+  return {
+    text: `⚠️ ${messages[reason] || messages.failed}${summary}\n\nДереккөз: ${request.sourceUrl}${excerptNote}\nБұл заңгерлік кеңес емес; қолданыстағы редакцияны ресми беттен тексеріңіз.`
+  };
+}
+
+ipcMain.handle('ai:explain-kz-law', async (event, { pageContent, pageTitle, pageUrl, language }) => {
+  if (!validateSender(event)) return { error: 'Құқық жоқ.' };
+  const request = createLegalExplanationPrompts({ pageContent, pageTitle, pageUrl, language });
+  if (request.error === 'unsupported-source') {
+    return { error: 'Бұл құрал ресми Әділет заң актілерінің бетімен жұмыс істейді.' };
+  }
+  if (request.error === 'insufficient-content') {
+    return { error: 'Заң мәтіні беттен алынбады немесе тым қысқа. Актінің толық мәтінін ашып, қайталап көріңіз.' };
   }
 
-  const systemPrompt = 'Сен веб-беттерді қысқаша түйіндейтін AI көмекшісісің. Жауапты тек қазақ тілінде жаз. Негізгі ойларды нөмірлеп жаз. Markdown қолдан.';
-  const userPrompt = `Тақырыбы: ${pageTitle || 'Белгісіз'}\nСілтеме: ${pageUrl || ''}\n\nМәтін:\n${pageContent}\n\nОсы мәтіннің қысқаша түйіндемесін жаз.`;
-  return await callGeminiAPI(systemPrompt, userPrompt);
+  // Legal page text stays on the local Ollama service. This feature never uses Gemini fallback.
+  const localRes = await callLocalAIServer(request.systemPrompt, request.userPrompt, [], {
+    numCtx: 4096,
+    numPredict: 768,
+    temperature: 0,
+    timeoutMs: 90000
+  });
+  if (localRes.success && localRes.truncated) {
+    return createLegalExplanationFallback(request, 'truncated');
+  }
+  if (localRes.success) {
+    if (!hasVerifiableLegalEvidence(localRes.text, request.sourceContent)) {
+      return createLegalExplanationFallback(request, 'unverified');
+    }
+    const excerptNote = request.wasTruncated
+      ? `\nЕскерту: талдау беттегі алғашқы ${request.analyzedCharacters} таңбамен шектелді; толық құжат бойынша қорытынды емес.`
+      : '';
+    return { text: `${localRes.text}\n\nДереккөз: ${request.sourceUrl}${excerptNote}\nЕскерту: түсіндірме тек берілген бет мәтініне сүйенеді; қолданыстағы редакцияны ресми беттен тексеріңіз.` };
+  }
+  return createLegalExplanationFallback(request, localRes.reason || 'failed');
 });
 
 ipcMain.handle('ai:get-page-content', async (event) => {
@@ -1673,7 +1852,7 @@ ipcMain.handle('ai:get-page-content', async (event) => {
   try {
     return await win.webContents.executeJavaScript(`
       (async () => {
-        const activeWebview = document.querySelector('webview:not([style*="display: none"])') || document.querySelector('webview');
+        const activeWebview = document.querySelector('.webview-wrapper.active:not(.has-load-error) webview');
         if (activeWebview) {
           return await activeWebview.executeJavaScript('(document.body.innerText || "").substring(0, 50000)');
         }
@@ -1692,8 +1871,84 @@ ipcMain.handle('ai:set-api-key', (event, apiKey) => {
 });
 
 ipcMain.handle('ai:get-api-key', (event) => {
-  if (!validateSender(event)) return '';
-  return loadGeminiApiKey();
+  if (!validateSender(event)) return { hasApiKey: false, cloudEnabled: false };
+  const settings = loadAiSettings();
+  return { hasApiKey: !!loadGeminiApiKey(), cloudEnabled: !!settings.cloudEnabled, provider: settings.provider || 'auto' };
+});
+ipcMain.handle('ai:set-cloud-enabled', (event, enabled) => {
+  if (!validateSender(event) || typeof enabled !== 'boolean') return false;
+  const settings = loadAiSettings();
+  if (enabled && !loadGeminiApiKey()) return false;
+  return writeAiSettings({ ...settings, cloudEnabled: enabled });
+});
+
+ipcMain.handle('ai:set-provider', (event, provider) => {
+  if (!validateSender(event) || !['auto', 'local', 'chatgpt', 'gemini'].includes(provider)) return false;
+  const settings = loadAiSettings();
+  if (provider === 'gemini' && (!settings.cloudEnabled || !loadGeminiApiKey())) return false;
+  if (provider === 'chatgpt') {
+    try {
+      const state = getChatGPTClient().getPublicState();
+      const profile = state.profiles.find(item => item.active);
+      if (!profile?.canUsePlan) return false;
+    } catch { return false; }
+  }
+  return writeAiSettings({ ...settings, provider });
+});
+
+ipcMain.handle('ai:chatgpt-state', (event) => {
+  if (!validateSender(event)) return { connected: false, profiles: [], error: 'Құқық жоқ.' };
+  try { return getChatGPTClient().getPublicState(); }
+  catch (error) {
+    return { connected: false, activeProfileId: null, profiles: [], error: error instanceof ChatGPTPlanError ? error.message : 'ChatGPT күйін оқу мүмкін болмады.' };
+  }
+});
+
+ipcMain.handle('ai:chatgpt-sign-in', async (event, profileId) => {
+  if (!validateSender(event)) return { success: false, error: 'Құқық жоқ.' };
+  try {
+    const state = await getChatGPTClient().signIn(typeof profileId === 'string' ? profileId : null);
+    const active = state.profiles.find(item => item.active);
+    if (active?.canUsePlan) writeAiSettings({ ...loadAiSettings(), provider: 'chatgpt' });
+    return { success: true, state };
+  } catch (error) {
+    return { success: false, error: error instanceof ChatGPTPlanError ? error.message : 'ChatGPT-ке кіру аяқталмады. Қайталап көріңіз.' };
+  }
+});
+
+ipcMain.handle('ai:chatgpt-cancel-sign-in', (event) => {
+  if (!validateSender(event)) return false;
+  try { return getChatGPTClient().cancelSignIn(); } catch { return false; }
+});
+
+ipcMain.handle('ai:chatgpt-set-active', (event, profileId) => {
+  if (!validateSender(event) || typeof profileId !== 'string') return false;
+  try {
+    const client = getChatGPTClient();
+    if (!client.setActiveProfile(profileId)) return false;
+    const active = client.getPublicState().profiles.find(item => item.active);
+    if (active?.canUsePlan) writeAiSettings({ ...loadAiSettings(), provider: 'chatgpt' });
+    return true;
+  } catch { return false; }
+});
+
+ipcMain.handle('ai:chatgpt-disconnect', async (event, profileId) => {
+  if (!validateSender(event) || typeof profileId !== 'string') return { success: false, error: 'Құқық жоқ.' };
+  try {
+    const result = await getChatGPTClient().disconnect(profileId);
+    const active = result.state?.profiles.find(item => item.active);
+    if (!active?.canUsePlan && loadAiSettings().provider === 'chatgpt') {
+      writeAiSettings({ ...loadAiSettings(), provider: 'local' });
+    }
+    return { success: true, ...result };
+  } catch (error) {
+    return { success: false, error: error instanceof ChatGPTPlanError ? error.message : 'ChatGPT байланысын ажырату мүмкін болмады.' };
+  }
+});
+
+ipcMain.handle('ai:chatgpt-open-usage', async (event) => {
+  if (!validateSender(event)) return false;
+  try { return await getChatGPTClient().openUsageSettings(); } catch { return false; }
 });
 
 // ── Ұлттық Кибер-Қалқан & Banking Shield IPC ──
@@ -1706,20 +1961,28 @@ ipcMain.handle('banking:get-status', (event) => {
   if (!validateSender(event)) return false;
   return isBankingShieldActive;
 });
+ipcMain.on('banking:active-url', (event, activeUrl) => {
+  if (!validateSender(event)) return;
+  checkBankingShield(typeof activeUrl === 'string' ? activeUrl : '');
+});
 
 // ── Qazaq AI Context Engine IPC ──
 ipcMain.handle('ai:context-adapt', async (event, { content, url: pageUrl }) => {
   if (!validateSender(event)) return { error: 'Құқық жоқ.' };
+  const rates = Date.now() - cachedRates.fetchedAt < 30 * 60 * 1000 ? cachedRates : await fetchLiveExchangeRates();
   const preprocessed = convertUnitsAndCurrency(content);
   const prompt = `Мына веб-бет мазмұнын қазақстандық пайдаланушы үшін талдап, жергілікті контекстке бейімде:
 1. Шетелдік қызметтер мен өнімдер кездессе, Қазақстандағы баламаларын ұсын (мысалы: Amazon -> Kaspi/Flip, Uber -> InDrive, Deliveroo -> Wolt/Choco, т.б.).
-2. Бағаларды теңгеге шағып есепте (1 USD ≈ 485.5 ₸, 1 EUR ≈ 532 ₸).
-3. Шетелдік заңнамалық сілтемелер болса, ҚР сәйкес құқықтық нормаларымен салыстырмалы түсінік бер.
+2. ${rates.USD ? `Бағаларды тек осы алынған жуық бағаммен есепте: 1 USD ≈ ${rates.USD} ₸${rates.EUR ? `, 1 EUR ≈ ${rates.EUR} ₸` : ''}.` : 'Нақты бағам қолжетімсіз, теңгеге есептеме.'}
+3. Құқықтық сәйкестік туралы нақты дереккөзсіз мәлімдеме жасама.
 4. Қазақ тілінде нақты әрі құрылымды түрде жаз.
 
+Бет URL: ${String(pageUrl || '').slice(0, 2000)}
 Мәтін:
 ${(preprocessed || '').substring(0, 15000)}`;
 
+  const localRes = await callLocalAIServer(GALAMTOR_SYSTEM_PROMPT, prompt);
+  if (localRes.success) return { text: localRes.text };
   return await callGeminiAPI(GALAMTOR_SYSTEM_PROMPT, prompt);
 });
 
@@ -1790,4 +2053,3 @@ ipcMain.handle('wallpaper:clear-custom', async (event) => {
     return false;
   }
 });
-

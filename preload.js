@@ -9,6 +9,11 @@ contextBridge.exposeInMainWorld('galamtorAPI', {
     ipcRenderer.on('firebase-auth-token', listener);
     return () => ipcRenderer.removeListener('firebase-auth-token', listener);
   },
+  onAuthServerError: (callback) => {
+    const listener = (_event, code) => callback(code);
+    ipcRenderer.on('auth-server-error', listener);
+    return () => ipcRenderer.removeListener('auth-server-error', listener);
+  },
   setLanguage: (lang) => ipcRenderer.send('language:set', lang),
 
   // History API
@@ -19,6 +24,7 @@ contextBridge.exposeInMainWorld('galamtorAPI', {
   // Downloads API
   getDownloads: () => ipcRenderer.invoke('downloads:get'),
   clearDownloads: () => ipcRenderer.invoke('downloads:clear'),
+  clearCache: () => ipcRenderer.invoke('cache:clear'),
   onDownloadProgress: (callback) => {
     const listener = (event, payload) => callback(payload);
     ipcRenderer.on('download-progress', listener);
@@ -46,14 +52,34 @@ contextBridge.exposeInMainWorld('galamtorAPI', {
   saveSession: (sessionTabs) => ipcRenderer.invoke('session:save', sessionTabs),
   loadSession: () => ipcRenderer.invoke('session:load'),
 
-  // AI Auto-Downloader API
+  // User-initiated download API
   downloadURL: (url) => ipcRenderer.invoke('download:trigger', url),
+  savePage: (contentsId) => ipcRenderer.invoke('page:save', contentsId),
 
   // ── Galamtor AI Assistant API (Gemini) ──
   aiChat: (prompt, pageContext, chatHistory) => ipcRenderer.invoke('ai:chat', { prompt, pageContext, chatHistory }),
   aiSummarize: (pageContent, pageTitle, pageUrl) => ipcRenderer.invoke('ai:summarize', { pageContent, pageTitle, pageUrl }),
+  aiExplainKzLaw: (pageContent, pageTitle, pageUrl, language) => ipcRenderer.invoke('ai:explain-kz-law', { pageContent, pageTitle, pageUrl, language }),
+  checkNcaLayerStatus: () => ipcRenderer.invoke('egov:ncalayer-status'),
   aiSetApiKey: (apiKey) => ipcRenderer.invoke('ai:set-api-key', apiKey),
   aiGetApiKey: () => ipcRenderer.invoke('ai:get-api-key'),
+  aiSetCloudEnabled: (enabled) => ipcRenderer.invoke('ai:set-cloud-enabled', enabled),
+  aiSetProvider: (provider) => ipcRenderer.invoke('ai:set-provider', provider),
+  aiGetChatGPTState: () => ipcRenderer.invoke('ai:chatgpt-state'),
+  aiChatGPTSignIn: (profileId) => ipcRenderer.invoke('ai:chatgpt-sign-in', profileId),
+  aiChatGPTCancelSignIn: () => ipcRenderer.invoke('ai:chatgpt-cancel-sign-in'),
+  aiChatGPTSetActive: (profileId) => ipcRenderer.invoke('ai:chatgpt-set-active', profileId),
+  aiChatGPTDisconnect: (profileId) => ipcRenderer.invoke('ai:chatgpt-disconnect', profileId),
+  aiChatGPTOpenUsage: () => ipcRenderer.invoke('ai:chatgpt-open-usage'),
+  aiGetLocalStatus: () => ipcRenderer.invoke('ai:ollama-status'),
+  aiPullLocalModel: () => ipcRenderer.invoke('ai:ollama-pull'),
+  aiCancelLocalModelPull: () => ipcRenderer.invoke('ai:ollama-pull-cancel'),
+  aiOpenOllamaDownload: () => ipcRenderer.invoke('ai:open-ollama-download'),
+  onAiModelPullProgress: (callback) => {
+    const listener = (_event, progress) => callback(progress);
+    ipcRenderer.on('ai:ollama-pull-progress', listener);
+    return () => ipcRenderer.removeListener('ai:ollama-pull-progress', listener);
+  },
 
   // ── Touch ID / Biometrics API (macOS) ──
   touchIdCanPrompt: () => ipcRenderer.invoke('touchid:can-prompt'),
@@ -61,13 +87,24 @@ contextBridge.exposeInMainWorld('galamtorAPI', {
 
   // IPC event bridge: open image in new tab (security fix — replaces executeJavaScript)
   onOpenImageInNewTab: (callback) => {
-    const listener = (event, url) => callback(url);
+    const listener = (event, payload) => callback(payload);
     ipcRenderer.on('open-image-in-new-tab', listener);
     return () => ipcRenderer.removeListener('open-image-in-new-tab', listener);
+  },
+  onPopupTab: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('open-popup-tab', listener);
+    return () => ipcRenderer.removeListener('open-popup-tab', listener);
   },
 
   // Auto-Update API
   checkForUpdate: () => ipcRenderer.invoke('update:check'),
+  getBrowserInfo: () => ipcRenderer.invoke('browser:info'),
+  onUpdateNotAvailable: (callback) => {
+    const listener = (_event, info) => callback(info);
+    ipcRenderer.on('update-not-available', listener);
+    return () => ipcRenderer.removeListener('update-not-available', listener);
+  },
   downloadUpdate: () => ipcRenderer.invoke('update:download'),
   installUpdate: () => ipcRenderer.invoke('update:install'),
   onUpdateAvailable: (callback) => {
@@ -99,6 +136,7 @@ contextBridge.exposeInMainWorld('galamtorAPI', {
     return () => ipcRenderer.removeListener('qalqan-blocked', listener);
   },
   getBankingShieldStatus: () => ipcRenderer.invoke('banking:get-status'),
+  setActiveBankingUrl: (activeUrl) => ipcRenderer.send('banking:active-url', activeUrl),
   onBankingShieldStatus: (callback) => {
     const listener = (event, payload) => callback(payload);
     ipcRenderer.on('banking-shield-status', listener);
@@ -128,4 +166,3 @@ contextBridge.exposeInMainWorld('galamtorAPI', {
   pickCustomWallpaper: () => ipcRenderer.invoke('wallpaper:pick-media'),
   clearCustomWallpaper: () => ipcRenderer.invoke('wallpaper:clear-custom')
 });
-

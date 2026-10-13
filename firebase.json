@@ -1,4 +1,7 @@
 {
+  "firestore": {
+    "rules": "firestore.rules"
+  },
   "hosting": [
     {
       "target": "galamtor",
@@ -9,6 +12,24 @@
         "**/node_modules/**"
       ],
       "headers": [
+        {
+          "source": "/github-releases.js",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache, no-store, must-revalidate"
+            }
+          ]
+        },
+        {
+          "source": "/auth-flow.js",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache, no-store, must-revalidate"
+            }
+          ]
+        },
         {
           "source": "**/*.@(html|htm)",
           "headers": [
@@ -45,18 +66,5 @@
         }
       ]
     }
-  ],
-  "auth": {
-    "providers": {
-      "googleSignIn": {
-        "oAuthBrandDisplayName": "Galamtor",
-        "supportEmail": "s.akhmet198@gmail.com",
-        "authorizedRedirectUris": [
-          "https://galamtor.web.app",
-          "https://galamtor.firebaseapp.com",
-          "http://localhost"
-        ]
-      }
-    }
-  }
+  ]
 }
