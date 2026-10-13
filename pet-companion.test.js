@@ -19,9 +19,9 @@ function memoryStorage(initial = null) {
   };
 }
 
-test('exposes three original companions and fixed customization choices', () => {
-  assert.deepEqual(Pet.PETS.map(({ id }) => id), ['samal', 'tumar', 'qyran']);
-  assert.equal(new Set(Pet.PETS.map(({ name }) => name)).size, 3);
+test('exposes five original companions and fixed customization choices', () => {
+  assert.deepEqual(Pet.PETS.map(({ id }) => id), ['samal', 'tumar', 'qyran', 'aiyaru', 'alpamys']);
+  assert.equal(new Set(Pet.PETS.map(({ name }) => name)).size, 5);
   assert.equal(Pet.COLORS.length, 4);
   assert.equal(Pet.ACCESSORIES.length, 5);
   assert.equal(Pet.TEMPERAMENTS.length, 3);
@@ -64,6 +64,14 @@ test('loads and revalidates persisted profiles before using them', () => {
   });
 });
 
+test('renames the companion when switching defaults but preserves a custom name', () => {
+  assert.equal(Pet.selectPet(Pet.DEFAULT_PROFILE, 'aiyaru').name, 'Айару');
+  const custom = Pet.selectPet({ ...Pet.DEFAULT_PROFILE, name: 'Айнұр' }, 'alpamys');
+  assert.deepEqual(custom, {
+    petId: 'alpamys', name: 'Айнұр', colorId: 'sky', accessoryId: 'spark', temperamentId: 'curious'
+  });
+});
+
 test('survives unavailable or throwing storage access', () => {
   assert.deepEqual(Pet.loadProfile({ getItem() { throw new Error('blocked'); } }), Pet.DEFAULT_PROFILE);
   assert.equal(Pet.saveProfile(Pet.DEFAULT_PROFILE, { setItem() { throw new Error('blocked'); } }), false);
@@ -101,7 +109,7 @@ test('renders only one of the fixed SVG templates', () => {
     assert.match(avatar, /<\/svg>$/);
     assert.match(avatar, new RegExp(`data-character="${pet.id}"`));
     assert.match(avatar, /class="pet-body"/);
-    assert.match(avatar, /class="pet-eyes"/);
+    assert.match(avatar, /class="pet-eyes(?:\s|\")/);
     assert.match(avatar, /class="pet-mouth-talk"/);
     assert.match(avatar, /aria-hidden="true"/);
   }
@@ -110,11 +118,13 @@ test('renders only one of the fixed SVG templates', () => {
 
 test('companions have distinct silhouettes and their own animated character detail', () => {
   const avatars = Pet.PETS.map(({ id }) => Pet.renderAvatar(id));
-  assert.equal(new Set(avatars).size, 3);
+  assert.equal(new Set(avatars).size, 5);
   assert.match(avatars[0], /class="pet-antenna"/);
   assert.match(avatars[1], /class="pet-ear pet-ear-left"/);
   assert.match(avatars[2], /class="pet-wing pet-wing-left"/);
   assert.ok(avatars.slice(0, 2).every((avatar) => avatar.includes('class="pet-arm')));
+  assert.match(avatars[3], /data-character="aiyaru"[\s\S]*class="pet-hair-flow"[\s\S]*pet-human-eyes/);
+  assert.match(avatars[4], /data-character="alpamys"[\s\S]*class="pet-cape"[\s\S]*class="pet-plume"/);
 });
 
 test('does not initialize when the expected interface is absent', () => {

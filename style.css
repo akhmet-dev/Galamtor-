@@ -4216,6 +4216,18 @@ button:focus-visible, input:focus-visible {
 .pet-svg .pet-arm-light { fill:var(--pet-eye); }
 .pet-svg .pet-wing-line { fill:none; stroke:var(--pet-eye); stroke-width:2; stroke-linecap:round; opacity:.82; }
 .pet-svg .pet-shadow { fill:#101c38; opacity:.48; }
+.pet-svg .pet-hair-back,
+.pet-svg .pet-hair-flow,
+.pet-svg .pet-cape,
+.pet-svg .pet-plume,
+.pet-svg .pet-bow { transform-box:fill-box; transform-origin:center; }
+.pet-svg .pet-collar { fill:#fff0c6; }
+.pet-svg .pet-human-eyes { transform-box:fill-box; transform-origin:center; animation:petBlink 6.4s ease-in-out infinite; }
+.pet-svg[data-character="aiyaru"] .pet-hair-flow { transform-origin:50% 8%; animation:petHairSway 3.8s ease-in-out infinite; }
+.pet-svg[data-character="aiyaru"] .pet-hair-back { animation:petHairSway 4.4s ease-in-out -1s infinite; }
+.pet-svg[data-character="aiyaru"] .pet-bow { animation:petBowGlow 2.8s ease-in-out infinite; }
+.pet-svg[data-character="alpamys"] .pet-cape { transform-origin:50% 0%; animation:petCapeFlow 3.4s ease-in-out infinite; }
+.pet-svg[data-character="alpamys"] .pet-plume { transform-origin:50% 100%; animation:petPlumeSway 2.6s ease-in-out infinite; }
 .pet-svg .pet-body { transform-box:fill-box; transform-origin:center bottom; animation:petIdle 3.2s ease-in-out infinite; }
 .pet-svg .pet-eyes { transform-box:fill-box; transform-origin:center; animation:petBlink 7.2s ease-in-out infinite; }
 .pet-svg .pet-arm,
@@ -4371,6 +4383,10 @@ button:focus-visible, input:focus-visible {
 @keyframes petTalk { 0%,100% { transform:scaleY(.52); } 50% { transform:scaleY(1.15); } }
 @keyframes petGesture { 0%,100% { transform:rotate(0); } 50% { transform:rotate(-12deg); } }
 @keyframes petWave { 0%,100% { transform:rotate(0); } 50% { transform:rotate(-28deg); } }
+@keyframes petHairSway { 0%,100% { transform:rotate(0); } 48% { transform:rotate(2deg); } 72% { transform:rotate(-1deg); } }
+@keyframes petCapeFlow { 0%,100% { transform:rotate(0) scaleX(1); } 50% { transform:rotate(-2deg) scaleX(1.035); } }
+@keyframes petPlumeSway { 0%,100% { transform:rotate(0); } 45% { transform:rotate(5deg); } 72% { transform:rotate(-3deg); } }
+@keyframes petBowGlow { 0%,100% { filter:drop-shadow(0 0 0 transparent); } 50% { filter:drop-shadow(0 0 3px #ffe8a8); } }
 
 @media (max-width:700px) {
   .galamtor-pet-studio { right:12px; bottom:204px; width:min(356px,calc(100vw - 24px)); max-height:calc(100vh - 220px); padding:13px; }

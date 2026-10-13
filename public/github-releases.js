@@ -4,7 +4,7 @@
   const CACHE_KEY = 'galamtor_github_release_cache_v3';
   const CACHE_TIME_MS = 15 * 60 * 1000; // 15 minutes
   const REPO_API_URL = 'https://api.github.com/repos/akhmet-dev/Galamtor-/releases/latest';
-  const FALLBACK_VERSION = 'v1.3.6';
+  const FALLBACK_VERSION = 'v1.4.0';
 
   const KAZAKH_MONTHS = [
     'Қаңтар', 'Ақпан', 'Наурыз', 'Сәуір', 'Мамыр', 'Маусым',

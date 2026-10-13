@@ -13,7 +13,9 @@
   const PETS = Object.freeze([
     Object.freeze({ id: 'samal', name: 'Самал', role: 'Жел серігі', note: 'Жылдам ойлап, жайлы бағыт көрсетеді.' }),
     Object.freeze({ id: 'tumar', name: 'Тұмар', role: 'Жылы қорғаушы', note: 'Сабырлы, бірақ әрдайым сергек.' }),
-    Object.freeze({ id: 'qyran', name: 'Қыран', role: 'Көкжиек зерттеушісі', note: 'Жаңа қойындыға қуана ұшады.' })
+    Object.freeze({ id: 'qyran', name: 'Қыран', role: 'Көкжиек зерттеушісі', note: 'Жаңа қойындыға қуана ұшады.' }),
+    Object.freeze({ id: 'aiyaru', name: 'Айару', role: 'Жұлдыз қорғаушысы', note: 'Жаңа бағытты жарықпен табады.' }),
+    Object.freeze({ id: 'alpamys', name: 'Алпамыс', role: 'Дала батыры', note: 'Сапарыңа сенімді серік болады.' })
   ]);
 
   const COLORS = Object.freeze([
@@ -98,6 +100,62 @@
         <path class="pet-mouth" d="M58 59h12" stroke-width="2.5" stroke-linecap="round"/>
         <ellipse class="pet-mouth-talk" cx="64" cy="58" rx="4" ry="5"/>
       </g>
+    </svg>`,
+    aiyaru: `<svg class="pet-svg" data-character="aiyaru" viewBox="0 0 128 136" aria-hidden="true" focusable="false">
+      <ellipse class="pet-shadow" cx="64" cy="129" rx="29" ry="4"/>
+      <g class="pet-body">
+        <path class="pet-hair-back" d="M37 47q-13 13-9 39l-5 21q9 5 18-8l5-25zm54 1q15 13 12 34l8 19q-10 9-20-4l-9-24z" fill="#44305f" stroke="#241c3b" stroke-width="3" stroke-linejoin="round"/>
+        <path class="pet-shell" d="M43 91h42q10 0 13 10l5 25H25l5-25q3-10 13-10z" stroke="var(--pet-outline)" stroke-width="4" stroke-linejoin="round"/>
+        <path class="pet-shade" d="m40 107 24 8 24-8 4 15H36z"/>
+        <path class="pet-collar" d="m48 89 16 14 16-14-5 22H53z" fill="#fff0c6" stroke="#5e3c70" stroke-width="2" stroke-linejoin="round"/>
+        <path class="pet-arm pet-arm-left" d="m36 96-13 7-2 14 9 7 13-12z" fill="var(--pet-shell)" stroke="var(--pet-outline)" stroke-width="4" stroke-linejoin="round"/>
+        <path class="pet-arm pet-arm-right" d="m92 96 13 7 2 14-9 7-13-12z" fill="var(--pet-shell)" stroke="var(--pet-outline)" stroke-width="4" stroke-linejoin="round"/>
+        <path class="pet-skin" d="M54 78h20v17q-10 11-20 0z" fill="#efbd9e"/>
+        <path class="pet-face" d="M39 47q0-23 25-23t25 23v19q0 23-25 23T39 66z" fill="#f4c8a8" stroke="#5e3c70" stroke-width="3"/>
+        <path class="pet-hair-flow" d="M35 55q-9-27 11-38 22-14 43 1 16 12 5 39l-8-8-4-17q-12 12-35 9l-4 16z" fill="#342343" stroke="#241c3b" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M39 36q8-14 18-14-8 9-8 20l-7 9z" fill="#a65fbe"/>
+        <path d="M83 26q10 8 11 19l-7-6z" fill="#f18bba"/>
+        <path class="pet-bow" d="m91 39 9-7 1 12 8 7-12 2-7 8-2-12-8-6 11-1z" fill="#ffd985" stroke="#7e4a73" stroke-width="2" stroke-linejoin="round"/>
+        <g class="pet-eyes pet-human-eyes">
+          <path d="M45 59q8-11 17 0-1 11-9 11-7 0-8-11zM67 59q8-11 17 0-1 11-9 11-7 0-8-11z" fill="#fff9f1" stroke="#513354" stroke-width="1.8"/>
+          <ellipse cx="54" cy="62" rx="3.8" ry="6" fill="#547cba"/><ellipse cx="76" cy="62" rx="3.8" ry="6" fill="#547cba"/>
+          <circle cx="55" cy="60" r="1.8" fill="#fff"/><circle cx="77" cy="60" r="1.8" fill="#fff"/>
+          <path d="M44 56q8-7 17 0m5 0q8-7 17 0" fill="none" stroke="#342343" stroke-width="2.8" stroke-linecap="round"/>
+        </g>
+        <path class="pet-cheek" d="M43 72h5m32 0h5" stroke="#ef8c9e" stroke-width="3" stroke-linecap="round"/>
+        <path class="pet-mouth" d="M59 78q5 4 10 0" fill="none" stroke="#9a5369" stroke-width="2" stroke-linecap="round"/>
+        <ellipse class="pet-mouth-talk" cx="64" cy="78" rx="3.5" ry="4.5" fill="#b95067"/>
+        <path class="pet-chest-light" d="m64 108 4 5-4 5-4-5z" fill="#fff0bc"/>
+      </g>
+    </svg>`,
+    alpamys: `<svg class="pet-svg" data-character="alpamys" viewBox="0 0 128 136" aria-hidden="true" focusable="false">
+      <ellipse class="pet-shadow" cx="64" cy="129" rx="31" ry="4"/>
+      <g class="pet-body">
+        <path class="pet-cape" d="M37 66q-16 12-14 45l16 13 9-29zm54 0q16 12 14 45l-16 13-9-29z" fill="#8b3542" stroke="#4c263b" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M49 86h30l13 34H36z" fill="var(--pet-shade)" stroke="var(--pet-outline)" stroke-width="3" stroke-linejoin="round"/>
+        <path class="pet-armor" d="m44 90 20 8 20-8 8 30H36z" fill="var(--pet-shell)" stroke="var(--pet-outline)" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M46 98h36m-39 7h42m-44 7h46" fill="none" stroke="#f6d38a" stroke-width="2" opacity=".9"/>
+        <path class="pet-belt" d="M38 113h52v8H38z" fill="#a86d3e" stroke="#613d39" stroke-width="2"/>
+        <path class="pet-chest-mark" d="m64 97 8 7-8 8-8-8z" fill="#f5d47e" stroke="#74533e" stroke-width="2"/>
+        <path class="pet-arm pet-arm-left" d="m39 91-15 5-4 13 9 9 13-8z" fill="var(--pet-shell)" stroke="var(--pet-outline)" stroke-width="4" stroke-linejoin="round"/>
+        <path class="pet-arm pet-arm-right" d="m89 91 15 5 4 13-9 9-13-8z" fill="var(--pet-shell)" stroke="var(--pet-outline)" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M53 76h22v17q-11 10-22 0z" fill="#d99b78"/>
+        <path class="pet-face" d="M40 48q0-21 24-21t24 21v19q0 20-24 20T40 67z" fill="#dca27e" stroke="#47334a" stroke-width="3"/>
+        <path d="M43 68q10 7 21 5 12 2 21-5v7q-3 12-21 12T43 75z" fill="#493449"/>
+        <g class="pet-eyes pet-human-eyes">
+          <path d="M47 58q7-8 14 0v5q-7 7-14 0zm20 0q7-8 14 0v5q-7 7-14 0z" fill="#fff7e9" stroke="#493449" stroke-width="1.6"/>
+          <circle cx="55" cy="61" r="3.2" fill="#5a7890"/><circle cx="75" cy="61" r="3.2" fill="#5a7890"/>
+          <circle cx="56" cy="60" r="1.2" fill="#fff"/><circle cx="76" cy="60" r="1.2" fill="#fff"/>
+          <path d="M46 55q7-4 15 0m5 0q7-4 15 0" fill="none" stroke="#493449" stroke-width="2.5" stroke-linecap="round"/>
+        </g>
+        <path class="pet-mouth" d="M59 75h10" fill="none" stroke="#824e49" stroke-width="2" stroke-linecap="round"/>
+        <ellipse class="pet-mouth-talk" cx="64" cy="75" rx="3.5" ry="4.5" fill="#773d4b"/>
+        <path class="pet-helmet" d="M36 51q-1-31 28-31t28 31l-8 5-6-16H50l-6 16z" fill="#cf9b51" stroke="#614a4b" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M42 47h44v7H42z" fill="#f0d27e" stroke="#614a4b" stroke-width="2"/>
+        <path class="pet-plume" d="M64 22q-19-10-12-20 12 3 12 12 1-13 15-14 1 14-11 23z" fill="#c75355" stroke="#65394a" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M47 47q4 5 8 0m18 0q4 5 8 0" fill="none" stroke="#8a633f" stroke-width="2"/>
+        <path class="pet-helmet-mark" d="m64 31 5 6-5 6-5-6z" fill="#fff0b7" stroke="#76523e" stroke-width="1.5"/>
+      </g>
     </svg>`
   });
 
@@ -151,6 +209,18 @@
     }
   }
 
+  function selectPet(profile, petId) {
+    const current = normalizeProfile(profile);
+    const nextPetId = safeChoice(petId, PETS, current.petId);
+    const currentPet = PETS.find((item) => item.id === current.petId) || PETS[0];
+    const nextPet = PETS.find((item) => item.id === nextPetId) || PETS[0];
+    return normalizeProfile({
+      ...current,
+      petId: nextPetId,
+      name: current.name === currentPet.name ? nextPet.name : current.name
+    });
+  }
+
   function randomizeProfile(profile, random = Math.random) {
     const pick = (items) => {
       const raw = Number(random());
@@ -158,9 +228,13 @@
       return items[index].id;
     };
     const current = normalizeProfile(profile);
+    const petId = pick(PETS);
+    const currentPet = PETS.find((item) => item.id === current.petId) || PETS[0];
+    const nextPet = PETS.find((item) => item.id === petId) || PETS[0];
     return normalizeProfile({
       ...current,
-      petId: pick(PETS),
+      petId,
+      name: current.name === currentPet.name ? nextPet.name : current.name,
       colorId: pick(COLORS),
       accessoryId: pick(ACCESSORIES),
       temperamentId: pick(TEMPERAMENTS)
@@ -282,7 +356,7 @@
       role.textContent = pet.role;
       copy.append(name, role);
       button.append(avatar, copy);
-      button.addEventListener('click', () => update({ petId: pet.id }, `${pet.name} серігі таңдалды.`));
+      button.addEventListener('click', () => update(selectPet(profile, pet.id), `${pet.name} серігі таңдалды.`));
       catalog.appendChild(button);
     });
 
@@ -373,6 +447,7 @@
     normalizeProfile,
     loadProfile,
     saveProfile,
+    selectPet,
     randomizeProfile,
     renderAvatar,
     initialize
