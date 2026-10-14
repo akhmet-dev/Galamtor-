@@ -1,7 +1,7 @@
 {
   "name": "galamtor",
   "productName": "Galamtor",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Galamtor - Kazakhstani Browser",
   "author": "Galamtor contributors",
   "license": "MIT",
@@ -21,10 +21,11 @@
     "release": "electron-builder --publish onTag",
     "serve": "node server.js",
     "test": "node --test",
-    "check": "node --check index.js && node --check preload.js && node --check renderer.js && node --check url-utils.js && node --check lens-utils.js && node --check legal-assistant.js && node --check ncalayer-diagnostics.js && node --check public/auth-flow.js && node --check browser-state.js && node --check welcome-utils.js && node --check browser-controls.js && node --check profile-storage.js && node --check auth-utils.js && node --check security-utils.js && node --check ollama-client.js && node --check chatgpt-plan.js && node --check pet-companion.js && node --check server.js && node --check bookmark-controls.js && node --check public/release-utils.js && node --check public/github-releases.js && node --check auth-server.js && node --check auth-session.js && node --check public/async-operations.js && node --check public/auth-page.js && npm run build:assets",
+    "check": "node --check index.js && node --check preload.js && node --check renderer.js && node --check url-utils.js && node --check lens-utils.js && node --check legal-assistant.js && node --check ncalayer-diagnostics.js && node --check public/auth-flow.js && node --check browser-state.js && node --check welcome-utils.js && node --check browser-controls.js && node --check profile-storage.js && node --check auth-utils.js && node --check security-utils.js && node --check ollama-client.js && node --check chatgpt-plan.js && node --check pet-companion.js && node --check server.js && node --check bookmark-controls.js && node --check public/release-utils.js && node --check public/github-releases.js && node --check auth-server.js && node --check auth-session.js && node --check public/async-operations.js && node --check public/auth-bridge.js && node --check public/auth-page.js && npm run build:assets",
     "test:ui": "node scripts/qa-smoke.cjs",
     "test:web": "node scripts/qa-web.cjs",
-    "test:backend": "node scripts/qa-backend.cjs"
+    "test:backend": "node scripts/qa-backend.cjs",
+    "test:auth-sdk": "node scripts/qa-auth-sdk.cjs"
   },
   "dependencies": {
     "electron-log": "^5.4.4",
@@ -74,7 +75,9 @@
       "public/release-utils.js",
       "auth-server.js",
       "auth-session.js",
-      "public/async-operations.js"
+      "public/async-operations.js",
+      "public/auth-bridge.html",
+      "public/auth-bridge.js"
     ],
     "publish": [
       {

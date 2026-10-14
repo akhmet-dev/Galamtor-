@@ -1,6 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const flow = require('./public/auth-flow');
+const firebase = require('firebase/compat/app');
+require('firebase/compat/auth');
+const GoogleAuthProvider = firebase.auth.GoogleAuthProvider;
 
 function createStorage(initial = {}) {
   const values = new Map(Object.entries(initial));
@@ -12,6 +15,51 @@ function createStorage(initial = {}) {
 }
 
 const state = 'a'.repeat(64);
+
+test('reads real Firebase compat OAuth credentials where the modular extractor returns null', () => {
+  const credential = GoogleAuthProvider.credential('qa-google-id', 'qa-google-access');
+  const result = { operationType: 'signIn', user: {}, credential, additionalUserInfo: {} };
+  assert.equal(GoogleAuthProvider.credentialFromResult(result), null);
+  assert.deepEqual(flow.extractGoogleTokens(result, GoogleAuthProvider), {
+    googleIdToken: 'qa-google-id', googleAccessToken: 'qa-google-access'
+  });
+});
+
+test('supports Google access-token-only and ID-token-only compat credentials', () => {
+  for (const [googleIdToken, googleAccessToken] of [['qa-google-id', null], [null, 'qa-google-access']]) {
+    const credential = GoogleAuthProvider.credential(googleIdToken, googleAccessToken);
+    assert.deepEqual(flow.extractGoogleTokens({ credential }, GoogleAuthProvider), { googleIdToken, googleAccessToken });
+  }
+});
+
+test('supports a modular result using the actual Firebase SDK extractor', () => {
+  const result = { _tokenResponse: { oauthIdToken: 'qa-google-id', oauthAccessToken: 'qa-google-access' } };
+  assert.deepEqual(flow.extractGoogleTokens(result, GoogleAuthProvider), {
+    googleIdToken: 'qa-google-id', googleAccessToken: 'qa-google-access'
+  });
+});
+
+test('rejects missing, non-Google and malformed credentials without requesting a Firebase user token', () => {
+  const user = { getIdToken() { assert.fail('Firebase ID token must not be substituted for a Google token'); } };
+  for (const result of [null, {}, { user, credential: null },
+    { credential: { providerId: 'github.com', accessToken: 'qa-other-provider' } },
+    { credential: { providerId: 'google.com', idToken: {}, accessToken: ' ' } },
+    { credential: { providerId: 'google.com', idToken: 'x'.repeat(16385) } }]) {
+    assert.equal(flow.extractGoogleTokens(result, GoogleAuthProvider), null);
+  }
+});
+
+test('returns only bounded Google token fields, excluding account data', () => {
+  const credential = { providerId: 'google.com', idToken: 'qa-google-id', accessToken: 'qa-google-access', email: 'qa@example.invalid', secret: 'qa-placeholder' };
+  assert.deepEqual(Object.keys(flow.extractGoogleTokens({ credential }, GoogleAuthProvider)).sort(), ['googleAccessToken', 'googleIdToken']);
+});
+
+test('does not fall back to another response when an explicit compat credential is absent or rejected', () => {
+  const provider = { credentialFromResult() { assert.fail('Compat result must use its own credential'); } };
+  assert.equal(flow.extractGoogleTokens({ credential: null }, provider), null);
+  assert.equal(flow.extractGoogleTokens({ credential: { providerId: 'github.com', accessToken: 'qa-other' } }, provider), null);
+  assert.equal(flow.extractGoogleTokens({}, { credentialFromResult() { throw new Error('fixture'); } }), null);
+});
 
 test('starts redirect only for an explicit login request with a valid state', () => {
   const storage = createStorage();

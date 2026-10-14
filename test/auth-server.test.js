@@ -16,8 +16,43 @@ async function fixture(t, options = {}) {
       req.on('error', reject); req.end(typeof body === 'string' ? body : JSON.stringify(body));
     });
   }
-  return { flow, request };
+  return { flow, request, localOrigin: `http://127.0.0.1:${port}` };
 }
+
+test('bridge documents require a valid nonce, approved opener origin and exact loopback host', async t => {
+  const f = await fixture(t, { bridge: { html: '<title>Bridge fixture</title>', script: '// fixture' } });
+  const path = `/bridge?state=${state}&origin=${encodeURIComponent(origin)}`;
+  const page = await f.request('', {}, path, 'GET');
+  assert.equal(page.status, 200); assert.match(page.headers['content-type'], /text\/html/);
+  assert.equal(page.headers['cache-control'], 'no-store'); assert.equal(page.headers['referrer-policy'], 'no-referrer');
+  assert.match(page.headers['content-security-policy'], /frame-ancestors 'none'/);
+  assert.match(page.headers['content-security-policy'], /connect-src 'self'/);
+  assert.equal((await f.request('', {}, path.replace(state, 'b'.repeat(64)), 'GET')).status, 403);
+  assert.equal((await f.request('', {}, path.replace(encodeURIComponent(origin), encodeURIComponent('https://evil.example')), 'GET')).status, 403);
+  assert.equal((await f.request('', { Host:'evil.example' }, path, 'GET')).status, 403);
+  const script = await f.request('', {}, '/auth-bridge.js', 'GET');
+  assert.equal(script.status, 200); assert.equal(script.body, '// fixture');
+});
+
+test('bridge same-origin callbacks still require the session nonce and reject null origins', async t => {
+  let dispatched = 0;
+  const f = await fixture(t, { bridge: { html:'fixture',script:'fixture' }, onCredential: async () => { dispatched++;return {ok:true}; } });
+  assert.equal((await f.request(undefined, {Origin:'null'})).status, 403);
+  assert.equal((await f.request({ state:'b'.repeat(64),googleIdToken:'fake' }, {Origin:f.localOrigin})).status, 403);
+  assert.equal(dispatched, 0);
+  assert.equal((await f.request(undefined, {Origin:f.localOrigin})).status, 200); assert.equal(dispatched, 1);
+});
+
+test('same-origin access remains disabled unless a local bridge is configured', async t => {
+  const f = await fixture(t);
+  assert.equal((await f.request(undefined, {Origin:f.localOrigin})).status, 403);
+});
+
+test('a malformed HTTP target cannot crash the callback server', async t => {
+  const f = await fixture(t);
+  assert.equal((await f.request('', {}, 'http://[', 'GET')).status, 400);
+  assert.equal((await f.request()).status, 200);
+});
 
 test('loopback requires the approved origin, exact host, valid state and bounded JSON', async t => {
   const f = await fixture(t);

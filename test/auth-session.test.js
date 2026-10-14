@@ -2,6 +2,25 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createAuthSession } = require('../auth-session');
 const tick = () => new Promise(resolve => setImmediate(resolve));
+
+test('credential exchange waits for safe persistence setup before contacting Firebase', async t => {
+  let ready;const f=fixture(t,{beforeSignIn:()=>new Promise(resolve=>{ready=resolve;})});await tick();f.session.start();
+  const accepted=f.session.accept({requestId:'memory-ready'});await tick();assert.equal(f.requests.length,0);
+  ready();await tick();assert.equal(f.requests.length,1);f.requests[0].resolve({uid:'qa-user'});
+  assert.equal(await accepted,true);
+});
+
+test('failed persistence setup cannot dispatch or acknowledge successful authentication', async t => {
+  const f=fixture(t,{beforeSignIn:async()=>{throw Object.assign(new Error('fixture'),{code:'auth/web-storage-unsupported'});}});await tick();f.session.start();
+  assert.equal(await f.session.accept({requestId:'persistence-failed'}),false);assert.equal(f.requests.length,0);
+  assert.deepEqual(f.complete,[['persistence-failed','auth/web-storage-unsupported']]);assert.equal(f.states.at(-1),'disconnected');
+});
+
+test('cancelling while persistence setup is pending never exchanges a late credential', async t => {
+  let ready;const f=fixture(t,{beforeSignIn:()=>new Promise(resolve=>{ready=resolve;})});await tick();f.session.start();
+  const accepted=f.session.accept({requestId:'persistence-cancelled'});await tick();f.session.cancel();ready();
+  assert.equal(await accepted,false);assert.equal(f.requests.length,0);assert.equal(f.session.user,null);
+});
 function fixture(t, options = {}) {
   const requests = [], states = [], complete = [], errors = [];
   let observer;

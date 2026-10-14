@@ -9,7 +9,9 @@
       "ignore": [
         "firebase.json",
         "**/.*",
-        "**/node_modules/**"
+        "**/node_modules/**",
+        "auth-bridge.html",
+        "auth-bridge.js"
       ],
       "headers": [
         {

@@ -670,6 +670,10 @@ function startAuthServer(win, state) {
   const report = code => { if (target && !target.isDestroyed()) target.webContents.send('auth-server-error', code); };
   const flow = createAuthCallbackServer({
     state, origins: ALLOWED_AUTH_ORIGINS,
+    bridge: {
+      html: fs.readFileSync(path.join(__dirname, 'public', 'auth-bridge.html'), 'utf8'),
+      script: fs.readFileSync(path.join(__dirname, 'public', 'auth-bridge.js'), 'utf8')
+    },
     onExpire: () => report('auth/timeout'),
     onCancel: () => { report('auth/cancelled'); stopAuthServer(); },
     onCredential: payload => new Promise(resolve => {

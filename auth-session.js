@@ -4,7 +4,7 @@
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.GalamtorAuthSession = api;
 })(globalThis, function ({ withTimeout }) {
-  function createAuthSession({ auth, credentialFromTokens, onState = () => {}, onError = () => {}, onComplete = () => {}, onSuccess = () => {}, chooserTimeoutMs = 300000, credentialTimeoutMs = 30000 }) {
+  function createAuthSession({ auth, credentialFromTokens, beforeSignIn = null, onState = () => {}, onError = () => {}, onComplete = () => {}, onSuccess = () => {}, chooserTimeoutMs = 300000, credentialTimeoutMs = 30000 }) {
     let generation = 0, attempt = null, timer = null, acceptedUser = auth.currentUser || null, restoring = false;
     const pending = new Set();
     function emit(state) { onState(state, acceptedUser); }
@@ -53,7 +53,14 @@
         clearTimer();
         pending.add(current.id);
         let raw;
-        try { raw = Promise.resolve(auth.signInWithCredential(credentialFromTokens(payload))); }
+        try {
+          const credential = credentialFromTokens(payload);
+          const signIn = () => {
+            if (generation !== current.id || attempt !== current) throw Object.assign(new Error('Cancelled'), {code:'auth/cancelled'});
+            return auth.signInWithCredential(credential);
+          };
+          raw = beforeSignIn ? Promise.resolve().then(beforeSignIn).then(signIn) : Promise.resolve(signIn());
+        }
         catch (error) { raw = Promise.reject(error); }
         // Firebase has no credential-request cancellation API. A late result
         // must restore the last accepted session instead of signing in silently.

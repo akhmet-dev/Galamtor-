@@ -5,6 +5,8 @@
   const help = document.getElementById('setup-help');
   const params = new URLSearchParams(location.search);
   let storage = null, state = params.get('state'), generation = 0, busy = false, credentials = null, persistenceReady = false;
+  const localOrigin = 'http://127.0.0.1:4242';
+  let bridgeWindow = null, bridgeAttempt = null, bridgeTimer = null, bridgeWatch = null;
   try { storage = sessionStorage; } catch {}
   const flow = window.GalamtorAuthFlow;
   function setStatus(text, loading = false) { status.textContent = text; spinner.style.display = loading ? 'inline-block' : 'none'; }
@@ -52,6 +54,69 @@
     button(retry ? 'retry-btn' : 'login-btn', retry ? 'Google арқылы қайта кіру' : 'Google арқылы кіру', persistenceReady ? startPopup : ready);
     button('cancel-btn', 'Кіруді тоқтату', cancel);
   }
+  function offerBridge(mode = 'login') {
+    controls.replaceChildren();
+    button('retry-btn', mode === 'cancel' ? 'Жергілікті терезеде тоқтату' : 'Galamtor-да кіруді аяқтау', () => openBridge(mode));
+    if (mode === 'login') {
+      button('direct-retry-btn', 'Тікелей қайта жіберу', () => sendCredentials(generation));
+      button('cancel-btn', 'Кіруді тоқтату', cancel);
+    }
+  }
+  function clearBridgeTimers() { clearTimeout(bridgeTimer); clearInterval(bridgeWatch); }
+  function waitForBridge(mode, milliseconds) {
+    clearBridgeTimers();
+    const unavailable = text => {
+      clearBridgeTimers(); bridgeAttempt = null; busy = false;
+      setStatus(text); log('bridge/unavailable'); offerBridge(mode);
+    };
+    bridgeTimer = setTimeout(() => unavailable('Galamtor жергілікті терезесі жауап бермеді. Қолданбадағы кіру нәтижесін тексеріңіз; 1.5.2 немесе жаңа нұсқа қажет.'), milliseconds);
+    bridgeWatch = setInterval(() => {
+      if (bridgeWindow?.closed) unavailable('Жергілікті терезе жабылды. Қолданбадағы кіру нәтижесін тексеріңіз немесе қайта көріңіз.');
+    }, 500);
+  }
+  function openBridge(mode) {
+    clearBridgeTimers();
+    bridgeWindow?.close();
+    bridgeAttempt = { generation, mode, ready: false };
+    // A top-level window works in Safari without allowing HTTPS mixed-content
+    // fetch. Only the CSRF nonce is in the URL; credentials travel in memory.
+    bridgeWindow = window.open(`${localOrigin}/bridge?state=${state}&origin=${encodeURIComponent(location.origin)}`, '_blank', 'popup,width=520,height=460');
+    if (!bridgeWindow) {
+      bridgeAttempt = null; busy = false;
+      setStatus('Жергілікті терезе бұғатталды. Popup рұқсатын беріп, қайта басыңыз.'); offerBridge(mode); return;
+    }
+    busy = true; controls.replaceChildren(); button('cancel-btn', 'Кіруді тоқтату', cancel);
+    setStatus('Жергілікті Galamtor терезесі ашылуда…', true);
+    waitForBridge(mode, 10000);
+  }
+  window.addEventListener('message', event => {
+    const attempt = bridgeAttempt;
+    if (!attempt || attempt.generation !== generation || event.origin !== localOrigin || event.source !== bridgeWindow || event.data?.state !== state) return;
+    if (event.data.type === 'galamtor-auth-ready') {
+      if (attempt.ready) return;
+      attempt.ready = true;
+      if (attempt.mode === 'cancel') bridgeWindow.postMessage({ type: 'galamtor-auth-cancel', state }, localOrigin);
+      else if (credentials) bridgeWindow.postMessage({ type: 'galamtor-auth-credential', state, ...credentials }, localOrigin);
+      setStatus(attempt.mode === 'cancel' ? 'Кіру тоқтатылуда…' : 'Galamtor қолданбасында кіру расталуда…', true);
+      waitForBridge(attempt.mode, attempt.mode === 'cancel' ? 6000 : 42000);
+    } else if (event.data.type === 'galamtor-auth-result') {
+      bridgeAttempt = null; busy = false; clearBridgeTimers(); controls.replaceChildren();
+      if (event.data.code === 'auth/already-complete' || (attempt.mode === 'cancel' && event.data.ok === true && event.data.code === 'complete')) {
+        credentials = null; flow.clearLogin(storage); auth.signOut().catch(() => {});
+        setStatus('Кіру қолданбада аяқталып қойған. Galamtor-да аккаунттан шығуға болады.'); log('auth/already-complete');
+      } else if (event.data.ok === true && event.data.code === 'complete') {
+        credentials = null; flow.clearLogin(storage); auth.signOut().catch(() => {});
+        setStatus('✅ Galamtor кіруі расталды! Қолданбаға оралыңыз.'); log('auth/complete');
+      } else if (event.data.code === 'auth/cancelled') {
+        credentials = null; flow.clearLogin(storage); setStatus('Кіру тоқтатылды. Galamtor-ға оралыңыз.'); log('auth/cancelled');
+      } else if (event.data.code === 'bridge/unavailable' || event.data.code === 'bridge/timeout') {
+        setStatus('Жергілікті байланыс орнамады. Galamtor ашық екенін тексеріп, қайта көріңіз.'); log('bridge/unavailable'); offerBridge(attempt.mode);
+      } else {
+        credentials = null;
+        setStatus('Galamtor кіруді растамады. Қолданбада кіруді қайта бастаңыз.'); log('bridge/rejected');
+      }
+    }
+  });
   function showError(code) {
     const messages = {
       'auth/popup-blocked': 'Google терезесі бұғатталды. Осы сайтқа popup рұқсатын беріп, батырманы қайта басыңыз.',
@@ -61,7 +126,8 @@
       'auth/timeout': 'Кіру уақыты аяқталды. Galamtor қолданбасынан қайта бастаңыз.',
       'auth/unauthorized-domain': 'Firebase бұл сайттың доменіне рұқсат бермеді.',
       'auth/account-exists-with-different-credential': 'Бұл аккаунт басқа кіру әдісімен тіркелген.',
-      'auth/invalid-credential': 'Google кіру деректері жарамсыз. Қолданбадан қайта бастаңыз.'
+      'auth/invalid-credential': 'Firebase Google кіруін қабылдамады. Қайталап көріңіз.',
+      'auth/missing-google-credential': 'Google кіру нәтижесінде қажетті деректер жоқ. Қайталап көріңіз.'
     };
     setStatus(messages[code] || 'Google кіруі аяқталмады. Қайталап көріңіз.');
     log(Object.hasOwn(messages, code) ? code : 'auth/failed');
@@ -96,10 +162,8 @@
       }
     } catch {
       if (id !== generation) return;
-      setStatus('Galamtor-мен байланыс орнамады. Қолданба ашық екенін тексеріңіз. Браузер сұраса, жергілікті желіге рұқсат беріңіз.');
-      log('callback/unavailable'); controls.replaceChildren();
-      button('retry-btn', 'Galamtor-ға қайта жіберу', () => sendCredentials(generation));
-      button('cancel-btn', 'Кіруді тоқтату', cancel);
+      setStatus('Браузер тікелей жергілікті байланысты бұғаттады немесе қолданбаға қосылмады. «Galamtor-да кіруді аяқтау» батырмасын басыңыз. Қолданба 1.5.2 немесе жаңа нұсқа болуы керек.');
+      log('callback/unavailable'); offerBridge();
     } finally { if (id === generation) busy = false; }
   }
   function startPopup() {
@@ -112,9 +176,9 @@
     try { request = auth.signInWithPopup(provider); } catch (error) { request = Promise.reject(error); }
     withTimeout(request, 120000, 'auth/timeout').then(async result => {
       if (id !== generation) return;
-      const credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
-      if (!credential?.idToken && !credential?.accessToken) throw Object.assign(new Error('Missing credential'), { code: 'auth/invalid-credential' });
-      credentials = { googleIdToken: credential.idToken || null, googleAccessToken: credential.accessToken || null };
+      credentials = flow.extractGoogleTokens(result, firebase.auth.GoogleAuthProvider);
+      if (!credentials) throw Object.assign(new Error('Missing Google credential'), { code: 'auth/missing-google-credential' });
+      log('auth/google-credential-ready');
       busy = false;
       await sendCredentials(id);
     }).catch(error => {
@@ -124,12 +188,20 @@
   }
   async function cancel() {
     generation++; busy = false; credentials = null; flow.clearLogin(storage);
-    controls.replaceChildren(); setStatus('Кіру тоқтатылды. Google терезесін жауып, Galamtor-ға оралыңыз.');
     auth.signOut().catch(() => {});
+    if (bridgeWindow && bridgeAttempt?.ready) {
+      bridgeAttempt = { generation, mode: 'cancel', ready: true };
+      bridgeWindow.postMessage({ type: 'galamtor-auth-cancel', state }, localOrigin);
+      controls.replaceChildren(); setStatus('Кіру тоқтатылуда…', true); waitForBridge('cancel', 6000); return;
+    }
+    clearBridgeTimers(); bridgeAttempt = null;
+    controls.replaceChildren(); setStatus('Кіру тоқтатылды. Google терезесін жауып, Galamtor-ға оралыңыз.');
     try {
       const response = await fetch('http://127.0.0.1:4242/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(5000), body: JSON.stringify({ state }) });
       if (!response.ok) throw new Error('Cancellation unavailable');
-    } catch { setStatus('Бұл беттегі кіру тоқтатылды. Galamtor-дағы «Кіруді тоқтату» батырмасын да басыңыз.'); }
+    } catch {
+      setStatus('Бұл беттегі кіру тоқтатылды. Жергілікті терезеде тоқтатуға немесе Galamtor-дағы «Кіруді тоқтату» батырмасын басуға болады.'); offerBridge('cancel');
+    }
   }
   async function ready() {
     const id = generation;
@@ -139,9 +211,9 @@
         const result = await withTimeout(auth.getRedirectResult(), 8000, 'auth/timeout');
         if (id !== generation) return;
         if (result?.user) {
-          const credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
-          if (credential?.idToken || credential?.accessToken) {
-            credentials = { googleIdToken: credential.idToken || null, googleAccessToken: credential.accessToken || null };
+          credentials = flow.extractGoogleTokens(result, firebase.auth.GoogleAuthProvider);
+          if (credentials) {
+            log('auth/google-credential-ready');
             await withTimeout(auth.setPersistence(firebase.auth.Auth.Persistence.NONE), 8000, 'auth/timeout');
             await sendCredentials(generation); return;
           }

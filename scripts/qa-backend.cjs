@@ -39,6 +39,7 @@ async function recover() { await app.evaluate(() => { process.getBuiltinModule('
     page = await app.firstWindow(); page.setDefaultTimeout(20000);
     page.on('pageerror', error => errors.push(error.message));
     await page.waitForFunction(() => typeof _sessionRestoreComplete !== 'undefined' && _sessionRestoreComplete && _gp.authSession);
+    assert.equal(await page.evaluate(async()=>{await desktopAuthPersistenceReady;return auth._delegate.persistenceManager.persistence.type;}),'NONE');
     assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profile);
     await app.evaluate(({ shell, safeStorage }) => {
       safeStorage.isEncryptionAvailable = () => false;
@@ -158,6 +159,19 @@ async function recover() { await app.evaluate(() => { process.getBuiltinModule('
       assert.equal(await untrusted.evaluate(() => galamtorAPI.clearCache()), false);
       await app.evaluate(() => globalThis.__qaUntrusted.close());
       assert.ok((await page.evaluate(() => galamtorAPI.getBookmarks())).length > 0);
+    });
+    await check('local bridge assets and same-origin callbacks reach the trusted desktop authentication', async () => {
+      await page.evaluate(() => {window.__qaCredentialMode='success';window.__qaCloudMode='online';gpOpenModal('profile');});
+      const state=await start();
+      const document=await fetch(`http://127.0.0.1:4242/bridge?state=${state}&origin=${encodeURIComponent('https://galamtor.web.app')}`);
+      assert.equal(document.status,200);assert.match(document.headers.get('content-security-policy'),/frame-ancestors 'none'/);
+      assert.ok((await document.text()).includes('/auth-bridge.js'));
+      const script=await fetch('http://127.0.0.1:4242/auth-bridge.js');assert.equal(script.status,200);
+      assert.ok((await script.text()).includes('event.source !== opener'));
+      const response=await post(state,undefined,'http://127.0.0.1:4242');
+      assert.equal(response.status,200);assert.equal((await response.json()).code,'complete');
+      await page.waitForFunction(()=>_gp.syncState==='connected');
+      await page.locator('#gp-sync-auth-btn').click();await page.waitForFunction(()=>_gp.syncState==='disconnected');
     });
     assert.deepEqual(errors, []);
     fs.writeFileSync(path.join(output, 'backend-results.json'), JSON.stringify({passed,rendererErrors:errors,packaged:await app.evaluate(({app})=>app.isPackaged),architecture:await app.evaluate(()=>process.arch),profile:'disposable; synthetic credentials; no real account'},null,2));

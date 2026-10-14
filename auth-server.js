@@ -2,12 +2,28 @@ const http = require('node:http');
 const { validateAuthCallback, validateAuthState } = require('./auth-utils');
 const { withTimeout } = require('./public/async-operations');
 
-function createAuthCallbackServer({ state, origins, onCredential, onExpire = () => {}, onCancel = () => {}, credentialTimeoutMs = 35000, sessionTimeoutMs = 300000 }) {
+function createAuthCallbackServer({ state, origins, bridge = null, onCredential, onExpire = () => {}, onCancel = () => {}, credentialTimeoutMs = 35000, sessionTimeoutMs = 300000 }) {
   let stopped = false, busy = false, expiry;
   const responses = new Set();
   const server = http.createServer((req, res) => {
     const port = server.address()?.port;
-    const allowed = origins.includes(req.headers.origin) && req.headers.host === `127.0.0.1:${port}`;
+    const localOrigin = `http://127.0.0.1:${port}`;
+    const validHost = req.headers.host === `127.0.0.1:${port}`;
+    let url;
+    try { url = new URL(req.url, localOrigin); }
+    catch { res.writeHead(400, { 'Cache-Control': 'no-store' }); res.end(); return; }
+    if (bridge && validHost && req.method === 'GET' && ['/bridge', '/auth-bridge.js'].includes(url.pathname)) {
+      const validPage = url.pathname === '/auth-bridge.js' ||
+        (validateAuthState(url.searchParams.get('state'), state) && origins.includes(url.searchParams.get('origin')));
+      if (stopped || !validPage) { res.writeHead(403, { 'Cache-Control': 'no-store' }); res.end(); return; }
+      res.writeHead(200, {
+        'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
+        'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+        'Content-Type': url.pathname === '/bridge' ? 'text/html; charset=utf-8' : 'application/javascript; charset=utf-8'
+      });
+      res.end(url.pathname === '/bridge' ? bridge.html : bridge.script); return;
+    }
+    const allowed = validHost && (origins.includes(req.headers.origin) || (bridge && req.headers.origin === localOrigin));
     const headers = { 'Cache-Control': 'no-store', 'Content-Type': 'application/json', 'Vary': 'Origin' };
     if (allowed) Object.assign(headers, {
       'Access-Control-Allow-Origin': req.headers.origin,

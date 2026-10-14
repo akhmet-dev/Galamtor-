@@ -11,6 +11,25 @@
     return typeof state === 'string' && STATE_PATTERN.test(state);
   }
 
+  function extractGoogleTokens(result, GoogleAuthProvider) {
+    if (!result || typeof result !== 'object') return null;
+    let credential;
+    try {
+      // Compat UserCredential already contains the OAuth credential. Its wrapper
+      // omits _tokenResponse, so the modular credentialFromResult returns null.
+      credential = 'credential' in result
+        ? result.credential
+        : GoogleAuthProvider?.credentialFromResult(result);
+    } catch { return null; }
+    if (credential?.providerId !== 'google.com') return null;
+    const token = value => typeof value === 'string' && value.length > 0 &&
+      value.length <= 16384 && !/\s/.test(value) ? value : null;
+    const googleIdToken = token(credential.idToken);
+    const googleAccessToken = token(credential.accessToken);
+    // Never substitute user.getIdToken(): that is a Firebase token, not Google OAuth.
+    return googleIdToken || googleAccessToken ? { googleIdToken, googleAccessToken } : null;
+  }
+
   function markRedirectPending(state, storage) {
     if (!isValidState(state) || !storage) return false;
     try {
@@ -70,6 +89,7 @@
     LOGIN_STATE_KEY,
     REDIRECT_PENDING_KEY,
     isValidState,
+    extractGoogleTokens,
     markRedirectPending,
     clearRedirectPending,
     clearLogin,

@@ -18,6 +18,10 @@ const firebaseConfig = {
 // Initialize Firebase compat SDK
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
+// Firebase's default disk persistence contains raw refresh tokens. Keep this
+// session in memory and gate credential exchange on successful setup.
+const desktopAuthPersistenceReady = auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
+desktopAuthPersistenceReady.catch(() => {});
 const db = firebase.firestore();
 let desktopAuthSession = null;
 function getRegistrationDate() {
@@ -3614,6 +3618,7 @@ const UI_TRANSLATIONS = {
     vibeCountLabel: 'ВАЙБТАР САНЫ',
     syncStatusLabel: 'БҰЛТТЫ СИНХРОНИЗАЦИЯ',
     syncConnected: 'Google аккаунты қосылған',
+    syncSessionOnly: 'Қолданбаны толық жауып, қайта ашқанда Google кіруін қайталау керек.',
     syncDisconnected: 'Бұлтқа қосылмаған',
     syncConnecting: 'Бұлтқа қосылуда...',
     syncButtonLogout: 'Шығу',
@@ -3640,6 +3645,7 @@ const UI_TRANSLATIONS = {
     vibeCountLabel: 'КОЛ-ВО ВАЙБОВ',
     syncStatusLabel: 'ОБЛАЧНАЯ СИНХРОНИЗАЦИЯ',
     syncConnected: 'Аккаунт Google подключён',
+    syncSessionOnly: 'После полного закрытия и повторного открытия приложения войдите в Google снова.',
     syncDisconnected: 'Не подключено к облаку',
     syncConnecting: 'Подключение...',
     syncButtonLogout: 'Выйти',
@@ -3666,6 +3672,7 @@ const UI_TRANSLATIONS = {
     vibeCountLabel: 'VIBES COUNT',
     syncStatusLabel: 'CLOUD SYNC',
     syncConnected: 'Google account connected',
+    syncSessionOnly: 'Sign in to Google again after fully closing and reopening the app.',
     syncDisconnected: 'Not connected to Cloud',
     syncConnecting: 'Connecting to Cloud...',
     syncButtonLogout: 'Logout',
@@ -4084,6 +4091,7 @@ function gpRenderProfileTab() {
     </div>
     <p id="gp-cloud-write-status" role="status" style="margin:-14px 0 16px;font-size:12px;opacity:.7"></p>
     <button id="gp-cloud-write-retry" class="gp-btn gp-btn-secondary" type="button" hidden>Бұлтқа қайта сақтау</button>
+    <p id="gp-auth-session-note" style="font-size:12px;line-height:1.5;color:rgba(255,255,255,.65)">${trans.syncSessionOnly}</p>
 
     <div class="gp-stats" style="margin-top:16px; margin-bottom:24px;">
       <div class="gp-stat">
@@ -5292,6 +5300,7 @@ function gpInitProfileHub() {
   // Authentication completes independently of the cloud-write queue.
   _gp.authSession = GalamtorAuthSession.createAuthSession({
     auth,
+    beforeSignIn: () => desktopAuthPersistenceReady,
     credentialFromTokens: payload => firebase.auth.GoogleAuthProvider.credential(payload.googleIdToken || null, payload.googleAccessToken || null),
     onState: (state, user) => {
       const previous = _gp.syncState;

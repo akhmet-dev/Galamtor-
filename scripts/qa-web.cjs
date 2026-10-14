@@ -22,7 +22,8 @@ let app, browser, page;
 const fakeFirebase = `
 (() => {
   class Provider { setCustomParameters() {} }
-  Provider.credentialFromResult = () => ({ idToken:'qa-fake-credential', accessToken:null });
+  // Match the real SDK: the modular extractor cannot read a compat result.
+  Provider.credentialFromResult = result => result?._tokenResponse ? ({providerId:'google.com',idToken:result._tokenResponse.oauthIdToken,accessToken:null}) : null;
   function auth() { return {
     setPersistence: async value => { window.__qaPersistence = value; if(window.__qaPersistenceFailure) throw Object.assign(new Error('fixture'),{code:'auth/network-request-failed'}); },
     getRedirectResult: async () => null,
@@ -35,7 +36,9 @@ const fakeFirebase = `
       if(window.__qaPopupMode === 'closed') return Promise.reject(Object.assign(new Error('fixture'),{code:'auth/popup-closed-by-user'}));
       if(window.__qaPopupMode === 'pending') return new Promise(resolve=>{window.__qaResolvePopup=resolve});
       if(window.__qaPopupMode === 'empty') return Promise.resolve({user:{},credential:null});
-      return Promise.resolve({user:{}});
+      if(window.__qaPopupMode === 'invalid') return Promise.reject(Object.assign(new Error('fixture'),{code:'auth/invalid-credential'}));
+      if(window.__qaPopupMode === 'wrong-provider') return Promise.resolve({user:{},credential:{providerId:'github.com',accessToken:'qa-fake-other-provider'}});
+      return Promise.resolve({user:{},credential:{providerId:'google.com',idToken:'qa-fake-credential',accessToken:null}});
     }
   }; }
   auth.GoogleAuthProvider = Provider;
@@ -156,6 +159,32 @@ const fakeFirebase = `
       await authPage.locator('#retry-btn').click();
       await authPage.waitForFunction(()=>document.getElementById('status').textContent.includes('кіруі расталды'));
     });
+    await check('missing or non-Google credentials stay retryable and never reach the desktop',async()=>{
+      for (const mode of ['empty','wrong-provider']) {
+        await authPage.goto(authURL); await authPage.locator('#login-btn').waitFor();
+        const before = callbacks;
+        await authPage.evaluate(mode=>window.__qaPopupMode=mode,mode);
+        await authPage.locator('#login-btn').click();
+        await authPage.waitForFunction(()=>document.getElementById('logs').textContent.includes('auth/missing-google-credential'));
+        assert.equal(callbacks,before);
+        assert.equal(await authPage.locator('#spinner').isVisible(),false);
+        await authPage.evaluate(()=>window.__qaPopupMode='success');
+        await authPage.locator('#retry-btn').click();
+        await authPage.waitForFunction(()=>document.getElementById('status').textContent.includes('кіруі расталды'));
+      }
+    });
+    await check('a Firebase provider rejection has a distinct safe diagnostic and manual retry',async()=>{
+      await authPage.goto(authURL); await authPage.locator('#login-btn').waitFor();
+      const before = callbacks;
+      await authPage.evaluate(()=>window.__qaPopupMode='invalid');
+      await authPage.locator('#login-btn').click();
+      await authPage.waitForFunction(()=>document.getElementById('logs').textContent.includes('auth/invalid-credential'));
+      assert.equal(callbacks,before);
+      assert.ok(!(await authPage.locator('#logs').textContent()).includes('auth/missing-google-credential'));
+      await authPage.evaluate(()=>window.__qaPopupMode='success');
+      await authPage.locator('#retry-btn').click();
+      await authPage.waitForFunction(()=>document.getElementById('status').textContent.includes('кіруі расталды'));
+    });
     await check('desktop rejection never shows successful sign-in',async()=>{
       callbackMode='rejected'; await authPage.goto(authURL);await authPage.locator('#login-btn').waitFor();
       await authPage.locator('#login-btn').click();
@@ -171,7 +200,7 @@ const fakeFirebase = `
     await check('callback network retry resends credentials without reopening the account chooser',async()=>{
       callbackMode='network'; await authPage.goto(authURL);await authPage.locator('#login-btn').waitFor();
       await authPage.locator('#login-btn').click();await authPage.locator('#retry-btn').waitFor();
-      const before=callbacks;callbackMode='ok';await authPage.locator('#retry-btn').click();
+      const before=callbacks;callbackMode='ok';await authPage.locator('#direct-retry-btn').click();
       await authPage.waitForFunction(()=>document.getElementById('status').textContent.includes('кіруі расталды'));
       assert.equal(callbacks,before+1);assert.equal(await authPage.evaluate(()=>window.__qaPopups),1);
     });
