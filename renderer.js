@@ -19,6 +19,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+let desktopAuthSession = null;
 function getRegistrationDate() {
   const created = auth.currentUser?.metadata?.creationTime;
   if (created) return new Date(created).toISOString().slice(0, 10);
@@ -30,21 +31,30 @@ function getRegistrationDate() {
   return localCreated;
 }
 
-async function syncProfileStats(userId, stats) {
-  try {
-    if (!userId || !auth.currentUser) return;
-    const profileRef = db.collection('users').doc(userId).collection('profileData').doc('stats');
-    await profileRef.set({
-      openTabsCount: stats.openTabsCount,
-      pinnedTabsCount: stats.pinnedTabsCount,
-      vibesCount: stats.vibesCount,
-      registrationDate: stats.registrationDate || getRegistrationDate(),
-      lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+let cloudWriteState = 'idle';
+const profileWriter = GalamtorAsync.createLatestWriter({
+  write: async ({ userId, stats }) => {
+    if (auth.currentUser?.uid !== userId) throw Object.assign(new Error('Session changed'), { code: 'sync/session-changed' });
+    await db.collection('users').doc(userId).collection('profileData').doc('stats').set({
+      ...stats, lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
-    console.log('[Firebase] Stats successfully synchronized.');
-  } catch (err) {
-    console.warn('[Firebase] Sync skipped or failed:', err?.message || err);
-  }
+  },
+  onState: state => { cloudWriteState = state; gpUpdateCloudWriteStatus(); }
+});
+function syncProfileStats(userId, stats) {
+  if (!userId || auth.currentUser?.uid !== userId) return Promise.resolve(false);
+  return profileWriter.update({ userId, stats });
+}
+function gpCurrentStats() {
+  return { openTabsCount: tabs.length, pinnedTabsCount: dockIcons.querySelectorAll('.dock-btn[data-url]').length,
+    vibesCount: GalamtorStore.getVibes().length, registrationDate: getRegistrationDate() };
+}
+function gpUpdateCloudWriteStatus() {
+  const connected = auth.currentUser && _gp.syncState === 'connected';
+  const label = document.getElementById('gp-cloud-write-status');
+  if (label) label.textContent = !connected ? '' : ({ idle: '', saving: 'Профиль статистикасы сақталуда…', saved: 'Профиль статистикасы сақталды', error: 'Бұлтқа сақтау аяқталмады. Жергілікті деректер сақталған.' })[cloudWriteState];
+  const retry = document.getElementById('gp-cloud-write-retry');
+  if (retry) retry.hidden = !connected || cloudWriteState !== 'error';
 }
 
 function updateWorkspaceTooltip() {
@@ -81,7 +91,7 @@ function gpTriggerAutoSync() {
     updateWorkspaceTooltip();
     persistCurrentSession();
 
-    const user = auth.currentUser;
+    const user = desktopAuthSession ? desktopAuthSession.user : auth.currentUser;
     if (!user) return;
     
     if (window.gpSyncTimeout) clearTimeout(window.gpSyncTimeout);
@@ -3603,7 +3613,7 @@ const UI_TRANSLATIONS = {
     pinnedSites: 'БЕКІТІЛГЕН',
     vibeCountLabel: 'ВАЙБТАР САНЫ',
     syncStatusLabel: 'БҰЛТТЫ СИНХРОНИЗАЦИЯ',
-    syncConnected: 'Бұлтпен синхрондалған',
+    syncConnected: 'Google аккаунты қосылған',
     syncDisconnected: 'Бұлтқа қосылмаған',
     syncConnecting: 'Бұлтқа қосылуда...',
     syncButtonLogout: 'Шығу',
@@ -3629,7 +3639,7 @@ const UI_TRANSLATIONS = {
     pinnedSites: 'ЗАКРЕПЛЕНО',
     vibeCountLabel: 'КОЛ-ВО ВАЙБОВ',
     syncStatusLabel: 'ОБЛАЧНАЯ СИНХРОНИЗАЦИЯ',
-    syncConnected: 'Синхронизировано с облаком',
+    syncConnected: 'Аккаунт Google подключён',
     syncDisconnected: 'Не подключено к облаку',
     syncConnecting: 'Подключение...',
     syncButtonLogout: 'Выйти',
@@ -3655,7 +3665,7 @@ const UI_TRANSLATIONS = {
     pinnedSites: 'PINNED',
     vibeCountLabel: 'VIBES COUNT',
     syncStatusLabel: 'CLOUD SYNC',
-    syncConnected: 'Synced with Cloud',
+    syncConnected: 'Google account connected',
     syncDisconnected: 'Not connected to Cloud',
     syncConnecting: 'Connecting to Cloud...',
     syncButtonLogout: 'Logout',
@@ -3755,7 +3765,7 @@ const _gp = {
   // Pending loopback logins cannot survive an application restart.
   syncState: 'disconnected',
   syncUser: null,
-  syncLoginTimeout: null
+  authSession: null
 };
 
 // ── 4. STORAGE LAYER (GalamtorStore) ─────────────────────────────
@@ -3984,7 +3994,7 @@ function gpRenderProfileTab() {
   const pinnedCount = dockIcons.querySelectorAll('.dock-btn[data-url]').length;
 
   const syncState = _gp.syncState || 'disconnected';
-  const syncUser = auth.currentUser;
+  const syncUser = _gp.authSession ? _gp.authSession.user : auth.currentUser;
   let dotClass = 'gp-sync-dot-disconnected';
   let statusText = trans.syncDisconnected;
   let statusColor = 'rgba(255,255,255,0.45)';
@@ -4072,6 +4082,8 @@ function gpRenderProfileTab() {
         ${btnHtml}
       </div>
     </div>
+    <p id="gp-cloud-write-status" role="status" style="margin:-14px 0 16px;font-size:12px;opacity:.7"></p>
+    <button id="gp-cloud-write-retry" class="gp-btn gp-btn-secondary" type="button" hidden>Бұлтқа қайта сақтау</button>
 
     <div class="gp-stats" style="margin-top:16px; margin-bottom:24px;">
       <div class="gp-stat">
@@ -4093,49 +4105,22 @@ function gpRenderProfileTab() {
     </div>
   `;
 
-  // Sync auth button click
+  gpUpdateCloudWriteStatus();
+  panel.querySelector('#gp-cloud-write-retry')?.addEventListener('click', () => {
+    const user = _gp.authSession?.user;
+    if (user) syncProfileStats(user.uid, gpCurrentStats());
+  });
   panel.querySelector('#gp-sync-cancel-btn')?.addEventListener('click', () => {
-    if (_gp.syncLoginTimeout) clearTimeout(_gp.syncLoginTimeout);
-    _gp.syncLoginTimeout = null;
-    _gp.syncState = 'disconnected';
-    localStorage.setItem('gp_sync_state', 'disconnected');
+    _gp.authSession?.cancel();
     window.galamtorAPI.stopAuthServer();
     showToast('Google кіруі тоқтатылды');
-    gpRenderProfileTab();
   });
-  const authBtn = panel.querySelector('#gp-sync-auth-btn');
-  if (authBtn) {
-    authBtn.addEventListener('click', () => {
-      const user = auth.currentUser;
-      if (!user) {
-        if (_gp.syncState === 'connecting') return;
-        if (_gp.syncLoginTimeout) clearTimeout(_gp.syncLoginTimeout);
-        _gp.syncState = 'connecting';
-        localStorage.setItem('gp_sync_state', 'connecting');
-        gpRenderProfileTab();
-        window.galamtorAPI.startGoogleLogin();
-        _gp.syncLoginTimeout = setTimeout(() => {
-          if (_gp.syncState !== 'connecting' || auth.currentUser) return;
-          _gp.syncLoginTimeout = null;
-          _gp.syncState = 'disconnected';
-          localStorage.setItem('gp_sync_state', 'disconnected');
-          window.galamtorAPI.stopAuthServer();
-          showToast('Google кіруі аяқталмады. Қайта бастауға болады.');
-          gpRenderProfileTab();
-        }, 5 * 60 * 1000);
-      } else {
-        auth.signOut().then(() => {
-          _gp.syncState = 'disconnected';
-          localStorage.setItem('gp_sync_state', 'disconnected');
-          showToast(currentLang === 'en' ? '🚪 Sync signed out' : currentLang === 'ru' ? '🚪 Синхронизация отключена' : '🚪 Синхрондау тоқтатылды');
-          gpRenderProfileTab();
-        }).catch(err => {
-          showToast(currentLang === 'en' ? '⚠️ Signout failed' : '⚠️ Жүйеден шығу қатесі');
-          console.error(err);
-        });
-      }
-    });
-  }
+  panel.querySelector('#gp-sync-auth-btn')?.addEventListener('click', async () => {
+    if (_gp.authSession?.user) {
+      window.galamtorAPI.stopAuthServer();
+      if (await _gp.authSession.signOut()) showToast('Синхрондау тоқтатылды');
+    } else if (_gp.authSession?.start()) window.galamtorAPI.startGoogleLogin();
+  });
 
   // Name input
   const nameInput = panel.querySelector('#gp-name-input');
@@ -5304,138 +5289,29 @@ function gpInitProfileHub() {
     setTimeout(gpHideLockedItems, 500);
   }
 
-  // ── Firebase Auth & IPC Listeners ──
-
-  // Guard flag: prevents onAuthStateChanged from re-rendering the profile UI
-  // while signInWithCredential is still in flight. Without this, the intermediate
-  // state transitions cause the button to re-paint into 'connecting' and the user
-  // sees an infinite spinner.
-  let _signInInProgress = false;
-
-  auth.onAuthStateChanged(async (user) => {
-    // Do not interrupt a credential sign-in that is already in progress.
-    // The .then() handler below will update state and re-render when done.
-    if (_signInInProgress) return;
-
-    if (user) {
-      if (_gp.syncLoginTimeout) clearTimeout(_gp.syncLoginTimeout);
-      _gp.syncLoginTimeout = null;
-      _gp.syncState = 'connected';
-      localStorage.setItem('gp_sync_state', 'connected');
-
-      const stats = {
-        openTabsCount: tabs.length,
-        pinnedTabsCount: dockIcons.querySelectorAll('.dock-btn[data-url]').length,
-        vibesCount: GalamtorStore.getVibes().length,
-        registrationDate: getRegistrationDate()
-      };
-      await syncProfileStats(user.uid, stats);
-    } else if (_gp.syncState !== 'connecting') {
-      _gp.syncState = 'disconnected';
-      localStorage.setItem('gp_sync_state', 'disconnected');
-    }
-
-    // Refresh modal UI if active — only when not mid sign-in
-    if (_gp.overlayEl && _gp.overlayEl.classList.contains('gp-visible') && _gp.activeTab === 'profile') {
-      gpRenderProfileTab();
+  // Authentication completes independently of the cloud-write queue.
+  _gp.authSession = GalamtorAuthSession.createAuthSession({
+    auth,
+    credentialFromTokens: payload => firebase.auth.GoogleAuthProvider.credential(payload.googleIdToken || null, payload.googleAccessToken || null),
+    onState: (state, user) => {
+      const previous = _gp.syncState;
+      _gp.syncState = state;
+      localStorage.setItem('gp_sync_state', state);
+      if (_gp.overlayEl?.classList.contains('gp-visible') && _gp.activeTab === 'profile') gpRenderProfileTab();
+      if (state === 'connected' && previous !== 'connected' && user) syncProfileStats(user.uid, gpCurrentStats());
+    },
+    onComplete: (requestId, code) => window.galamtorAPI.completeFirebaseAuth(requestId, code),
+    onSuccess: () => showToast('Google кіруі расталды'),
+    onError: code => {
+      window.galamtorAPI.stopAuthServer();
+      if (code === 'auth/cancelled') { showToast('Google кіруі тоқтатылды'); return; }
+      showToast(code === 'auth/timeout' ? 'Google кіру уақыты аяқталды. Қайта бастауға болады.' : 'Google кіруі аяқталмады. Қайталап көріңіз.');
+      console.warn('[Auth]', /^auth\/[a-z-]{1,64}$/.test(code) ? code : 'auth/failed');
     }
   });
-
-  // ── IPC: Receive Google credential from the Main Process loopback server ──
-  //
-  // The payload is now an object: { googleIdToken, googleAccessToken, email, ... }
-  // sent by index.js after it parsed the JSON POST body from auth-redirect.html.
-  //
-  // CRITICAL: We must use the Google OIDC ID Token (from result.credential.idToken
-  // on the Firebase Hosting page) NOT a Firebase ID Token (from user.getIdToken()).
-  // GoogleAuthProvider.credential(idToken, accessToken) requires Google's own token.
-  if (window.galamtorAPI && typeof window.galamtorAPI.onFirebaseAuthToken === 'function') {
-    window.galamtorAPI.onAuthServerError?.((code) => {
-      if (_gp.syncLoginTimeout) clearTimeout(_gp.syncLoginTimeout);
-      _gp.syncLoginTimeout = null;
-      _gp.syncState = 'disconnected';
-      localStorage.setItem('gp_sync_state', 'disconnected');
-      showToast(`Google кіру сервері қосылмады: ${code}`);
-      if (_gp.overlayEl?.classList.contains('gp-visible') && _gp.activeTab === 'profile') gpRenderProfileTab();
-    });
-    window.galamtorAPI.onFirebaseAuthToken((payload) => {
-    if (_gp.syncLoginTimeout) clearTimeout(_gp.syncLoginTimeout);
-    _gp.syncLoginTimeout = null;
-    // Normalize: support both the new object shape and a legacy plain-string fallback
-    // so that existing sessions during a partial deploy are not broken.
-    let googleIdToken, googleAccessToken;
-    if (payload && typeof payload === 'object') {
-      ({ googleIdToken, googleAccessToken } = payload);
-    } else if (typeof payload === 'string') {
-      // Legacy path — plain string was a Firebase ID Token; this will likely fail
-      // with auth/invalid-credential but at least we log it clearly.
-      console.warn('[Auth] Received legacy plain-string token — upgrade auth-redirect.html on Firebase Hosting.');
-      googleIdToken = payload;
-    }
-
-    if (!googleIdToken && !googleAccessToken) {
-      console.error('[Auth] firebase-auth-token payload contained no usable credential tokens.');
-      showToast('⚠️ Синхрондау қатесі: токен жоқ');
-      _gp.syncState = 'disconnected';
-      localStorage.setItem('gp_sync_state', 'disconnected');
-      gpRenderProfileTab();
-      return;
-    }
-
-    // Build a proper Google OAuthCredential.
-    // First argument: Google ID Token (OIDC), Second: Google Access Token.
-    // Either can be null independently — Firebase accepts a credential with only one.
-    const credential = firebase.auth.GoogleAuthProvider.credential(
-      googleIdToken   || null,
-      googleAccessToken || null
-    );
-
-    _signInInProgress = true;
-    console.log('[Auth] Calling signInWithCredential with Google credential...');
-
-    auth.signInWithCredential(credential)
-      .then(async (result) => {
-        if (_gp.syncLoginTimeout) clearTimeout(_gp.syncLoginTimeout);
-        _gp.syncLoginTimeout = null;
-        _signInInProgress = false;
-        _gp.syncState = 'connected';
-        localStorage.setItem('gp_sync_state', 'connected');
-        showToast('✅ Google-мен синхрондау сәтті аяқталды!');
-        console.log('[Auth] Google sign-in completed.');
-
-        const stats = {
-          openTabsCount: tabs.length,
-          pinnedTabsCount: dockIcons.querySelectorAll('.dock-btn[data-url]').length,
-          vibesCount: GalamtorStore.getVibes().length,
-          registrationDate: getRegistrationDate()
-        };
-        await syncProfileStats(result.user.uid, stats);
-
-        // Re-render profile tab once, now that state is settled
-        if (_gp.overlayEl && _gp.overlayEl.classList.contains('gp-visible') && _gp.activeTab === 'profile') {
-          gpRenderProfileTab();
-        }
-      })
-      .catch((err) => {
-        if (_gp.syncLoginTimeout) clearTimeout(_gp.syncLoginTimeout);
-        _gp.syncLoginTimeout = null;
-        _signInInProgress = false;
-        _gp.syncState = 'disconnected';
-        localStorage.setItem('gp_sync_state', 'disconnected');
-        console.error('[Auth] signInWithCredential error:', err.code || 'UNKNOWN');
-
-        // Provide a human-readable toast for the most common error
-        if (err.code === 'auth/invalid-credential') {
-          showToast('⚠️ Куәлік жарамсыз. Хостингтегі auth-redirect.html нұсқасын тексеріңіз.');
-        } else if (err.code === 'auth/account-exists-with-different-credential') {
-          showToast('⚠️ Бұл email басқа жүйеге кіру әдісімен тіркелген.');
-        } else {
-          showToast('⚠️ Синхрондау қатесі: ' + err.code);
-        }
-        gpRenderProfileTab();
-      });
-    });
-  }
+  desktopAuthSession = _gp.authSession;
+  window.galamtorAPI.onAuthServerError?.(code => _gp.authSession.fail(code));
+  window.galamtorAPI.onFirebaseAuthToken?.(payload => _gp.authSession.accept(payload));
 }
 
 // ── 12. INITIALIZE ───────────────────────────────────────────────
@@ -5628,7 +5504,7 @@ async function gpRenderDownloadsTab() {
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {
         gpConfirm('Жүктеу тарихын тазалау?', 'Жүктелген файлдардың тізімі өшіріледі (файлдардың өздері дискіден жойылмайды).', async () => {
-          await window.galamtorAPI.clearDownloads();
+          if (await window.galamtorAPI.clearDownloads() !== true) { showToast('Жүктеу тарихын тазалау сәтсіз аяқталды'); return; }
           showToast('🧹 Жүктеулер тарихы тазартылды');
           gpRenderDownloadsTab();
         });
@@ -5709,7 +5585,9 @@ const btnAdBlock = document.getElementById('btn-adblock');
 if (btnAdBlock) {
   btnAdBlock.addEventListener('click', async () => {
     if (window.galamtorAPI && window.galamtorAPI.toggleAdBlock) {
-      const enabled = await window.galamtorAPI.toggleAdBlock();
+      const result = await window.galamtorAPI.toggleAdBlock();
+      if (result?.ok === false) { showToast('AdBlock баптауы сақталмады. Қайталап көріңіз.'); return; }
+      const enabled = result;
       btnAdBlock.classList.toggle('active-shield', enabled);
       const stats = await window.galamtorAPI.getAdBlockStats();
       showToast(enabled 
@@ -5736,7 +5614,10 @@ function persistCurrentSession() {
     url: tab.url, title: tab.title, isHome: tab.isHome, isIncognito: tab.isIncognito,
     isActive: tab.id === activeTabId, isMuted: tab.isMuted
   })));
-  window.galamtorAPI.saveSession(saved).catch(error => console.warn('[Session] Save failed:', error.message));
+  window.galamtorAPI.saveSession(saved).then(ok => {
+    if (!ok && !window._sessionSaveWarning) { window._sessionSaveWarning = true; showToast('Қойындылар сессиясы сақталмады. Диск орнын тексеріңіз.'); }
+    if (ok) window._sessionSaveWarning = false;
+  }).catch(() => console.warn('[Session] Save failed'));
 }
 
 async function restorePreviousSession() {
@@ -7448,7 +7329,8 @@ function dispatchBrowserAction(action, data) {
         break;
       case 'clear-history':
         if (confirm('Шолу тарихын толық тазартқыңыз келе ме?')) {
-          window.galamtorAPI.clearHistory().then(() => {
+          window.galamtorAPI.clearHistory().then(saved => {
+            if (!saved) { showToast('Тарихты тазалау сәтсіз аяқталды'); return; }
             showToast('🧹 Тарих сәтті тазартылды');
             if (typeof gpRenderHistoryTab === 'function') gpRenderHistoryTab();
           });

@@ -1,11 +1,12 @@
-const { _electron: electron } = require('playwright');
+const { _electron: electron, webkit } = require('playwright');
+const engine = process.env.GALAMTOR_QA_WEB_ENGINE || 'electron';
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const http = require('node:http');
 const root = path.resolve(__dirname, '..');
-const output = path.join(root, 'dist', 'qa-1.5.0');
+const output = path.join(root, 'dist', `qa-${require('../package.json').version}`, engine);
 fs.mkdirSync(output, { recursive:true });
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'galamtor-web-qa-'));
 const server = http.createServer((req,res) => {
@@ -17,42 +18,57 @@ const server = http.createServer((req,res) => {
 });
 const passed = [], errors = [];
 const check = async (name, run) => { await run(); passed.push(name); console.log(`PASS ${name}`); };
-let app, page;
+let app, browser, page;
 const fakeFirebase = `
 (() => {
   class Provider { setCustomParameters() {} }
   Provider.credentialFromResult = () => ({ idToken:'qa-fake-credential', accessToken:null });
   function auth() { return {
-    getRedirectResult: async () => {
-      const mode = sessionStorage.getItem('qa-auth-mode');
-      if (mode === 'error') throw Object.assign(new Error('QA network failure'), {code:'auth/network-request-failed'});
-      if (mode === 'success') return {user:{}};
-      return null;
-    },
-    signInWithRedirect: async () => sessionStorage.setItem('qa-redirects', String(Number(sessionStorage.getItem('qa-redirects') || 0) + 1))
+    setPersistence: async value => { window.__qaPersistence = value; if(window.__qaPersistenceFailure) throw Object.assign(new Error('fixture'),{code:'auth/network-request-failed'}); },
+    getRedirectResult: async () => null,
+    signOut: async () => {},
+    signInWithRedirect: () => { throw new Error('Redirect must never start'); },
+    signInWithPopup: () => {
+      window.__qaPopups = (window.__qaPopups || 0) + 1;
+      window.__qaUserGesture = navigator.userActivation.isActive;
+      if(window.__qaPopupMode === 'blocked') return Promise.reject(Object.assign(new Error('fixture'),{code:'auth/popup-blocked'}));
+      if(window.__qaPopupMode === 'closed') return Promise.reject(Object.assign(new Error('fixture'),{code:'auth/popup-closed-by-user'}));
+      if(window.__qaPopupMode === 'pending') return new Promise(resolve=>{window.__qaResolvePopup=resolve});
+      if(window.__qaPopupMode === 'empty') return Promise.resolve({user:{},credential:null});
+      return Promise.resolve({user:{}});
+    }
   }; }
   auth.GoogleAuthProvider = Provider;
+  auth.Auth = {Persistence:{NONE:'none'}};
   window.firebase = {initializeApp(){},auth};
 })();`;
+
 (async () => {
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
   try {
     const env = {...process.env,GALAMTOR_DEV_PROFILE:profile}; delete env.ELECTRON_RUN_AS_NODE; delete env.GEMINI_API_KEY;
-    app = await electron.launch({args:[root],env});
-    await app.firstWindow();
-    const created = app.waitForEvent('window');
-    await app.evaluate(({BrowserWindow},base) => {
-      globalThis.__qaWeb = new BrowserWindow({width:1360,height:900,webPreferences:{partition:'qa-web'}});
-      globalThis.__qaWeb.loadURL(base);
-    }, base);
-    page = await created; page.setDefaultTimeout(12000);
+    if (engine === 'webkit') {
+      browser = await webkit.launch();
+      page = await browser.newPage({viewport:{width:1360,height:900}});
+      await page.goto(base);
+    } else {
+      app = await electron.launch({args:[root],env});
+      await app.firstWindow();
+      const created = app.waitForEvent('window');
+      await app.evaluate(({BrowserWindow},base) => {
+        globalThis.__qaWeb = new BrowserWindow({width:1360,height:900,webPreferences:{partition:'qa-web'}});
+        globalThis.__qaWeb.loadURL(base);
+      }, base);
+      page = await created;
+    }
+    page.setDefaultTimeout(12000);
     page.on('pageerror',error=>errors.push(error.message));
     await page.route('https://fonts.googleapis.com/**',route=>route.abort());
     await page.route('https://fonts.gstatic.com/**',route=>route.abort());
-    const release = {tag_name:'v1.5.0',html_url:'https://github.com/akhmet-dev/Galamtor-/releases/tag/v1.5.0',published_at:'2026-10-13T15:00:00Z',body:'Preview',assets:[
-      {name:'Galamtor-1.5.0-arm64.dmg',size:100,browser_download_url:'https://github.com/akhmet-dev/Galamtor-/releases/download/v1.5.0/Galamtor-1.5.0-arm64.dmg'},
-      {name:'Galamtor-1.5.0.dmg',size:100,browser_download_url:'https://github.com/akhmet-dev/Galamtor-/releases/download/v1.5.0/Galamtor-1.5.0.dmg'}
+    const release = {tag_name:'v1.5.1',html_url:'https://github.com/akhmet-dev/Galamtor-/releases/tag/v1.5.1',published_at:'2026-10-13T15:00:00Z',body:'Preview',assets:[
+      {name:'Galamtor-1.5.1-arm64.dmg',size:100,browser_download_url:'https://github.com/akhmet-dev/Galamtor-/releases/download/v1.5.1/Galamtor-1.5.1-arm64.dmg'},
+      {name:'Galamtor-1.5.1.dmg',size:100,browser_download_url:'https://github.com/akhmet-dev/Galamtor-/releases/download/v1.5.1/Galamtor-1.5.1.dmg'}
     ]};
     await page.route('https://api.github.com/repos/akhmet-dev/Galamtor-/releases/latest',route=>route.fulfill({json:release}));
     await check('website corrupt cache still fetches release and both Mac downloads',async()=>{
@@ -81,57 +97,121 @@ const fakeFirebase = `
       await page.reload();
       assert.equal(await page.locator('#dl-main-btn').getAttribute('href'),'https://github.com/akhmet-dev/Galamtor-/releases/latest');
     });
-    // A separate fresh page has normal session storage for the OAuth state tests.
-    const authCreated = app.waitForEvent('window');
-    await app.evaluate(({BrowserWindow})=>{
-      globalThis.__qaAuth = new BrowserWindow({width:800,height:700,webPreferences:{partition:'qa-auth'}});
-      globalThis.__qaAuth.loadURL('about:blank');
-    });
-    const authPage = await authCreated;
+    let authPage;
+    if (browser) authPage = await browser.newPage({viewport:{width:800,height:700}});
+    else {
+      const authCreated = app.waitForEvent('window');
+      await app.evaluate(({BrowserWindow})=>{
+        globalThis.__qaAuth = new BrowserWindow({width:800,height:700,webPreferences:{partition:'qa-auth'}});
+        globalThis.__qaAuth.loadURL('about:blank');
+      });
+      authPage = await authCreated;
+    }
     authPage.setDefaultTimeout(12000);
     authPage.on('pageerror',error=>errors.push(error.message));
     await authPage.route('https://www.gstatic.com/firebasejs/**',route=>route.abort());
-    const state='a'.repeat(64);
+    const state='a'.repeat(64), authURL=`${base}/auth.html?mode=login&state=${state}`;
     await check('auth SDK loading failure displays retry without an exception',async()=>{
-      await authPage.goto(`${base}/auth.html?mode=login&state=${state}`);
+      await authPage.goto(authURL);
       await authPage.locator('#retry-btn').waitFor();
       assert.match(await authPage.locator('#status').textContent(),/модулі жүктелмеді/);
       await authPage.unroute('https://www.gstatic.com/firebasejs/**');
       await authPage.route('https://www.gstatic.com/firebasejs/**',route=>route.fulfill({body:fakeFirebase,contentType:'application/javascript'}));
       await authPage.locator('#retry-btn').click();
-      await authPage.waitForFunction(()=>sessionStorage.getItem('qa-redirects')==='1');
+      await authPage.locator('#login-btn').waitFor();
+      assert.equal(await authPage.evaluate(()=>window.__qaPopups || 0),0);
     });
-    await check('auth no-result reloads never loop, manual retry starts exactly once',async()=>{
-      for(let i=0;i<3;i++) {await authPage.reload();await authPage.locator('#retry-btn').waitFor();}
-      assert.equal(await authPage.evaluate(()=>sessionStorage.getItem('qa-redirects')),'1');
-      await authPage.locator('#retry-btn').click();
-      await authPage.waitForFunction(()=>sessionStorage.getItem('qa-redirects')==='2');
-      await authPage.reload();await authPage.locator('#retry-btn').waitFor();
-      assert.equal(await authPage.evaluate(()=>sessionStorage.getItem('qa-redirects')),'2');
+    let fields, callbackMode='ok', callbacks=0, cancellations=0;
+    await authPage.route('http://127.0.0.1:4242/callback',route=>{
+      callbacks++; fields=Object.keys(JSON.parse(route.request().postData()));
+      if(callbackMode==='network') return route.abort();
+      if(callbackMode==='legacy') return route.fulfill({status:200,body:'Legacy app receipt',headers:{'Access-Control-Allow-Origin':'*'}});
+      return route.fulfill({status:callbackMode==='rejected'?401:200,json:{ok:callbackMode!=='rejected',code:callbackMode==='rejected'?'auth/failed':'complete'},headers:{'Access-Control-Allow-Origin':'*'}});
     });
-    await check('auth provider error remains manual and successful callback excludes identity fields',async()=>{
-      await authPage.evaluate(()=>sessionStorage.setItem('qa-auth-mode','error'));
-      await authPage.reload();await authPage.locator('#retry-btn').waitFor();
-      assert.equal(await authPage.evaluate(()=>sessionStorage.getItem('qa-redirects')),'2');
-      let fields;
-      await authPage.route('http://127.0.0.1:4242/callback',route=>{
-        fields=Object.keys(JSON.parse(route.request().postData()));
-        return route.fulfill({status:200,body:'ok',headers:{'Access-Control-Allow-Origin':'*'}});
-      });
-      await authPage.evaluate(()=>sessionStorage.setItem('qa-auth-mode','success'));
-      await authPage.reload();
-      await authPage.waitForFunction(()=>document.getElementById('status').textContent.includes('синхрондалды'));
+    await authPage.route('http://127.0.0.1:4242/cancel',route=>{
+      cancellations++; assert.deepEqual(Object.keys(JSON.parse(route.request().postData())),['state']);
+      return route.fulfill({json:{ok:true},headers:{'Access-Control-Allow-Origin':'*'}});
+    });
+    await check('legacy empty redirect and repeated reloads stay manual; popup keeps a real user gesture',async()=>{
+      await authPage.goto(`${base}/auth.html`); await authPage.locator('#login-btn').waitFor();
+      for(let i=0;i<3;i++) {await authPage.reload();await authPage.locator('#login-btn').waitFor();}
+      assert.equal(await authPage.evaluate(()=>window.__qaPopups || 0),0);
+      await authPage.locator('#login-btn').click();
+      await authPage.waitForFunction(()=>document.getElementById('status').textContent.includes('кіруі расталды'));
+      assert.equal(await authPage.evaluate(()=>window.__qaPopups),1);
+      assert.equal(await authPage.evaluate(()=>window.__qaUserGesture),true);
+      assert.equal(await authPage.evaluate(()=>window.__qaPersistence),'none');
       assert.deepEqual(fields.sort(),['googleAccessToken','googleIdToken','state']);
       assert.equal(await authPage.evaluate(()=>sessionStorage.getItem('galamtor-login-state')),null);
     });
+    await check('blocked and closed Google popup display an actionable manual retry',async()=>{
+      await authPage.goto(authURL); await authPage.locator('#login-btn').waitFor();
+      await authPage.evaluate(()=>window.__qaPopupMode='blocked');
+      await authPage.locator('#login-btn').click();await authPage.locator('#retry-btn').waitFor();
+      assert.match(await authPage.locator('#status').textContent(),/бұғатталды/);
+      await authPage.evaluate(()=>window.__qaPopupMode='closed');
+      await authPage.locator('#retry-btn').click();await authPage.locator('#retry-btn').waitFor();
+      assert.match(await authPage.locator('#status').textContent(),/жабылды/);
+      await authPage.evaluate(()=>window.__qaPopupMode='success');
+      await authPage.locator('#retry-btn').click();
+      await authPage.waitForFunction(()=>document.getElementById('status').textContent.includes('кіруі расталды'));
+    });
+    await check('desktop rejection never shows successful sign-in',async()=>{
+      callbackMode='rejected'; await authPage.goto(authURL);await authPage.locator('#login-btn').waitFor();
+      await authPage.locator('#login-btn').click();
+      await authPage.waitForFunction(()=>document.getElementById('status').textContent.includes('растамады'));
+      assert.equal(await authPage.locator('#retry-btn').count(),0);
+    });
+    await check('an older app receipt does not falsely claim confirmed authentication',async()=>{
+      callbackMode='legacy';await authPage.goto(authURL);await authPage.locator('#login-btn').waitFor();
+      await authPage.locator('#login-btn').click();
+      await authPage.waitForFunction(()=>document.getElementById('status').textContent.includes('1.5.1'));
+      assert.ok(!(await authPage.locator('#status').textContent()).includes('кіруі расталды'));
+    });
+    await check('callback network retry resends credentials without reopening the account chooser',async()=>{
+      callbackMode='network'; await authPage.goto(authURL);await authPage.locator('#login-btn').waitFor();
+      await authPage.locator('#login-btn').click();await authPage.locator('#retry-btn').waitFor();
+      const before=callbacks;callbackMode='ok';await authPage.locator('#retry-btn').click();
+      await authPage.waitForFunction(()=>document.getElementById('status').textContent.includes('кіруі расталды'));
+      assert.equal(callbacks,before+1);assert.equal(await authPage.evaluate(()=>window.__qaPopups),1);
+    });
+    await check('cancellation reaches the desktop and ignores a late popup result',async()=>{
+      await authPage.goto(authURL);await authPage.locator('#login-btn').waitFor();
+      await authPage.evaluate(()=>window.__qaPopupMode='pending');
+      const before=callbacks;await authPage.locator('#login-btn').click();await authPage.locator('#cancel-btn').click();
+      await authPage.waitForFunction(()=>document.getElementById('status').textContent.includes('тоқтатылды'));
+      await authPage.evaluate(()=>window.__qaResolvePopup({user:{}}));
+      assert.equal(callbacks,before);assert.ok(cancellations>0);
+    });
+    await check('memory-only popup flow works with blocked session storage and narrow screens',async()=>{
+      await authPage.addInitScript(()=>{if(location.search.includes('blocked-storage=1')) Object.defineProperty(window,'sessionStorage',{get(){throw new Error('QA storage blocked')}});});
+      await authPage.goto(authURL+'&blocked-storage=1');await authPage.locator('#login-btn').waitFor();
+      for(const width of [320,390,800]) {
+        await authPage.setViewportSize({width,height:700});
+        assert.ok(await authPage.evaluate(()=>document.documentElement.scrollWidth <= innerWidth + 1));
+        await authPage.screenshot({path:path.join(output,`auth-${width}.png`)});
+      }
+      await authPage.locator('#login-btn').click();
+      await authPage.waitForFunction(()=>document.getElementById('status').textContent.includes('кіруі расталды'));
+    });
+    await check('persistence setup failure cannot start a popup before recovery',async()=>{
+      await authPage.addInitScript(()=>window.__qaPersistenceFailure=true);
+      await authPage.goto(authURL);await authPage.locator('#retry-btn').waitFor();
+      assert.equal(await authPage.evaluate(()=>window.__qaPopups || 0),0);
+      await authPage.evaluate(()=>window.__qaPersistenceFailure=false);
+      await authPage.locator('#retry-btn').click();await authPage.locator('#login-btn').waitFor();
+      assert.equal(await authPage.evaluate(()=>window.__qaPopups || 0),0);
+    });
+    await authPage.screenshot({path:path.join(output,'auth-popup-ready.png')});
     assert.deepEqual(errors,[]);
-    fs.writeFileSync(path.join(output,'web-results.json'),JSON.stringify({passed,rendererErrors:errors,providers:'deterministic fixtures; no real account'},null,2));
+    fs.writeFileSync(path.join(output,'web-results.json'),JSON.stringify({passed,rendererErrors:errors,engine, providers:'deterministic fixtures; no real account'},null,2));
     console.log(`Completed ${passed.length} website/auth checks; no renderer exceptions.`);
   } catch(error) {
     if(page&&!page.isClosed())await page.screenshot({path:path.join(output,'web-failure.png')}).catch(()=>{});
     throw error;
   } finally {
     if(app)await app.close().catch(()=>{});
+    if(browser)await browser.close().catch(()=>{});
     server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
   }
 })().catch(error=>{console.error(error);process.exitCode=1});

@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('galamtorAPI', {
   // Auth Loopback Server
   startGoogleLogin: () => ipcRenderer.send('start-google-login'),
   stopAuthServer: () => ipcRenderer.send('stop-auth-server'),
+  completeFirebaseAuth: (requestId, errorCode = null) => ipcRenderer.send('auth:complete', requestId, errorCode),
   onFirebaseAuthToken: (callback) => {
     const listener = (event, payload) => callback(payload);
     ipcRenderer.on('firebase-auth-token', listener);

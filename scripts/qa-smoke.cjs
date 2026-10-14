@@ -8,7 +8,7 @@ const os = require('node:os');
 const http = require('node:http');
 const root = path.resolve(__dirname, '..');
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'galamtor-global-qa-'));
-const output = path.join(root, 'dist', 'qa-1.5.0');
+const output = path.join(root, 'dist', `qa-${require('../package.json').version}`);
 fs.mkdirSync(output, { recursive: true });
 let application, page;
 const passed = [], errors = [];

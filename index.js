@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const { fetchRelease, isNewerVersion } = require('./public/release-utils');
 const unsignedMacPreview = process.platform === 'darwin' && require('./package.json').galamtorRelease?.unsignedPreview === true;
 const { readJsonFile, writeJsonAtomic } = require('./profile-storage');
-const { validateAuthCallback } = require('./auth-utils');
+const { createAuthCallbackServer } = require('./auth-server');
 const { isPhishingOrScam, isYouTubeURL } = require('./security-utils');
 const { checkOllamaStatus, pullOllamaModel } = require('./ollama-client');
 const { createChatGPTPlanClient, ChatGPTPlanError } = require('./chatgpt-plan');
@@ -61,7 +61,8 @@ let mainWindow = null;
 let chatGPTPlanClient = null;
 let authServer = null;
 let authState = null;
-let authTimeout = null;
+let authFlow = null;
+let pendingAuth = null;
 let currentLanguage = 'kk'; // Default system-wide context-menu language
 const recentPopupTimes = new WeakMap();
 
@@ -75,17 +76,7 @@ const ALLOWED_AUTH_ORIGINS = [
   'http://localhost:3000'
 ];
 
-function getCorsHeaders(req) {
-  const origin = req && req.headers ? req.headers.origin : null;
-  const allowOrigin = ALLOWED_AUTH_ORIGINS.includes(origin) ? origin : AUTH_REDIRECT_ORIGIN;
-  return {
-    'Access-Control-Allow-Origin':          allowOrigin,
-    'Access-Control-Allow-Methods':         'POST, OPTIONS',
-    'Access-Control-Allow-Headers':         'Content-Type, Access-Control-Allow-Private-Network',
-    'Access-Control-Allow-Private-Network': 'true',
-    'Access-Control-Max-Age':               '86400'
-  };
-}
+
 
 // ── Unified Context Menu Translations ──
 const CONTEXT_MENU_TRANSLATIONS = {
@@ -402,7 +393,7 @@ function validateSender(event) {
   const mainFrame = mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents.mainFrame;
   if (event.sender === mainWindow?.webContents && event.senderFrame === mainFrame &&
       senderUrl === url.pathToFileURL(path.join(__dirname, 'index.html')).href) return true;
-  console.warn(`[Security Alert] Blocked invalid IPC sender: ${senderUrl}`);
+  console.warn('[Security] Blocked untrusted IPC sender');
   return false;
 }
 
@@ -674,127 +665,37 @@ function addDownloadEntry(entry) {
 // ── OAuth Handshake Loopback Server ──
 function startAuthServer(win, state) {
   if (authServer) return;
-  if (authTimeout) clearTimeout(authTimeout);
-  authTimeout = null;
   authState = state;
-
-  console.log('[AuthServer] Starting local server on port 4242...');
-
-  authServer = http.createServer((req, res) => {
-    const parsedUrl = url.parse(req.url, true);
-    const originAllowed = ALLOWED_AUTH_ORIGINS.includes(req.headers.origin);
-    const hostAllowed = req.headers.host === '127.0.0.1:4242';
-    if (!originAllowed || !hostAllowed) {
-      res.writeHead(403, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' });
-      res.end('Forbidden');
-      return;
-    }
-
-    if (req.method === 'OPTIONS' && parsedUrl.pathname === '/callback') {
-      res.writeHead(204, getCorsHeaders(req));
-      res.end();
-      return;
-    }
-
-    if (req.method === 'POST' && parsedUrl.pathname === '/callback') {
-      if (!(req.headers['content-type'] || '').startsWith('application/json')) {
-        res.writeHead(415, getCorsHeaders(req));
-        res.end();
-        return;
-      }
-      let rawBody = '';
-
-      const bodyTimeout = setTimeout(() => {
-        console.error('[AuthServer] Body read timeout — destroying socket.');
-        req.destroy();
-      }, 10_000);
-
-      req.setEncoding('utf8');
-
-      req.on('data', chunk => {
-        rawBody += chunk;
-        if (rawBody.length > 65536) req.destroy();
-      });
-
-      req.on('end', () => {
-        clearTimeout(bodyTimeout);
-
-        let payload;
-        try {
-          payload = JSON.parse(rawBody);
-        } catch (parseErr) {
-          console.error('[AuthServer] Callback contained invalid JSON.');
-          res.writeHead(400, { ...getCorsHeaders(req), 'Content-Type': 'text/plain' });
-          res.end('Bad Request: invalid JSON');
-          return;
-        }
-
-        const callback = validateAuthCallback(payload, authState);
-        if (callback.status !== 200) {
-          res.writeHead(callback.status, { ...getCorsHeaders(req), 'Content-Type': 'text/plain' });
-          res.end(callback.message);
-          return;
-        }
-        const targetWin = win || mainWindow;
-        if (targetWin && !targetWin.isDestroyed()) {
-          targetWin.webContents.send('firebase-auth-token', callback.payload);
-          console.log('[AuthServer] Forwarded google credential to Renderer.');
-        } else {
-          console.warn('[AuthServer] Target window unavailable — token dropped!');
-        }
-
-        res.writeHead(200, { ...getCorsHeaders(req), 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(`<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><title>Galamtor</title></head>
-<body style="font-family:sans-serif;text-align:center;padding-top:50px;background:#090a0f;color:#fff;">
-  <h1 style="color:#00f2fe;margin-bottom:8px;">Galamtor синхрондалды! ✅</h1>
-  <p style="color:rgba(255,255,255,0.6);">Қосымшаға орала аласыз. Бұл терезені жабуға болады.</p>
-  <script>setTimeout(() => window.close(), 2500);<\/script>
-</body>
-</html>`);
-
-        stopAuthServer();
-      });
-
-      req.on('error', (err) => {
-        clearTimeout(bodyTimeout);
-        console.error('[AuthServer] Request stream error:', err.message);
-      });
-
-      return;
-    }
-
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('Not Found');
+  const target = win || mainWindow;
+  const report = code => { if (target && !target.isDestroyed()) target.webContents.send('auth-server-error', code); };
+  const flow = createAuthCallbackServer({
+    state, origins: ALLOWED_AUTH_ORIGINS,
+    onExpire: () => report('auth/timeout'),
+    onCancel: () => { report('auth/cancelled'); stopAuthServer(); },
+    onCredential: payload => new Promise(resolve => {
+      if (!target || target.isDestroyed()) { resolve({ ok: false, code: 'auth/app-unavailable' }); return; }
+      const requestId = crypto.randomUUID();
+      pendingAuth = { requestId, resolve };
+      target.webContents.send('firebase-auth-token', { ...payload, requestId });
+    })
   });
-
-  authServer.on('error', (err) => {
-    console.error('[AuthServer] Server error:', err);
-    authServer = null;
-    authState = null;
-    if (win && !win.isDestroyed()) win.webContents.send('auth-server-error', err.code || 'UNKNOWN');
-  });
-
-  authServer.listen(4242, '127.0.0.1', () => {
-    console.log('[AuthServer] Listening on http://127.0.0.1:4242');
-    authTimeout = setTimeout(stopAuthServer, 10 * 60 * 1000);
-    // Open the chooser only after its callback server is ready.
+  authFlow = flow;
+  authServer = flow.server;
+  flow.server.on('error', error => { stopAuthServer(); report(error.code === 'EADDRINUSE' ? 'auth/port-in-use' : 'auth/server-failed'); });
+  flow.server.on('close', () => { if (authFlow === flow) stopAuthServer(); });
+  flow.server.listen(4242, '127.0.0.1', () => {
     shell.openExternal(`${AUTH_REDIRECT_ORIGIN}/auth.html?mode=login&state=${state}`).catch(() => {
-      stopAuthServer();
-      if (win && !win.isDestroyed()) win.webContents.send('auth-server-error', 'OPEN_FAILED');
+      stopAuthServer(); report('auth/open-failed');
     });
   });
 }
 
 function stopAuthServer() {
-  if (authTimeout) clearTimeout(authTimeout);
-  authTimeout = null;
+  if (pendingAuth) { pendingAuth.resolve({ ok: false, code: 'auth/cancelled' }); pendingAuth = null; }
+  authFlow?.stop();
+  authFlow = null;
+  authServer = null;
   authState = null;
-  if (authServer) {
-    authServer.close(() => console.log('[AuthServer] Closed cleanly.'));
-    authServer = null;
-  }
 }
 
 function createWindow() {
@@ -819,6 +720,9 @@ function createWindow() {
     show: false // Hide window until layout & renderer styles are fully ready
   });
 
+  const createdWindow = mainWindow;
+  createdWindow.once('closed', () => { if (mainWindow === createdWindow) mainWindow = null; stopAuthServer(); });
+  createdWindow.webContents.on('render-process-gone', stopAuthServer);
   mainWindow.loadFile('index.html');
 
   mainWindow.once('ready-to-show', () => {
@@ -1242,6 +1146,13 @@ ipcMain.on('start-google-login', (event) => {
   startAuthServer(win, authState);
 });
 
+ipcMain.on('auth:complete', (event, requestId, errorCode) => {
+  if (!validateSender(event) || pendingAuth?.requestId !== requestId) return;
+  const code = typeof errorCode === 'string' && /^auth\/[a-z-]{1,64}$/.test(errorCode) ? errorCode : 'auth/failed';
+  pendingAuth.resolve(errorCode === null ? { ok: true } : { ok: false, code });
+  pendingAuth = null;
+});
+
 ipcMain.on('stop-auth-server', (event) => {
   if (!validateSender(event)) return;
   stopAuthServer();
@@ -1257,7 +1168,7 @@ ipcMain.on('language:set', (event, lang) => {
 
 ipcMain.handle('history:add', (event, entry) => {
   if (!validateSender(event)) return;
-  addHistoryEntry(entry);
+  return addHistoryEntry(entry);
 });
 
 ipcMain.handle('history:get', (event) => {
@@ -1326,8 +1237,9 @@ ipcMain.handle('shell:open-path', async (event, filePath) => {
 
 ipcMain.handle('adblock:toggle', (event) => {
   if (!validateSender(event)) return false;
-  adBlockEnabled = !adBlockEnabled;
-  saveSettings({ adBlockEnabled });
+  const next = !adBlockEnabled;
+  if (!saveSettings({ adBlockEnabled: next })) return { ok: false, enabled: adBlockEnabled };
+  adBlockEnabled = next;
   console.log(`[AdBlocker] Toggled. Active state: ${adBlockEnabled}`);
   return adBlockEnabled;
 });

@@ -35,6 +35,7 @@ function writeJsonAtomic(filePath, value, { backup = true, isValid = () => true 
         }
       } catch (error) {
         if (fs.existsSync(backupTemporary)) throw error;
+        if (!(error instanceof SyntaxError) && error.code !== 'ENOENT') throw error;
         // Preserve the existing backup when the primary file is missing or corrupt.
       }
     }

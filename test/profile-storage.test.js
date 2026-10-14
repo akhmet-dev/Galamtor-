@@ -48,3 +48,17 @@ test('failed primary parsing never replaces a valid backup with corrupt data', t
   fs.writeFileSync(file, '{');
   assert.deepEqual(readJsonFile(file, [], Array.isArray), ['old']);
 });
+
+test('an unreadable primary is never overwritten with fallback profile data', t => {
+  const file = fixture(t);
+  writeJsonAtomic(file, ['saved']);
+  const read = fs.readFileSync;
+  t.mock.method(fs, 'readFileSync', function (target, ...args) {
+    if (target === file) throw Object.assign(new Error('QA permission failure'), { code: 'EACCES' });
+    return read.call(this, target, ...args);
+  });
+  assert.throws(() => writeJsonAtomic(file, ['fallback']), { code: 'EACCES' });
+  t.mock.restoreAll();
+  assert.deepEqual(readJsonFile(file, []), ['saved']);
+  assert.equal(fs.readdirSync(path.dirname(file)).some(name => name.includes('.tmp-')), false);
+});
