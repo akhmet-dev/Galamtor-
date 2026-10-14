@@ -3,7 +3,7 @@
 
   const CACHE_KEY = 'galamtor_github_release_cache_v4';
   const CACHE_TIME_MS = 15 * 60 * 1000; // 15 minutes
-  const FALLBACK_VERSION = 'v1.5.2';
+  const FALLBACK_VERSION = 'v1.5.3';
 
   const KAZAKH_MONTHS = [
     'Қаңтар', 'Ақпан', 'Наурыз', 'Сәуір', 'Мамыр', 'Маусым',

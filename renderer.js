@@ -14,14 +14,25 @@ const firebaseConfig = {
   messagingSenderId: "984286831243",
   appId: "1:984286831243:web:e694bfabf858f946eeaa8e"
 };
+const KK_WEEKDAYS = ['жексенбі', 'дүйсенбі', 'сейсенбі', 'сәрсенбі', 'бейсенбі', 'жұма', 'сенбі'];
+const KK_MONTHS = ['қаңтар', 'ақпан', 'наурыз', 'сәуір', 'мамыр', 'маусым', 'шілде', 'тамыз', 'қыркүйек', 'қазан', 'қараша', 'желтоқсан'];
 
-// Initialize Firebase compat SDK
-firebase.initializeApp(firebaseConfig);
+// Replace only compat Auth's initial persistence hierarchy. This keeps Auth,
+// Firestore and their internals on the same SDK instance while allowing the
+// OS-encrypted adapter to restore an opt-in session.
+const firebaseApp = firebase.initializeApp(firebaseConfig);
+const secureAuthPersistence = GalamtorSecureAuthPersistence.createPersistence(window.galamtorAPI);
+const volatileAuthPersistence = GalamtorSecureAuthPersistence.createMemoryPersistence();
+const authProvider = firebaseApp._delegate.container.getProvider('auth');
+const initializeAuthProvider = authProvider.initialize.bind(authProvider);
+authProvider.initialize = options => initializeAuthProvider({
+  ...options,
+  options: { ...options?.options, persistence: [secureAuthPersistence, volatileAuthPersistence] }
+});
 const auth = firebase.auth();
-// Firebase's default disk persistence contains raw refresh tokens. Keep this
-// session in memory and gate credential exchange on successful setup.
-const desktopAuthPersistenceReady = auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
-desktopAuthPersistenceReady.catch(() => {});
+authProvider.initialize = initializeAuthProvider;
+// Wait for secure or in-memory persistence to finish restoring before login.
+const desktopAuthPersistenceReady = auth._delegate.authStateReady();
 const db = firebase.firestore();
 let desktopAuthSession = null;
 function getRegistrationDate() {
@@ -59,6 +70,58 @@ function gpUpdateCloudWriteStatus() {
   if (label) label.textContent = !connected ? '' : ({ idle: '', saving: 'Профиль статистикасы сақталуда…', saved: 'Профиль статистикасы сақталды', error: 'Бұлтқа сақтау аяқталмады. Жергілікті деректер сақталған.' })[cloudWriteState];
   const retry = document.getElementById('gp-cloud-write-retry');
   if (retry) retry.hidden = !connected || cloudWriteState !== 'error';
+}
+
+async function gpSaveRememberSignIn(enabled) {
+  if (_gp.rememberSignInBusy) return;
+  const previous = _gp.rememberSignIn;
+  const language = localStorage.getItem('galamtor_language') || 'kk';
+  const trans = UI_TRANSLATIONS[language] || UI_TRANSLATIONS.kk;
+  _gp.rememberSignInBusy = true;
+  const checkbox = _gp.overlayEl?.querySelector('#gp-remember-signin');
+  const status = _gp.overlayEl?.querySelector('#gp-auth-remember-status');
+  if (checkbox) checkbox.disabled = true;
+  if (status) status.textContent = trans.syncRememberSaving;
+
+  try {
+    if (enabled) {
+      const saved = await window.galamtorAPI.setAuthRememberSignIn(true);
+      if (!saved?.ok) throw new Error(saved?.code || 'secure-storage-unavailable');
+      await auth._delegate.setPersistence(secureAuthPersistence);
+      if (!GalamtorSecureAuthPersistence.isActive(auth._delegate, secureAuthPersistence)) {
+        throw new Error('secure-persistence-not-active');
+      }
+    } else {
+      await auth._delegate.setPersistence(volatileAuthPersistence);
+      const saved = await window.galamtorAPI.setAuthRememberSignIn(false);
+      if (!saved?.ok) {
+        if (previous) {
+          await window.galamtorAPI.setAuthRememberSignIn(true);
+          await auth._delegate.setPersistence(secureAuthPersistence);
+        }
+        throw new Error(saved?.code || 'secure-storage-clear-failed');
+      }
+    }
+    _gp.rememberSignIn = enabled;
+    showToast(trans.syncRememberSaved);
+  } catch {
+    if (enabled) {
+      try { await auth._delegate.setPersistence(volatileAuthPersistence); } catch {}
+      try { await window.galamtorAPI.setAuthRememberSignIn(false); } catch {}
+      _gp.rememberSignIn = previous;
+    } else if (previous) {
+      try {
+        const restored = await window.galamtorAPI.setAuthRememberSignIn(true);
+        if (!restored?.ok) throw new Error('preference-restore-failed');
+        await auth._delegate.setPersistence(secureAuthPersistence);
+        _gp.rememberSignIn = true;
+      } catch { _gp.rememberSignIn = false; }
+    }
+    showToast(trans.syncRememberFailed);
+  } finally {
+    _gp.rememberSignInBusy = false;
+    if (_gp.overlayEl?.classList.contains('gp-visible') && _gp.activeTab === 'profile') gpRenderProfileTab();
+  }
 }
 
 function updateWorkspaceTooltip() {
@@ -3095,6 +3158,18 @@ document.head.appendChild(settingsGlowStyle);
     .gp-color-swatch.active { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.15), 0 2px 10px rgba(0,0,0,0.4); }
 
     .gp-field { margin-bottom: 22px; }
+    .gp-auth-remember {
+      display: flex; align-items: flex-start; gap: 10px; margin: 0 0 12px;
+      padding: 12px 14px; border: 1px solid rgba(255,255,255,.09); border-radius: 14px;
+      background: rgba(255,255,255,.025); color: rgba(255,255,255,.82); cursor: pointer;
+    }
+    .gp-auth-remember input { flex: 0 0 auto; width: 16px; height: 16px; margin: 1px 0 0; accent-color: #31cce8; }
+    .gp-auth-remember input:disabled { opacity: .5; cursor: wait; }
+    .gp-auth-remember-copy { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    .gp-auth-remember-title { font-size: 12px; line-height: 1.4; font-weight: 600; }
+    .gp-auth-remember-hint { font-size: 11px; line-height: 1.5; color: rgba(255,255,255,.57); }
+    .gp-auth-remember-status { min-height: 0; margin: 0 0 14px; font-size: 11px; line-height: 1.4; color: rgba(255,255,255,.68); }
+    .gp-auth-remember-status:empty { display: none; }
     .gp-label { font-size: 9.5px; font-weight: 700; color: rgba(255, 255, 255, 0.4); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px; display: block; }
     .gp-input {
       width: 100%; padding: 12px 16px; border-radius: 14px !important;
@@ -3618,7 +3693,13 @@ const UI_TRANSLATIONS = {
     vibeCountLabel: 'ВАЙБТАР САНЫ',
     syncStatusLabel: 'БҰЛТТЫ СИНХРОНИЗАЦИЯ',
     syncConnected: 'Google аккаунты қосылған',
-    syncSessionOnly: 'Қолданбаны толық жауып, қайта ашқанда Google кіруін қайталау керек.',
+    syncRememberLabel: 'Қайта ашқанда Google кіруін сақтау',
+    syncRememberHint: 'Қосылса, сессия осы Mac-та жүйенің қорғалған қоймасында шифрланып сақталады. Ортақ компьютерде қоспаңыз.',
+    syncRememberUnavailable: 'Құрылғының қорғалған қоймасы қолжетімсіз. Кіру тек қолданба ашық тұрғанша сақталады.',
+    syncRememberLoading: 'Қорғалған сақтау күйі тексерілуде…',
+    syncRememberSaved: 'Кіру баптауы сақталды',
+    syncRememberFailed: 'Қауіпсіз сақтау баптауын өзгерту мүмкін болмады',
+    syncRememberSaving: 'Қауіпсіз кіру баптауы сақталуда…',
     syncDisconnected: 'Бұлтқа қосылмаған',
     syncConnecting: 'Бұлтқа қосылуда...',
     syncButtonLogout: 'Шығу',
@@ -3645,7 +3726,13 @@ const UI_TRANSLATIONS = {
     vibeCountLabel: 'КОЛ-ВО ВАЙБОВ',
     syncStatusLabel: 'ОБЛАЧНАЯ СИНХРОНИЗАЦИЯ',
     syncConnected: 'Аккаунт Google подключён',
-    syncSessionOnly: 'После полного закрытия и повторного открытия приложения войдите в Google снова.',
+    syncRememberLabel: 'Сохранять вход после перезапуска',
+    syncRememberHint: 'Если включено, сессия хранится на этом Mac в защищённом системном хранилище. Не включайте на общем компьютере.',
+    syncRememberUnavailable: 'Защищённое хранилище устройства недоступно. Вход останется только до закрытия приложения.',
+    syncRememberLoading: 'Проверяем защищённое хранилище…',
+    syncRememberSaved: 'Настройка входа сохранена',
+    syncRememberFailed: 'Не удалось изменить безопасное хранение входа',
+    syncRememberSaving: 'Сохраняем безопасную настройку входа…',
     syncDisconnected: 'Не подключено к облаку',
     syncConnecting: 'Подключение...',
     syncButtonLogout: 'Выйти',
@@ -3672,7 +3759,13 @@ const UI_TRANSLATIONS = {
     vibeCountLabel: 'VIBES COUNT',
     syncStatusLabel: 'CLOUD SYNC',
     syncConnected: 'Google account connected',
-    syncSessionOnly: 'Sign in to Google again after fully closing and reopening the app.',
+    syncRememberLabel: 'Keep me signed in after restart',
+    syncRememberHint: 'When enabled, the session is encrypted in this Mac’s protected system storage. Leave off on shared computers.',
+    syncRememberUnavailable: 'Protected storage is unavailable. Sign-in will last only until the app closes.',
+    syncRememberLoading: 'Checking protected storage…',
+    syncRememberSaved: 'Sign-in preference saved',
+    syncRememberFailed: 'Could not change secure sign-in storage',
+    syncRememberSaving: 'Saving secure sign-in preference…',
     syncDisconnected: 'Not connected to Cloud',
     syncConnecting: 'Connecting to Cloud...',
     syncButtonLogout: 'Logout',
@@ -3772,8 +3865,29 @@ const _gp = {
   // Pending loopback logins cannot survive an application restart.
   syncState: 'disconnected',
   syncUser: null,
-  authSession: null
+  authSession: null,
+  rememberSignIn: false,
+  rememberSignInAvailable: false,
+  rememberSignInLoaded: false,
+  rememberSignInBusy: false
 };
+
+desktopAuthPersistenceReady.then(async () => {
+  try {
+    const preference = await window.galamtorAPI.getAuthRememberState();
+    _gp.rememberSignIn = preference.enabled === true;
+    _gp.rememberSignInAvailable = preference.available === true;
+  } catch {
+    _gp.rememberSignInAvailable = false;
+  } finally {
+    _gp.rememberSignInLoaded = true;
+    if (_gp.overlayEl?.classList.contains('gp-visible') && _gp.activeTab === 'profile') gpRenderProfileTab();
+  }
+}).catch(() => {
+  _gp.rememberSignInLoaded = true;
+  _gp.rememberSignInAvailable = false;
+  if (_gp.overlayEl?.classList.contains('gp-visible') && _gp.activeTab === 'profile') gpRenderProfileTab();
+});
 
 // ── 4. STORAGE LAYER (GalamtorStore) ─────────────────────────────
 const GalamtorStore = {
@@ -3886,6 +4000,9 @@ if (!localStorage.getItem('gp_vibes')) {
 function gpBuildOverlay() {
   const currentLang = localStorage.getItem('galamtor_language') || 'kk';
   const trans = UI_TRANSLATIONS[currentLang] || UI_TRANSLATIONS.kk;
+  const rememberHint = !_gp.rememberSignInLoaded ? trans.syncRememberLoading
+    : _gp.rememberSignInAvailable ? trans.syncRememberHint : trans.syncRememberUnavailable;
+  const rememberDisabled = !_gp.rememberSignInLoaded || (!_gp.rememberSignInAvailable && !_gp.rememberSignIn) || _gp.rememberSignInBusy;
 
   const openTabsCount = (tabs || []).length;
   const activeVibe = GalamtorStore.getVibes().find(v => v.id === GalamtorStore.getActiveVibeId()) || { name: 'Әдепкі (Default)' };
@@ -4002,6 +4119,9 @@ function gpRenderProfileTab() {
 
   const syncState = _gp.syncState || 'disconnected';
   const syncUser = _gp.authSession ? _gp.authSession.user : auth.currentUser;
+  const rememberHint = !_gp.rememberSignInLoaded ? trans.syncRememberLoading
+    : _gp.rememberSignInAvailable ? trans.syncRememberHint : trans.syncRememberUnavailable;
+  const rememberDisabled = !_gp.rememberSignInLoaded || (!_gp.rememberSignInAvailable && !_gp.rememberSignIn) || _gp.rememberSignInBusy;
   let dotClass = 'gp-sync-dot-disconnected';
   let statusText = trans.syncDisconnected;
   let statusColor = 'rgba(255,255,255,0.45)';
@@ -4091,7 +4211,14 @@ function gpRenderProfileTab() {
     </div>
     <p id="gp-cloud-write-status" role="status" style="margin:-14px 0 16px;font-size:12px;opacity:.7"></p>
     <button id="gp-cloud-write-retry" class="gp-btn gp-btn-secondary" type="button" hidden>Бұлтқа қайта сақтау</button>
-    <p id="gp-auth-session-note" style="font-size:12px;line-height:1.5;color:rgba(255,255,255,.65)">${trans.syncSessionOnly}</p>
+    <label class="gp-auth-remember" for="gp-remember-signin">
+      <input id="gp-remember-signin" type="checkbox" ${_gp.rememberSignIn ? 'checked' : ''} ${rememberDisabled ? 'disabled' : ''}>
+      <span class="gp-auth-remember-copy">
+        <span class="gp-auth-remember-title">${trans.syncRememberLabel}</span>
+        <span class="gp-auth-remember-hint">${rememberHint}</span>
+      </span>
+    </label>
+    <p id="gp-auth-remember-status" class="gp-auth-remember-status" role="status" aria-live="polite"></p>
 
     <div class="gp-stats" style="margin-top:16px; margin-bottom:24px;">
       <div class="gp-stat">
@@ -4117,6 +4244,9 @@ function gpRenderProfileTab() {
   panel.querySelector('#gp-cloud-write-retry')?.addEventListener('click', () => {
     const user = _gp.authSession?.user;
     if (user) syncProfileStats(user.uid, gpCurrentStats());
+  });
+  panel.querySelector('#gp-remember-signin')?.addEventListener('change', event => {
+    gpSaveRememberSignIn(event.currentTarget.checked);
   });
   panel.querySelector('#gp-sync-cancel-btn')?.addEventListener('click', () => {
     _gp.authSession?.cancel();
@@ -5783,9 +5913,6 @@ async function renderCommandPaletteResults(query) {
 }
 
 // ── Welcome Clock & Date Widget ──
-const KK_WEEKDAYS = ['жексенбі', 'дүйсенбі', 'сейсенбі', 'сәрсенбі', 'бейсенбі', 'жұма', 'сенбі'];
-const KK_MONTHS = ['қаңтар', 'ақпан', 'наурыз', 'сәуір', 'мамыр', 'маусым', 'шілде', 'тамыз', 'қыркүйек', 'қазан', 'қараша', 'желтоқсан'];
-
 function formatKazakhDate(date) {
   if (Number.isNaN(date.getTime())) return '—';
   return `${date.getDate()} ${KK_MONTHS[date.getMonth()]} ${date.getFullYear()}`;

@@ -9,7 +9,7 @@
 <title>Ғаламтор браузері — қазақша браузер | Galamtor</title>
 
 <!-- ── SEO Core ──────────────────────────────────────── -->
-<meta name="description" content="Ғаламтор — қазақша браузер. 1.5.2 қоғамдық сынақ нұсқасы: бес жеке бапталатын серік, қазақша интерфейс және жергілікті AI.">
+<meta name="description" content="Ғаламтор — қазақша браузер. 1.5.3 қоғамдық сынақ нұсқасы: қауіпсіз сақталатын Google кіруі, бес серік, қазақша интерфейс және жергілікті AI.">
 <meta name="keywords" content="Ғаламтор, Galamtor, қазақша браузер, Electron, Chromium, AdBlock, macOS, ашық код">
 <meta name="author" content="Ғаламтор Team">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
@@ -23,7 +23,7 @@
 <meta property="og:url" content="https://galamtor.web.app/">
 <meta property="og:site_name" content="Ғаламтор">
 <meta property="og:title" content="Ғаламтор браузері — Mac үшін қазақша браузер (Galamtor)">
-<meta property="og:description" content="Galamtor 1.5.2 қоғамдық сынақ нұсқасы енді жүктеуге ашық. macOS-та әзірлеуші қолтаңбасы жоқ екені туралы ескертуді оқыңыз.">
+<meta property="og:description" content="Galamtor 1.5.3 қоғамдық сынақ нұсқасы жүктеуге ашық. Google кіруін сақтау баптауы және macOS Gatekeeper нұсқаулығы бар.">
 <meta property="og:image" content="https://galamtor.web.app/assets/icon.png">
 <meta property="og:image:width" content="512">
 <meta property="og:image:height" content="512">
@@ -54,7 +54,7 @@
   "description": "Қазақша Electron браузері. Шектеулі жарнама сүзгісі және қосымша AI көмекшісі бар.",
   "url": "https://galamtor.web.app/",
   "downloadUrl": "https://github.com/akhmet-dev/Galamtor-/releases/latest",
-  "softwareVersion": "1.5.2",
+  "softwareVersion": "1.5.3",
   "releaseNotes": "Жарияланған нұсқаның өзгерістерін GitHub Releases бетінен қараңыз.",
   "offers": {
     "@type": "Offer",
@@ -597,6 +597,18 @@ a:focus-visible{outline:3px solid #fff;outline-offset:2px;box-shadow:0 0 0 6px #
 .dl-btn.sec:hover{border-color:var(--rule);background:var(--paper-dark);}
 .dl-note{font-family:var(--ff-mono);font-size:11px;line-height:1.6;color:var(--ink-light);margin-top:16px;max-width:760px;}
 .dl-security-note{border-left:3px solid #a53b26;background:rgba(165,59,38,.08);padding:11px 13px;color:var(--ink);}
+.dl-troubleshoot{margin-top:18px;max-width:760px;border:1px solid var(--rule-light);background:rgba(255,255,255,.025);}
+.dl-troubleshoot summary{padding:13px 15px;font-family:var(--ff-mono);font-size:11px;line-height:1.5;color:var(--ink);cursor:pointer;}
+.dl-troubleshoot[open] summary{border-bottom:1px solid var(--rule-light);}
+.dl-troubleshoot-content{display:grid;grid-template-columns:minmax(190px,.72fr) minmax(0,1fr);gap:18px;padding:16px;align-items:start;}
+.dl-troubleshoot-figure{margin:0;}
+.dl-troubleshoot-figure img{display:block;width:100%;height:auto;max-height:420px;object-fit:contain;object-position:top;background:#05070b;border:1px solid var(--rule-light);}
+.dl-troubleshoot-figure figcaption{margin-top:8px;font:10px/1.5 var(--ff-mono);color:var(--ink-light);}
+.dl-troubleshoot-copy{font:11px/1.7 var(--ff-mono);color:var(--ink-light);}
+.dl-troubleshoot-copy p{margin:0 0 10px;}
+.dl-troubleshoot-copy ol{padding-left:20px;margin:8px 0 12px;}
+.dl-troubleshoot-copy li{padding-left:3px;margin:0 0 8px;}
+.dl-troubleshoot-copy a{color:var(--ink);text-underline-offset:3px;}
 
 /* Certificate stamp */
 .cert{padding:24px 20px;display:flex;align-items:center;justify-content:center;background:var(--paper-dark);border-left:1px solid var(--rule);}
@@ -653,6 +665,8 @@ a:focus-visible{outline:3px solid #fff;outline-offset:2px;box-shadow:0 0 0 6px #
   .sc-main{font-size:11px;}
   .sec-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:8px 0;}
   .sec-nav a,.sec-nav a:first-child{display:flex;align-items:center;justify-content:center;min-height:40px;padding:7px 5px;border:1px solid var(--rule-light);text-align:center;line-height:1.25;font-size:9px;letter-spacing:.05em;}
+  .dl-troubleshoot-content{grid-template-columns:minmax(0,1fr);gap:14px;padding:12px;}
+  .dl-troubleshoot-figure img{max-height:300px;}
 }
 
 /* ══════════════════════════════════════════════════════
@@ -874,19 +888,19 @@ section{position:relative;}
       <img src="assets/galamtor-bot.svg" alt="" width="72" height="78">
     </div>
     <div class="progress-copy">
-      <h2 id="progress-title">Galamtor 1.5.2 — қоғамдық сынақ нұсқасы</h2>
+      <h2 id="progress-title">Galamtor 1.5.3 — қоғамдық сынақ нұсқасы</h2>
       <p>Таңдаулы сайттарды атауы немесе URL бойынша іздеңіз, қосыңыз және өңдеңіз. Өзгеріс жоғарғы жолақта бірден көрінеді. Бір мекенжай қайталанбайды; сақтау сәтсіз болса, түсінікті қате мен қайталау мүмкіндігі беріледі.</p>
-      <p>Google кіруінің нәтижесін оқу түзетілді. Safari тікелей жергілікті байланысты бөгесе, бөлек Galamtor терезесінде кіруді аяқтауға болады. Қолданбаны толық қайта ашқанда Google арқылы қайта кіріңіз; жергілікті қойындылар, виджеттер және серік баптаулары сақталады.</p>
-      <p class="progress-release-note">ChatGPT жоспарына кіру әзірше жұмыс үстелі қолданбасында ғана бар; ол Firebase Google-кіруін алмастырмайды, веб-сайтта AI қызметі қосылмаған. 1.5.2 енді ашық сынақ нұсқасы ретінде жүктеуге қолжетімді. Жинақ Developer ID-пен қол қойылмаған және Apple нотариалдық тексеруінен өтпеген, сондықтан macOS қауіпсіздік ескертуін көрсетуі мүмкін. Орнату қадамдары төмендегі жүктеу бөлімінде берілген.</p>
+      <p>Google кіруін сақтау енді таңдауға болады: қосылса, сессия құрылғының қорғалған сақтау орнына шифрланады. macOS-тағы «Galamtor is damaged» ескертуіне арналған скрині бар нұсқаулық төменде берілген.</p>
+      <p class="progress-release-note">ChatGPT жоспарына кіру әзірше жұмыс үстелі қолданбасында ғана бар; ол Firebase Google-кіруін алмастырмайды, веб-сайтта AI қызметі қосылмаған. 1.5.3 — қолтаңбасыз қоғамдық сынақ нұсқасы; Developer ID қолтаңбасы немесе Apple notarization бар деп көрсетілмейді. Gatekeeper ескертуі қауіпсіз түрде шешілмесе, веб-нұсқаны қолданыңыз.</p>
       <div class="progress-actions">
         <a class="progress-download-link" href="#download" aria-label="macOS үшін Galamtor 1.5.2 қоғамдық нұсқасын жүктеу">
-          <span id="stable-version-cta">Қоғамдық нұсқа · v1.5.2</span><span aria-hidden="true">→</span>
+          <span id="stable-version-cta">Қоғамдық нұсқа · v1.5.3</span><span aria-hidden="true">→</span>
         </a>
         <span class="progress-platform">macOS 13+ · Apple Silicon және Intel</span>
       </div>
     </div>
     <ul class="progress-facts" aria-label="Жоба күйі">
-      <li><span class="progress-check" aria-hidden="true">✓</span><span><strong>102/102</strong> автоматты тексеру өтті</span></li>
+      <li><span class="progress-check" aria-hidden="true">✓</span><span><strong>QA есеп</strong> тексеру нәтижелері мен шектеулерді көрсетеді</span></li>
       <li><span class="progress-check" aria-hidden="true">✓</span><span><strong>macOS ARM64</strong> негізгі интерфейс тексерілді</span></li>
       <li><span class="progress-current" aria-hidden="true">●</span><span><strong>Келесі қадам</strong> Windows нұсқасын тексеру және macOS қолтаңбасы</span></li>
     </ul>
@@ -1155,7 +1169,7 @@ section{position:relative;}
       <div class="rule-h"></div>
       <h2 class="dl-hl">Ғаламторды<br>бүгін жүктеңіз</h2>
       <div class="rule-h thin"></div>
-      <p class="dl-ver" id="dl-version-info">Қоғамдық нұсқа v1.5.2 · macOS 13+ · Тегін</p>
+      <p class="dl-ver" id="dl-version-info">Қоғамдық нұсқа v1.5.3 · macOS 13+ · Тегін</p>
       <div class="rule-h"></div>
       <div class="dl-acts">
         <a href="https://github.com/akhmet-dev/Galamtor-/releases/latest" class="dl-btn pri" id="dl-main-btn" aria-label="Galamtor соңғы шығарылымын GitHub-та ашу">
@@ -1170,7 +1184,26 @@ section{position:relative;}
       <div id="dl-platform-dropdown" class="dl-platform-dropdown"></div>
       <div class="dl-note">macOS 13 немесе жаңарақ нұсқасы қажет. GitHub-та өз құрылғыңызға сай Apple Silicon (arm64) не Intel (x64) DMG файлын таңдаңыз.</div>
       <div class="dl-note"><strong>Жаңарту:</strong> Galamtor-ды толық жабыңыз, Mac түріңізге сай DMG жүктеп, Applications ішіндегі Galamtor-ды жаңа нұсқамен ауыстырыңыз. Профильді өшірудің қажеті жоқ. Қолтаңбасыз preview үшін жаңарту қолмен орнатылады.</div>
-      <div class="dl-note dl-security-note"><strong>macOS ескертуі:</strong> 1.5.2 нұсқасында ақылы Developer ID қолтаңбасы мен Apple нотариалдық растауы жоқ. Алғаш ашқанда macOS бөгде әзірлеуші туралы ескерту көрсетуі мүмкін. Файлды тек осы ресми релизден алғаныңызды тексеріңіз; содан кейін Finder-де қолданбаны Control-click (оң жақ батырма) → <em>Open</em> → <em>Open</em> арқылы ашыңыз. Қажет болса, System Settings → Privacy &amp; Security ішіндегі <em>Open Anyway</em> пәрменін таңдаңыз. SHA-256 бақылау сомалары релиз сипаттамасында берілген.</div>
+      <div class="dl-note dl-security-note"><strong>Қауіпсіздік:</strong> 1.5.3 preview жинағына Developer ID қолтаңбасы да, Apple нотариалдық тексеруі де қойылмаған. macOS ескертуі қолданбаның өзгергенін немесе бүлінгенін айтса, оны айналып өтпеңіз: файлды жойып, SHA-256 сомасын тексеріп қайта жүктеңіз. Ескерту сақталса, Gatekeeper-ді өшірмей, әзірге <a href="https://galamtor.web.app">веб-нұсқаны</a> қолданыңыз.</div>
+      <details class="dl-troubleshoot" id="macos-gatekeeper-help" open>
+        <summary>Mac «Galamtor is damaged and can’t be opened» деп көрсетсе — не істеу керек?</summary>
+        <div class="dl-troubleshoot-content">
+          <figure class="dl-troubleshoot-figure">
+            <img src="assets/macos-gatekeeper-damaged.png" width="744" height="784" alt="macOS ескертуі: Galamtor зақымдалған және ашылмайды">
+            <figcaption>Сіз жіберген macOS ескертуінің үлгісі.</figcaption>
+          </figure>
+          <div class="dl-troubleshoot-copy">
+            <p>Бұл «әзірлеушіні тексеру мүмкін емес» деген хабардан бөлек. Apple мұндай ескерту өзгерген, бүлінген немесе бұрмаланған қолданбаны білдіруі мүмкін дейді.</p>
+            <ol>
+              <li>Ескертуде <strong>Cancel</strong> таңдаңыз; «Move to Trash» батырмасын баспаңыз.</li>
+              <li>DMG мен релиздегі <strong>SHA256SUMS-1.5.3.txt</strong> файлын ресми GitHub релизінен жүктеңіз. SHA-256 хэшін тексеру үшін Terminal-да Apple Silicon құрылғысында <code>shasum -a 256 ~/Downloads/Galamtor-1.5.3-arm64.dmg</code>, Intel құрылғысында <code>shasum -a 256 ~/Downloads/Galamtor-1.5.3.dmg</code> орындап, шыққан мәнді checksum файлындағы сәйкес жолмен салыстырыңыз. Бұл команда файлды өзгертпейді де, ештеңе орнатпайды.</li>
+              <li>Сома дәл келсе де дәл осы «is damaged» хабарламасы қайталанса, Gatekeeper-ді сөндірмеңіз және терминалдан «автофиксті» іске қоспаңыз. Бұл preview-ді қауіпсіз айналып өту жолы жоқ — әзірге <a href="https://galamtor.web.app">Galamtor веб-нұсқасын ашыңыз</a>.</li>
+            </ol>
+            <p>Егер хабарлама тек Apple әзірлеушіні тексере алмайтынын айтса, ресми файл екеніне көзіңіз жеткенде ғана macOS-та System Settings → Privacy &amp; Security → <em>Open Anyway</em> жолын қарастырыңыз. Бұл нақты «app is damaged» қатесін жөндемейді. <a href="https://support.apple.com/en-us/102445" target="_blank" rel="noopener noreferrer">Apple нұсқаулығы</a>.</p>
+            <p>«Автофикст» орнатылмайды: ол жүйе қорғанысын әлсіретпеуі керек. Қолтаңбалы әрі нотариалданған жинаққа Developer ID қажет.</p>
+          </div>
+        </div>
+      </details>
     </div>
     <div class="cert">
       <div class="cert-out">
@@ -1178,7 +1211,7 @@ section{position:relative;}
           <div class="cert-top">ҚОЛТАҢБАСЫЗ PREVIEW</div>
           <div class="cert-sym">Ғ</div>
           <div class="cert-tit">ҒАЛАМТОР</div>
-          <div class="cert-ver">v1.5.2</div>
+          <div class="cert-ver">v1.5.3</div>
           <div class="cert-yr">2026</div>
           <div class="cert-bot">ҚАЗАҚСТАН</div>
         </div>
@@ -1208,11 +1241,11 @@ section{position:relative;}
       <a href="https://github.com/akhmet-dev/Galamtor-/issues" class="ftr-lnk">Байланыс</a>
     </div>
   </div>
-  <div class="ftr-ed">ҒАЛАМТОР ГАЗЕТІ &nbsp;·&nbsp; ТОМ I &nbsp;·&nbsp; № 2 &nbsp;·&nbsp; 2026 &nbsp;·&nbsp; ТЕГІН &nbsp;·&nbsp; v1.5.2</div>
+  <div class="ftr-ed">ҒАЛАМТОР ГАЗЕТІ &nbsp;·&nbsp; ТОМ I &nbsp;·&nbsp; № 2 &nbsp;·&nbsp; 2026 &nbsp;·&nbsp; ТЕГІН &nbsp;·&nbsp; v1.5.3</div>
 </footer>
 
-<script src="release-utils.js?v=1.5.2"></script>
-<script src="github-releases.js?v=1.5.2-public-preview"></script>
+<script src="release-utils.js?v=1.5.3"></script>
+<script src="github-releases.js?v=1.5.3-public-preview"></script>
 <script>
 // Scroll reveal
 var rv=document.querySelectorAll('.rv');

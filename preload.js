@@ -15,6 +15,12 @@ contextBridge.exposeInMainWorld('galamtorAPI', {
     ipcRenderer.on('auth-server-error', listener);
     return () => ipcRenderer.removeListener('auth-server-error', listener);
   },
+  getAuthRememberState: () => ipcRenderer.invoke('auth:remember-state'),
+  setAuthRememberSignIn: (enabled) => ipcRenderer.invoke('auth:remember-set', enabled),
+  authPersistenceAvailable: () => ipcRenderer.invoke('auth:persistence-available'),
+  getAuthPersistenceValue: (key) => ipcRenderer.invoke('auth:persistence:get', key),
+  setAuthPersistenceValue: (key, value) => ipcRenderer.invoke('auth:persistence:set', key, value),
+  removeAuthPersistenceValue: (key) => ipcRenderer.invoke('auth:persistence:remove', key),
   setLanguage: (lang) => ipcRenderer.send('language:set', lang),
 
   // History API

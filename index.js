@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const { fetchRelease, isNewerVersion } = require('./public/release-utils');
 const unsignedMacPreview = process.platform === 'darwin' && require('./package.json').galamtorRelease?.unsignedPreview === true;
 const { readJsonFile, writeJsonAtomic } = require('./profile-storage');
+const { createSecureAuthStore } = require('./secure-auth-store');
 const { createAuthCallbackServer } = require('./auth-server');
 const { isPhishingOrScam, isYouTubeURL } = require('./security-utils');
 const { checkOllamaStatus, pullOllamaModel } = require('./ollama-client');
@@ -434,6 +435,12 @@ function saveSettings(settings) {
   try { return writeJsonAtomic(getSettingsPath(), { ...loadSettings(), ...settings }, { isValid: isRecord }); }
   catch (error) { console.error('[Settings] Failed to save:', error.message); return false; }
 }
+
+const secureAuthStore = createSecureAuthStore({
+  safeStorage,
+  filePath: path.join(app.getPath('userData'), 'firebase-auth.secure.json'),
+  isEnabled: () => loadSettings().rememberGoogleSignIn === true
+});
 
 function addHistoryEntry(entry) {
   const [clean] = normalizeHistory([entry]);
@@ -1141,6 +1148,43 @@ ipcMain.handle('update:install', (event) => {
   if (!validateSender(event) || !autoUpdater || unsignedMacPreview || !app.isPackaged) return false;
   autoUpdater.quitAndInstall(false, true);
   return true;
+});
+
+// Firebase credential persistence is opt-in and encrypted by Electron's OS
+// secure-storage backend. Secrets never enter settings.json or renderer logs.
+ipcMain.handle('auth:remember-state', event => {
+  if (!validateSender(event)) return { enabled: false, available: false };
+  return {
+    enabled: loadSettings().rememberGoogleSignIn === true,
+    available: secureAuthStore.isAvailable()
+  };
+});
+ipcMain.handle('auth:remember-set', async (event, enabled) => {
+  if (!validateSender(event) || typeof enabled !== 'boolean') return { ok: false, code: 'invalid-request' };
+  if (enabled && !secureAuthStore.isAvailable()) return { ok: false, code: 'secure-storage-unavailable' };
+  if (!saveSettings({ rememberGoogleSignIn: enabled })) return { ok: false, code: 'settings-write-failed' };
+  if (!enabled) {
+    try { await secureAuthStore.clear(); }
+    catch {
+      saveSettings({ rememberGoogleSignIn: true });
+      return { ok: false, code: 'secure-storage-clear-failed' };
+    }
+  }
+  return { ok: true, enabled };
+});
+ipcMain.handle('auth:persistence-available', event =>
+  validateSender(event) && loadSettings().rememberGoogleSignIn === true && secureAuthStore.isAvailable());
+ipcMain.handle('auth:persistence:get', (event, key) => {
+  if (!validateSender(event) || loadSettings().rememberGoogleSignIn !== true) return null;
+  return secureAuthStore.get(key);
+});
+ipcMain.handle('auth:persistence:set', (event, key, value) => {
+  if (!validateSender(event) || loadSettings().rememberGoogleSignIn !== true) return false;
+  return secureAuthStore.set(key, value);
+});
+ipcMain.handle('auth:persistence:remove', (event, key) => {
+  if (!validateSender(event) || loadSettings().rememberGoogleSignIn !== true) return false;
+  return secureAuthStore.remove(key);
 });
 
 ipcMain.on('start-google-login', (event) => {

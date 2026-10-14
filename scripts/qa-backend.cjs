@@ -31,16 +31,53 @@ async function fault(file) {
   }, file);
 }
 async function recover() { await app.evaluate(() => { process.getBuiltinModule('fs').renameSync = globalThis.__qaRename; }); }
+async function launch(env) {
+  app = await electron.launch({ ...(process.env.GALAMTOR_QA_EXECUTABLE ? { executablePath: process.env.GALAMTOR_QA_EXECUTABLE, args: ['--galamtor-qa'] } : { args: [root] }), env });
+  page = await app.firstWindow(); page.setDefaultTimeout(20000);
+  page.on('pageerror', error => errors.push(error.message));
+  await page.waitForFunction(() => typeof _sessionRestoreComplete !== 'undefined' && _sessionRestoreComplete && _gp.authSession);
+}
 (async () => {
   const env = { ...process.env, GALAMTOR_DEV_PROFILE: profile };
   delete env.ELECTRON_RUN_AS_NODE; delete env.GEMINI_API_KEY;
   try {
-    app = await electron.launch({ ...(process.env.GALAMTOR_QA_EXECUTABLE ? { executablePath: process.env.GALAMTOR_QA_EXECUTABLE, args: ['--galamtor-qa'] } : { args: [root] }), env });
-    page = await app.firstWindow(); page.setDefaultTimeout(20000);
-    page.on('pageerror', error => errors.push(error.message));
-    await page.waitForFunction(() => typeof _sessionRestoreComplete !== 'undefined' && _sessionRestoreComplete && _gp.authSession);
+    await launch(env);
     assert.equal(await page.evaluate(async()=>{await desktopAuthPersistenceReady;return auth._delegate.persistenceManager.persistence.type;}),'NONE');
     assert.equal(await app.evaluate(({ app }) => app.getPath('userData')), profile);
+
+    await check('opt-in sign-in persistence is encrypted, restored after restart, and removed when disabled', async () => {
+      await page.locator('#btn-workspace').click();
+      const remember = page.locator('#gp-remember-signin'); await remember.waitFor();
+      assert.equal(await remember.isDisabled(), false);
+      await remember.check();
+      await page.waitForFunction(() => _gp.rememberSignIn === true && auth._delegate.persistenceManager.persistence.type === 'LOCAL');
+      const key = 'firebase:authUser:qa-synthetic-key:[DEFAULT]';
+      const fixture = 'qa-only-refresh-token-sentinel';
+      assert.equal(await page.evaluate(async ({ key, fixture }) => {
+        return galamtorAPI.setAuthPersistenceValue(key, { uid: 'qa-synthetic-user', stsTokenManager: { refreshToken: fixture } });
+      }, { key, fixture }), true);
+      const encryptedPath = path.join(profile, 'firebase-auth.secure.json');
+      assert.equal(fs.readFileSync(encryptedPath, 'utf8').includes(fixture), false);
+      assert.equal(fs.readFileSync(path.join(profile, 'settings.json'), 'utf8').includes(fixture), false);
+
+      await app.close();
+      await launch(env);
+      const restored = await page.evaluate(async ({ key }) => ({
+        state: await galamtorAPI.getAuthRememberState(),
+        persistence: (await desktopAuthPersistenceReady, auth._delegate.persistenceManager.persistence.type),
+        value: await galamtorAPI.getAuthPersistenceValue(key)
+      }), { key });
+      assert.equal(restored.state.enabled, true);
+      assert.equal(restored.persistence, 'LOCAL');
+      assert.equal(restored.value.stsTokenManager.refreshToken, fixture);
+      await page.locator('#btn-workspace').click();
+      await page.locator('#gp-remember-signin').uncheck();
+      await page.waitForFunction(() => _gp.rememberSignIn === false && auth._delegate.persistenceManager.persistence.type === 'NONE');
+      assert.equal((await page.evaluate(() => galamtorAPI.getAuthRememberState())).enabled, false);
+      assert.equal(fs.existsSync(encryptedPath), false);
+      await page.evaluate(() => gpCloseModal());
+    });
+
     await app.evaluate(({ shell, safeStorage }) => {
       safeStorage.isEncryptionAvailable = () => false;
       globalThis.__qaExternal = shell.openExternal;

@@ -88,6 +88,21 @@ const fakeFirebase = `
         await page.locator('.sec-nav a[href="#download"]').click();
         assert.equal(await page.evaluate(()=>location.hash),'#download');
         assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth + 1));
+        const tutorial = await page.evaluate(() => {
+          const details = document.querySelector('#macos-gatekeeper-help');
+          const image = details.querySelector('img');
+          const figure = details.querySelector('figure').getBoundingClientRect();
+          const copy = details.querySelector('.dl-troubleshoot-copy').getBoundingClientRect();
+          return { open: details.open, naturalWidth: image.naturalWidth, imageRight: image.getBoundingClientRect().right,
+            copyRight: copy.right, stacked: copy.top >= figure.bottom - 1, text: details.innerText };
+        });
+        assert.equal(tutorial.open,true);
+        assert.ok(tutorial.naturalWidth > 0);
+        assert.ok(tutorial.imageRight <= width + 1 && tutorial.copyRight <= width + 1);
+        assert.match(tutorial.text,/SHA-256/);
+        assert.match(tutorial.text,/shasum -a 256/);
+        assert.match(tutorial.text,/Gatekeeper-ді сөндірмеңіз/);
+        if(width <= 600) assert.equal(tutorial.stacked,true);
         await page.screenshot({path:path.join(output,`website-${width}.png`),fullPage:true});
       }
     });
