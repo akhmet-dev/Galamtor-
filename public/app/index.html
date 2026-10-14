@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="kk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Galamtor Web: қазақша басты бет, таңдаулылар, виджеттер, Workspace және жеке серік. Орнатусыз қолданыңыз.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com wss://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebaseapp.com https://open.er-api.com; frame-src 'self' https://*.firebaseapp.com; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <meta name="theme-color" content="#0b0c0e">
+  <title>Galamtor Web</title>
+  <link rel="icon" href="assets/icon.png">
+  <link rel="stylesheet" href="desktop.css">
+  <link rel="stylesheet" href="web-app.css">
+</head>
+<body>
+  <div id="app">
+    <header id="top-bar">
+      <div id="tab-strip">
+        <a class="web-brand" href="/" title="Galamtor ресми сайты">G<span>Galamtor <small>WEB</small></span></a>
+        <div id="tabs-container" role="tablist" aria-label="Galamtor сілтеме қойындылары"></div>
+        <button id="btn-new-tab" class="icon-btn-sm" type="button" title="Жаңа қойынды" aria-label="Жаңа қойынды">＋</button>
+      </div>
+      <div id="nav-bar">
+        <button id="btn-home" class="nav-btn" type="button" title="Басты бет" aria-label="Басты бет">⌂</button>
+        <form id="url-form" class="url-bar-form"><div class="url-bar">
+          <span class="web-url-icon" aria-hidden="true">⌕</span>
+          <input id="url-input" type="text" autocomplete="off" spellcheck="false" placeholder="Іздеу немесе URL енгізу…" aria-label="Іздеу немесе URL">
+          <button id="btn-bookmark-current" type="button" class="lens-btn" title="Бетбелгі қосу" aria-label="Бетбелгі қосу">☆</button>
+          <button type="submit" class="lens-btn" title="Сайтты бөлек қойындыда ашу" aria-label="Сайтты ашу">↗</button>
+        </div></form>
+        <div class="nav-actions">
+          <button id="btn-lens" class="nav-btn" type="button" title="Galamtor Lens" aria-label="Galamtor Lens">◎</button>
+          <button id="btn-browser-menu" class="nav-btn" type="button" title="Мәзір" aria-label="Galamtor мәзірі" aria-haspopup="menu" aria-expanded="false" aria-controls="browser-menu">☰</button>
+        </div>
+      </div>
+      <nav id="bookmarks-bar" class="bookmarks-bar" aria-label="Жоғарғы таңдаулылар"><div id="bookmarks-bar-items" class="bookmarks-bar-items"></div><button id="btn-add-bookmark" type="button" title="Таңдаулы сайт қосу" aria-label="Таңдаулы сайт қосу">＋</button></nav>
+    </header>
+    <div id="content-area">
+      <aside id="sidebar" aria-label="Galamtor құралдары">
+        <button id="btn-workspace" class="sidebar-logo" type="button" title="Workspace және профиль" aria-label="Workspace және профиль">G</button>
+        <button id="btn-ai-tools" class="dock-btn" type="button" title="AI сайттары" aria-label="AI сайттары">✦</button>
+        <div class="sidebar-divider"></div>
+        <nav id="dock-icons" class="dock-icons" aria-label="Жылдам сайттар">
+          <a class="dock-btn" href="https://kaspi.kz" target="_blank" rel="noopener noreferrer" title="Kaspi.kz" data-site="Kaspi.kz">K</a>
+          <a class="dock-btn" href="https://egov.kz" target="_blank" rel="noopener noreferrer" title="eGov.kz" data-site="eGov.kz">E</a>
+          <a class="dock-btn youtube-link" href="https://youtube.com" target="_blank" rel="noopener noreferrer" title="YouTube" data-site="YouTube">▶</a>
+          <a class="dock-btn" href="https://music.youtube.com" target="_blank" rel="noopener noreferrer" title="YouTube Music" data-site="YouTube Music">♫</a>
+        </nav>
+        <div class="sidebar-spacer"></div>
+        <button id="btn-sidebar-bookmarks" class="dock-btn" type="button" title="Бетбелгілер" aria-label="Бетбелгілер">♧</button>
+        <button id="btn-sidebar-history" class="dock-btn" type="button" title="Galamtor-дан ашылған сайттар" aria-label="Тарих">◷</button>
+        <button id="btn-settings" class="dock-btn" type="button" title="Баптаулар" aria-label="Баптаулар">⚙</button>
+      </aside>
+      <main id="main-view">
+        <div id="welcome-screen" class="active-view">
+          <div id="welcome-bg-container" class="welcome-bg-container"><div id="welcome-bg-image" class="welcome-bg-image"></div><div id="welcome-bg-dim" class="welcome-bg-dim"></div></div>
+          <button id="btn-open-customizer" class="welcome-customize-btn" type="button">⚙ Басты бетті баптау</button>
+          <div class="welcome-content">
+            <div id="welcome-clock-widget" class="welcome-clock-widget"><div id="clock-time-display" class="clock-time">--:--</div><div id="clock-date-display" class="clock-date"></div></div>
+            <div class="welcome-brand-mark">ҒАЛАМТОР <span aria-hidden="true">·</span> ҚАЗАҚША ШОЛҒЫШ</div>
+            <h1 id="welcome-greeting" class="welcome-logo">Қайырлы күн!</h1>
+            <p class="welcome-tagline">Бүгін неден бастаймыз?</p>
+            <form id="welcome-search-form" class="welcome-search-form"><div class="welcome-search-box"><span class="search-capsule-cursor" aria-hidden="true">|</span><input id="welcome-search-input" type="text" placeholder="Ғаламтордан іздеу…" autocomplete="off" spellcheck="false" aria-label="Ғаламтордан іздеу"><button type="submit" class="search-submit-btn-cyan" aria-label="Іздеу">⌕</button></div></form>
+            <nav class="welcome-actions" aria-label="Жылдам әрекеттер"><button type="button" data-action="reopen-tab">Жабылған қойындыны қайтару</button><button type="button" data-action="open-history">Тарих</button><button type="button" data-action="open-bookmarks">Бетбелгілер</button><button type="button" data-action="command-palette">Іздеу ⌘K</button></nav>
+            <section class="web-favorites safari-section"><div class="safari-section-heading"><span>Таңдаулы сайттар</span><button type="button" class="safari-section-action" data-action="add-bookmark">＋ Қосу</button></div><div id="home-favorites" class="web-favorite-grid"></div></section>
+            <section class="safari-section" id="section-bento-hero"><div id="cyber-steppe-hub" class="valuta-card-container hub-style-bento">
+              <div id="cs-currency" class="valuta-card-delicate"><div class="web-widget-heading"><h2 class="valuta-title">Валюта бағамы</h2><button id="btn-refresh-rates" type="button" class="web-text-button">Жаңарту</button></div><p id="currency-source" class="valuta-subtitle">Анықтамалық бағам · open.er-api.com</p><div class="valuta-rates-col"><div class="valuta-rate-row"><span class="v-flag">🇺🇸</span><span class="v-code">USD</span><span class="v-val"><span id="rate-usd">—</span> ₸</span></div><div class="valuta-rate-row"><span class="v-flag">🇪🇺</span><span class="v-code">EUR</span><span class="v-val"><span id="rate-eur">—</span> ₸</span></div><div class="valuta-rate-row"><span class="v-flag">🇷🇺</span><span class="v-code">RUB</span><span class="v-val"><span id="rate-rub">—</span> ₸</span></div></div><p id="rates-status" class="web-muted" role="status" aria-live="polite"></p></div>
+              <div id="cs-prayer" class="prayer-widget"><h2>Намаз уақыты</h2><p>Қалаңыздың кестесін ҚМДБ сайтынан қараңыз.</p><a href="https://www.muftyat.kz/kk/namaz_times/" target="_blank" rel="noopener noreferrer" data-site="Намаз кестесі">Ресми кестені ашу ↗</a></div>
+            </div></section>
+            <section id="section-reading-news" class="safari-section"><div class="safari-section-heading"><span>Пайдалы дереккөздер</span><button id="btn-refresh-news" class="safari-section-action" type="button">↻ Басқа</button></div><div id="portal-news-bar" class="safari-reading-grid"></div></section>
+            <footer class="welcome-footer web-footer"><p>Сайттар браузеріңіздің бөлек қойындысында ашылады.</p><p>Galamtor Web · орнатусыз <span id="active-vibe-name"></span></p><a href="/privacy.html" target="_blank" rel="noopener noreferrer">Құпиялылық</a></footer>
+          </div>
+        </div>
+        <section id="web-site-view" class="web-site-view" hidden aria-labelledby="site-title"><div class="web-site-card"><span class="web-eyebrow">GALAMTOR · СІЛТЕМЕ ҚОЙЫНДЫСЫ</span><h1 id="site-title"></h1><p id="site-url"></p><p>Бұл сайт браузеріңіздің бөлек қойындысында ашылады. Оның артқа/алға өтуін және жүктеулерін Safari немесе Chrome басқарады.</p><a id="site-open" class="web-primary" target="_blank" rel="noopener noreferrer">Сайтты ашу ↗</a><div class="web-card-actions"><button id="site-bookmark" type="button">☆ Таңдаулыға қосу</button><button type="button" data-action="home">Басты бетке қайту</button></div><p class="web-muted">Егер жаңа қойынды ашылмаса, «Сайтты ашу» сілтемесін басыңыз.</p></div></section>
+      </main>
+    </div>
+  </div>
+  <div id="storage-warning" role="alert" hidden></div>
+  <div id="web-toast" role="status" aria-live="polite" hidden></div>
+  <div id="menu-backdrop" hidden></div><div id="browser-menu" class="browser-menu" role="menu" hidden></div>
+  <dialog id="workspace-dialog" class="web-dialog web-workspace" aria-labelledby="workspace-title"><header class="web-dialog-header"><h2 id="workspace-title">Galamtor Workspace</h2><button type="button" data-close-dialog aria-label="Workspace жабу">×</button></header><div id="workspace-stats" class="web-stats"></div><nav id="workspace-nav" class="web-dialog-tabs" aria-label="Workspace бөлімдері"><button type="button" data-panel="profile">Профиль</button><button type="button" data-panel="bookmarks">Бетбелгілер</button><button type="button" data-panel="history">Тарих</button><button type="button" data-panel="vibes">Вайбтар</button><button type="button" data-panel="settings">Баптаулар</button></nav><div id="workspace-panel"></div></dialog>
+  <dialog id="bookmark-dialog" class="web-dialog" aria-labelledby="bookmark-editor-title"><header class="web-dialog-header"><h2 id="bookmark-editor-title">Таңдаулы сайт</h2><button type="button" data-close-dialog aria-label="Бетбелгі терезесін жабу">×</button></header><form id="bookmark-form" novalidate><label class="web-field">Атауы<input id="bookmark-title" maxlength="300" required autocomplete="off"></label><label class="web-field">Сайт мекенжайы<input id="bookmark-url" type="url" placeholder="https://example.com" required autocomplete="off" spellcheck="false"></label><p id="bookmark-error" role="alert"></p><div class="web-card-actions"><button id="bookmark-delete" class="web-danger" type="button" hidden>Өшіру</button><button type="button" data-close-dialog>Болдырмау</button><button type="submit" class="web-primary">Сақтау</button></div></form></dialog>
+  <dialog id="lens-dialog" class="web-dialog" aria-labelledby="lens-title"><header class="web-dialog-header"><h2 id="lens-title">Galamtor Lens</h2><button type="button" data-close-dialog aria-label="Lens жабу">×</button></header><p>Жалпыға қолжетімді суреттің HTTPS сілтемесін енгізіңіз немесе суретті Google терезесінде өзіңіз таңдаңыз.</p><form id="lens-form" novalidate><label class="web-field">Сурет сілтемесі<input id="lens-url" type="url" placeholder="https://example.com/image.jpg" autocomplete="off"></label><p id="lens-error" role="alert"></p><div class="web-card-actions"><a class="web-secondary" href="https://lens.google/" target="_blank" rel="noopener noreferrer">Google-да сурет таңдау ↗</a><button class="web-primary" type="submit">Суретпен іздеу ↗</button></div></form><p class="web-muted">Google нәтижесі бөлек қойындыда ашылады. Құрылғыдағы сурет автоматты жүктелмейді.</p></dialog>
+  <dialog id="commands-dialog" class="web-dialog" aria-labelledby="commands-title"><header class="web-dialog-header"><h2 id="commands-title">Іздеу және әрекеттер</h2><button type="button" data-close-dialog aria-label="Іздеуді жабу">×</button></header><input id="command-input" class="web-command-input" placeholder="Қойынды, бетбелгі немесе әрекет…" aria-label="Қойындылар мен әрекеттерден іздеу" autocomplete="off"><div id="command-results"></div><p class="web-muted">↑ ↓ таңдау · Enter ашу · Esc жабу</p></dialog>
+  <dialog id="ai-tools-dialog" class="web-dialog" aria-labelledby="ai-tools-title"><header class="web-dialog-header"><h2 id="ai-tools-title">AI сайттары</h2><button type="button" data-close-dialog aria-label="AI сайттарын жабу">×</button></header><p>Сұрақты таңдаған қызметтің өз сайтында жазыңыз.</p><div class="web-tool-links"><a href="https://chatgpt.com" target="_blank" rel="noopener noreferrer" data-site="ChatGPT">ChatGPT ↗</a><a href="https://gemini.google.com" target="_blank" rel="noopener noreferrer" data-site="Google Gemini">Google Gemini ↗</a><button type="button" data-action="lens">Galamtor Lens ◎</button></div><p class="web-muted">Қолданбадағы жергілікті AI, AdBlock және банк экранын қорғау веб-нұсқада қолжетімді емес.</p></dialog>
+  <input id="profile-import-file" type="file" accept="application/json,.json" hidden>
+  <noscript><p>Galamtor Web жұмыс істеуі үшін JavaScript қосыңыз. <a href="/">Ресми сайтқа оралу</a></p></noscript>
+  <!-- shared-pet:start -->
+<div id="galamtor-bot-widget" class="galamtor-bot-widget" data-ai-state="idle">
+  <button id="web-pet-avatar" class="galamtor-bot-open" type="button" aria-label="Серікті баптау"><div id="galamtor-pet-live-art" class="galamtor-pet-art" aria-hidden="true"></div><span id="galamtor-pet-live-accessory" class="galamtor-pet-accessory galamtor-pet-live-accessory" hidden aria-hidden="true"></span></button>
+  <button id="galamtor-pet-customize" class="galamtor-bot-action" type="button" title="Серікті баптау" aria-label="Серікті баптау" aria-haspopup="dialog" aria-expanded="false" aria-controls="galamtor-pet-studio">✎</button>
+  <aside id="galamtor-pet-studio" class="galamtor-pet-studio" role="dialog" aria-labelledby="galamtor-pet-studio-title" hidden>
+        <header class="pet-studio-header">
+          <div>
+            <span class="pet-studio-eyebrow">ҒАЛАМТОР · СЕРІКТЕР</span>
+            <h2 id="galamtor-pet-studio-title">Өз серігіңді жаса</h2>
+          </div>
+          <button id="galamtor-pet-close" class="pet-studio-close" type="button" aria-label="Серікті баптауды жабу">×</button>
+        </header>
+        <section class="pet-preview-card" aria-label="Серіктің алдын ала көрінісі">
+          <div class="pet-preview-stage">
+            <div id="galamtor-pet-preview-art" class="galamtor-pet-art pet-preview-art" aria-hidden="true"></div>
+            <span id="galamtor-pet-preview-accessory" class="galamtor-pet-accessory pet-preview-accessory" aria-hidden="true" hidden></span>
+          </div>
+          <div class="pet-preview-copy">
+            <strong id="galamtor-pet-preview-name">Самал</strong>
+            <span id="galamtor-pet-preview-role">Жел серігі</span>
+            <p id="galamtor-pet-preview-note">Жылдам ойлап, жайлы бағыт көрсетеді.</p>
+          </div>
+        </section>
+        <div class="pet-studio-actions">
+          <button id="galamtor-pet-demo" type="button">Қимылын көрсету <span aria-hidden="true">↗</span></button>
+        </div>
+        <section class="pet-control-group" aria-labelledby="galamtor-pet-choose-title">
+          <h3 id="galamtor-pet-choose-title">Серігіңді таңда</h3>
+          <div id="galamtor-pet-catalog" class="pet-catalog"></div>
+        </section>
+        <div class="pet-control-grid">
+          <label class="pet-field pet-field-wide" for="galamtor-pet-name">
+            <span>Аты</span>
+            <input id="galamtor-pet-name" type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Серігіңе ат қой">
+          </label>
+          <fieldset class="pet-field pet-field-wide pet-color-field">
+            <legend>Түс палитрасы</legend>
+            <div class="pet-color-options">
+              <button type="button" data-pet-color="sky" aria-label="Көк аспан түсі" title="Көк аспан"><span></span></button>
+              <button type="button" data-pet-color="mint" aria-label="Жалбыз түсі" title="Жалбыз"><span></span></button>
+              <button type="button" data-pet-color="violet" aria-label="Күлгін түс" title="Күлгін"><span></span></button>
+              <button type="button" data-pet-color="sun" aria-label="Күн шуағы түсі" title="Күн шуағы"><span></span></button>
+            </div>
+          </fieldset>
+          <label class="pet-field" for="galamtor-pet-accessory">
+            <span>Аксессуар</span>
+            <select id="galamtor-pet-accessory">
+              <option value="none">Аксессуарсыз</option>
+              <option value="spark">Жұлдызша</option>
+              <option value="headphones">Құлаққап</option>
+              <option value="scarf">Шарф</option>
+              <option value="moon">Ай белгісі</option>
+            </select>
+          </label>
+          <label class="pet-field" for="galamtor-pet-temperament">
+            <span>Мінезі</span>
+            <select id="galamtor-pet-temperament">
+              <option value="curious">Қызыққұмар</option>
+              <option value="calm">Сабырлы</option>
+              <option value="dreamy">Арманшыл</option>
+            </select>
+          </label>
+        </div>
+        <footer class="pet-studio-footer">
+          <span id="galamtor-pet-save-status" role="status" aria-live="polite">Таңдауларың осы құрылғыда сақталады.</span>
+          <div>
+            <button id="galamtor-pet-randomize" type="button">Кездейсоқ образ</button>
+            <button id="galamtor-pet-reset" type="button">Әдепкіге қайтару</button>
+          </div>
+          <small>Пет баптаулары осы құрылғыда қалады, аккаунтқа жіберілмейді.</small>
+        </footer>
+      </aside>
+</div>
+<!-- shared-pet:end -->
+  <script src="shared/browser-state.js"></script><script src="shared/url-utils.js"></script><script src="shared/welcome-utils.js"></script><script src="shared/lens-utils.js"></script><script src="shared/pet-companion.js"></script><script src="shared/secure-auth-persistence.js"></script><script src="firebase-compat.js"></script><script src="web-auth-store.js"></script><script src="web-auth.js"></script><script src="web-state.js"></script><script src="web-app.js"></script>
+</body>
+</html>

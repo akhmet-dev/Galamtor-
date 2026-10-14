@@ -780,6 +780,10 @@ section{position:relative;}
 .progress-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;}
 .progress-download-link{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:9px 14px;background:var(--paper-cream);color:var(--ink);border:1px solid var(--paper-cream);font-family:var(--ff-mono);font-size:10px;font-weight:700;letter-spacing:.04em;text-decoration:none;transition:background .2s,transform .2s;}
 .progress-download-link:hover{background:#e8d9b4;transform:translateY(-1px);}
+.progress-web-link{background:#dfc990;border-color:#dfc990;}
+.progress-web-link:focus-visible,.sec-nav a:focus-visible,.dl-btn:focus-visible{outline:3px solid var(--accent-gold);outline-offset:4px;}
+.dl-web-note{padding:14px 16px;border:1px solid var(--rule-light);background:var(--paper-cream);font-size:13px;line-height:1.65;margin:16px 0;}
+.dl-web-note strong{color:var(--ink);}
 .progress-platform{font-family:var(--ff-mono);font-size:9px;color:#d0c5b0;}
 .progress-facts{display:grid;gap:8px;list-style:none;border-left:1px solid rgba(223,201,144,.35);padding-left:18px;margin:0;}
 .progress-facts li{display:flex;align-items:center;gap:9px;font-size:12px;line-height:1.4;color:#d0c5b0;}
@@ -877,6 +881,7 @@ section{position:relative;}
     <a href="#edition">Нұсқа</a>
     <a href="#manifesto">Ашықтық</a>
     <a href="#download">Жүктеу</a>
+    <a href="/app/" class="web-entry-link">Galamtor Web</a>
   </nav>
   <div class="mh-rule-thin" style="margin-bottom:0"></div>
 </header>
@@ -891,9 +896,10 @@ section{position:relative;}
       <h2 id="progress-title">Galamtor 1.5.3 — қоғамдық сынақ нұсқасы</h2>
       <p>Таңдаулы сайттарды атауы немесе URL бойынша іздеңіз, қосыңыз және өңдеңіз. Өзгеріс жоғарғы жолақта бірден көрінеді. Бір мекенжай қайталанбайды; сақтау сәтсіз болса, түсінікті қате мен қайталау мүмкіндігі беріледі.</p>
       <p>Google кіруін сақтау енді таңдауға болады: қосылса, сессия құрылғының қорғалған сақтау орнына шифрланады. macOS-тағы «Galamtor is damaged» ескертуіне арналған скрині бар нұсқаулық төменде берілген.</p>
-      <p class="progress-release-note">ChatGPT жоспарына кіру әзірше жұмыс үстелі қолданбасында ғана бар; ол Firebase Google-кіруін алмастырмайды, веб-сайтта AI қызметі қосылмаған. 1.5.3 — қолтаңбасыз қоғамдық сынақ нұсқасы; Developer ID қолтаңбасы немесе Apple notarization бар деп көрсетілмейді. Gatekeeper ескертуі қауіпсіз түрде шешілмесе, веб-нұсқаны қолданыңыз.</p>
+      <p class="progress-release-note">Galamtor Web басты беті, таңдаулылар, виджеттер, питомец пен баптауларды орнатусыз ашады. Сыртқы сайттар осы браузердің бөлек қойындысында ашылады. Жұмыс үстелі қолданбасының AI қызметтері, жарнама сүзгісі және жүйелік мүмкіндіктері веб-нұсқада қолжетімсіз. 1.5.3 — Developer ID қолтаңбасы мен Apple notarization қойылмаған сынақ нұсқасы.</p>
       <div class="progress-actions">
-        <a class="progress-download-link" href="#download" aria-label="macOS үшін Galamtor 1.5.2 қоғамдық нұсқасын жүктеу">
+        <a class="progress-download-link progress-web-link" href="/app/" id="web-app-cta">Galamtor Web ашу — орнатусыз <span aria-hidden="true">→</span></a>
+        <a class="progress-download-link" href="#download" aria-label="macOS үшін Galamtor 1.5.3 қоғамдық нұсқасын жүктеу">
           <span id="stable-version-cta">Қоғамдық нұсқа · v1.5.3</span><span aria-hidden="true">→</span>
         </a>
         <span class="progress-platform">macOS 13+ · Apple Silicon және Intel</span>
@@ -1021,7 +1027,7 @@ section{position:relative;}
         <div class="stamp-circle" style="color:var(--accent-gold);border-color:var(--accent-gold);box-shadow:inset 0 0 0 5px var(--paper),inset 0 0 0 7px var(--accent-gold);">
           <span class="sc-arc-top" style="color:var(--accent-gold)">&#9733; ТЕГІН &#9733;</span>
           <div class="sc-main" style="color:var(--accent-gold)">macOS<br>M1–M4 & Intel</div>
-          <span class="sc-arc-bot" style="color:var(--accent-gold)">2026 · v1.5.2</span>
+          <span class="sc-arc-bot" style="color:var(--accent-gold)">2026 · v1.5.3</span>
         </div>
       </div>
 
@@ -1172,6 +1178,7 @@ section{position:relative;}
       <p class="dl-ver" id="dl-version-info">Қоғамдық нұсқа v1.5.3 · macOS 13+ · Тегін</p>
       <div class="rule-h"></div>
       <div class="dl-acts">
+        <a href="/app/" class="dl-btn pri" id="dl-web-app-btn">Galamtor Web ашу — орнатусыз</a>
         <a href="https://github.com/akhmet-dev/Galamtor-/releases/latest" class="dl-btn pri" id="dl-main-btn" aria-label="Galamtor соңғы шығарылымын GitHub-та ашу">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           <span class="btn-text">Жүктеу нұсқаларын көру</span>
@@ -1181,10 +1188,11 @@ section{position:relative;}
           GitHub
         </a>
       </div>
+      <p class="dl-web-note"><strong>Веб-нұсқа:</strong> қолданбадағы басты бет, таңдаулылар, виджеттер, питомец және баптаулар браузерде жұмыс істейді. Баптаулар осы браузерде сақталады. Сыртқы сайттар браузердің бөлек қойындысына ашылады; жұмыс үстелі қолданбасының AI қызметтері, жарнама сүзгісі және жүйелік мүмкіндіктері веб-нұсқада жоқ.</p>
       <div id="dl-platform-dropdown" class="dl-platform-dropdown"></div>
       <div class="dl-note">macOS 13 немесе жаңарақ нұсқасы қажет. GitHub-та өз құрылғыңызға сай Apple Silicon (arm64) не Intel (x64) DMG файлын таңдаңыз.</div>
       <div class="dl-note"><strong>Жаңарту:</strong> Galamtor-ды толық жабыңыз, Mac түріңізге сай DMG жүктеп, Applications ішіндегі Galamtor-ды жаңа нұсқамен ауыстырыңыз. Профильді өшірудің қажеті жоқ. Қолтаңбасыз preview үшін жаңарту қолмен орнатылады.</div>
-      <div class="dl-note dl-security-note"><strong>Қауіпсіздік:</strong> 1.5.3 preview жинағына Developer ID қолтаңбасы да, Apple нотариалдық тексеруі де қойылмаған. macOS ескертуі қолданбаның өзгергенін немесе бүлінгенін айтса, оны айналып өтпеңіз: файлды жойып, SHA-256 сомасын тексеріп қайта жүктеңіз. Ескерту сақталса, Gatekeeper-ді өшірмей, әзірге <a href="https://galamtor.web.app">веб-нұсқаны</a> қолданыңыз.</div>
+      <div class="dl-note dl-security-note"><strong>Қауіпсіздік:</strong> 1.5.3 preview жинағына Developer ID қолтаңбасы да, Apple нотариалдық тексеруі де қойылмаған. macOS ескертуі қолданбаның өзгергенін немесе бүлінгенін айтса, оны айналып өтпеңіз: файлды жойып, SHA-256 сомасын тексеріп қайта жүктеңіз. Ескерту сақталса, Gatekeeper-ді өшірмей, әзірге <a href="/app/">веб-нұсқаны</a> қолданыңыз.</div>
       <details class="dl-troubleshoot" id="macos-gatekeeper-help" open>
         <summary>Mac «Galamtor is damaged and can’t be opened» деп көрсетсе — не істеу керек?</summary>
         <div class="dl-troubleshoot-content">
@@ -1197,7 +1205,7 @@ section{position:relative;}
             <ol>
               <li>Ескертуде <strong>Cancel</strong> таңдаңыз; «Move to Trash» батырмасын баспаңыз.</li>
               <li>DMG мен релиздегі <strong>SHA256SUMS-1.5.3.txt</strong> файлын ресми GitHub релизінен жүктеңіз. SHA-256 хэшін тексеру үшін Terminal-да Apple Silicon құрылғысында <code>shasum -a 256 ~/Downloads/Galamtor-1.5.3-arm64.dmg</code>, Intel құрылғысында <code>shasum -a 256 ~/Downloads/Galamtor-1.5.3.dmg</code> орындап, шыққан мәнді checksum файлындағы сәйкес жолмен салыстырыңыз. Бұл команда файлды өзгертпейді де, ештеңе орнатпайды.</li>
-              <li>Сома дәл келсе де дәл осы «is damaged» хабарламасы қайталанса, Gatekeeper-ді сөндірмеңіз және терминалдан «автофиксті» іске қоспаңыз. Бұл preview-ді қауіпсіз айналып өту жолы жоқ — әзірге <a href="https://galamtor.web.app">Galamtor веб-нұсқасын ашыңыз</a>.</li>
+              <li>Сома дәл келсе де дәл осы «is damaged» хабарламасы қайталанса, Gatekeeper-ді сөндірмеңіз және терминалдан «автофиксті» іске қоспаңыз. Бұл preview-ді қауіпсіз айналып өту жолы жоқ — әзірге <a href="/app/">Galamtor веб-нұсқасын ашыңыз</a>.</li>
             </ol>
             <p>Егер хабарлама тек Apple әзірлеушіні тексере алмайтынын айтса, ресми файл екеніне көзіңіз жеткенде ғана macOS-та System Settings → Privacy &amp; Security → <em>Open Anyway</em> жолын қарастырыңыз. Бұл нақты «app is damaged» қатесін жөндемейді. <a href="https://support.apple.com/en-us/102445" target="_blank" rel="noopener noreferrer">Apple нұсқаулығы</a>.</p>
             <p>«Автофикст» орнатылмайды: ол жүйе қорғанысын әлсіретпеуі керек. Қолтаңбалы әрі нотариалданған жинаққа Developer ID қажет.</p>

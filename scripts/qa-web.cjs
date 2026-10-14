@@ -10,14 +10,43 @@ const output = path.join(root, 'dist', `qa-${require('../package.json').version}
 fs.mkdirSync(output, { recursive:true });
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'galamtor-web-qa-'));
 const server = http.createServer((req,res) => {
-  const pathname = new URL(req.url,'http://localhost').pathname;
-  const file = path.join(root,'public',pathname === '/' ? 'index.html' : pathname.slice(1));
-  if (!file.startsWith(path.join(root,'public') + path.sep) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
-  res.setHeader('Content-Type',{'.html':'text/html','.js':'application/javascript','.css':'text/css','.png':'image/png','.svg':'image/svg+xml'}[path.extname(file)]||'text/plain');
-  res.end(fs.readFileSync(file));
+  if (!['GET','HEAD'].includes(req.method)) { res.writeHead(405,{Allow:'GET, HEAD'}); res.end(); return; }
+  let pathname, url;
+  try { url = new URL(req.url,'http://localhost'); pathname = decodeURIComponent(req.url.split(/[?#]/,1)[0]); }
+  catch { res.writeHead(400); res.end(); return; }
+  if (!pathname.startsWith('/') || pathname.includes('\\') || pathname.includes('\0') || pathname.split('/').some(part=>part.startsWith('.'))) { res.writeHead(403); res.end(); return; }
+  const publicRoot = path.join(root,'public');
+  let relative = pathname.slice(1), file = path.resolve(publicRoot,relative);
+  if (file !== publicRoot && !file.startsWith(publicRoot + path.sep)) { res.writeHead(403); res.end(); return; }
+  function safeStat(relativePath) {
+    let current = publicRoot, stat = fs.lstatSync(current);
+    if (stat.isSymbolicLink()) throw Object.assign(new Error('Forbidden'),{code:'EACCES'});
+    for(const part of relativePath.split('/').filter(Boolean)) {
+      current = path.join(current,part); stat = fs.lstatSync(current);
+      if(stat.isSymbolicLink()) throw Object.assign(new Error('Forbidden'),{code:'EACCES'});
+    }
+    return stat;
+  }
+  try {
+    let stat = safeStat(relative);
+    if(stat.isDirectory()) {
+      if(!pathname.endsWith('/')) { res.writeHead(301,{Location:`${url.pathname}/${url.search}`}); res.end(); return; }
+      relative = path.join(relative,'index.html'); file = path.join(publicRoot,relative); stat = safeStat(relative);
+    }
+    if(!stat.isFile()) { res.writeHead(404); res.end(); return; }
+    res.setHeader('Content-Type',{'.html':'text/html','.js':'application/javascript','.css':'text/css','.png':'image/png','.svg':'image/svg+xml'}[path.extname(file)]||'text/plain');
+    res.setHeader('X-Content-Type-Options','nosniff');
+    res.end(req.method === 'HEAD' ? undefined : fs.readFileSync(file));
+  } catch(error) { res.writeHead(error.code === 'EACCES' ? 403 : 404); res.end(); }
 });
 const passed = [], errors = [];
 const check = async (name, run) => { await run(); passed.push(name); console.log(`PASS ${name}`); };
+const rawStatus = requestPath => new Promise((resolve,reject)=>{
+  const request = http.request({hostname:'127.0.0.1',port:server.address().port,path:requestPath},response=>{
+    response.resume(); response.on('end',()=>resolve(response.statusCode));
+  });
+  request.on('error',reject); request.end();
+});
 let app, browser, page;
 const fakeFirebase = `
 (() => {
@@ -50,6 +79,23 @@ const fakeFirebase = `
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
   try {
+    await check('website directory routing serves index pages and rejects traversal and symlinks',async()=>{
+      const fixture = fs.mkdtempSync(path.join(root,'public','qa-web-static-'));
+      const route = '/' + path.basename(fixture);
+      try {
+        fs.writeFileSync(path.join(fixture,'index.html'),'<!doctype html><title>QA directory index</title>');
+        fs.symlinkSync(path.join(root,'README.md'),path.join(fixture,'linked.txt'));
+        fs.symlinkSync(path.join(root,'scripts'),path.join(fixture,'linked-dir'));
+        const redirect = await fetch(base + route + '?qa=1',{redirect:'manual'});
+        assert.equal(redirect.status,301); assert.equal(redirect.headers.get('location'),route+'/?qa=1');
+        assert.equal(await (await fetch(base+route+'/')).text(),'<!doctype html><title>QA directory index</title>');
+        assert.equal((await fetch(base+route+'/linked.txt')).status,403);
+        assert.equal((await fetch(base+route+'/linked-dir/qa-web.cjs')).status,403);
+        assert.equal(await rawStatus('/%2e%2e/README.md'),403);
+        assert.equal(await rawStatus('/assets/%2e%2e/%2e%2e/README.md'),403);
+        assert.equal(await rawStatus('/%00bad'),403);
+      } finally { fs.rmSync(fixture,{recursive:true,force:true}); }
+    });
     const env = {...process.env,GALAMTOR_DEV_PROFILE:profile}; delete env.ELECTRON_RUN_AS_NODE; delete env.GEMINI_API_KEY;
     if (engine === 'webkit') {
       browser = await webkit.launch();
@@ -81,6 +127,15 @@ const fakeFirebase = `
       assert.equal(await page.locator('#dl-main-btn').getAttribute('href'),release.html_url);
       await page.locator('#dl-platform-dropdown summary').click();
       assert.equal(await page.locator('#dl-platform-dropdown a').count(),2);
+    });
+    await check('website exposes the real web app from navigation, main CTA and download help',async()=>{
+      for(const selector of ['.sec-nav .web-entry-link','#web-app-cta','#dl-web-app-btn']) {
+        assert.equal(await page.locator(selector).getAttribute('href'),'/app/');
+        assert.equal(await page.locator(selector).isVisible(),true);
+      }
+      const webLinks = await page.locator('#macos-gatekeeper-help a').evaluateAll(nodes=>nodes.filter(node=>node.textContent.includes('веб-нұсқа')).map(node=>node.getAttribute('href')));
+      assert.deepEqual(webLinks,['/app/']);
+      assert.match(await page.locator('.dl-web-note').innerText(),/бөлек қойынды/);
     });
     await check('website navigation and responsive layouts at 390, 768 and 1360 pixels',async()=>{
       for(const width of [390,768,1360]) {

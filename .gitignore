@@ -3,3 +3,8 @@ node_modules/
 *.log
 dist/
 .firebase/
+# Generated from the desktop/shared sources by npm run build:web.
+public/app/shared/
+public/app/assets/
+public/app/desktop.css
+public/app/firebase-compat.js
