@@ -28,7 +28,9 @@ Completed Google account login, live refresh-token rotation and live Firestore w
 
 Deployment target: existing Firebase project `galamtor-browser-974cc`, `hosting:galamtor` only. Authentication project/provider configuration and Firestore rules remain unchanged. `/app/**` revalidates cached assets to avoid retaining old UI after a deploy.
 
-Deployment verification will be recorded after publication.
+Firebase Hosting deployment completed successfully on 2026-10-14. Live URL: **https://galamtor.web.app/app/**. The app HTML, controller, CSS, auth module, shared pet and Firebase bundle each returned HTTP 200 and matched the tested source by SHA-256. The live cache header was `no-cache, max-age=0, must-revalidate`.
+
+An isolated fresh WebKit context followed the landing CTA into the published app, created a local synthetic favorite, reloaded it, changed widget/Reduce Motion preferences and restored them after reload. Real Firebase initialized without an account and real remember on/off succeeded. The public currency API supplied rates successfully from the live app origin. The published home at 1360 and 390 px had no horizontal overflow or renderer exceptions. Evidence: `dist/qa-web-app/live/results.json` and adjacent screenshots. No account was entered and no live Firestore write was performed.
 
 ## Limits
 
