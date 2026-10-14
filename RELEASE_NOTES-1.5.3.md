@@ -2,7 +2,7 @@
 
 Google sign-in can now be remembered on this device with an opt-in setting in Workspace → Profile. When enabled, Firebase persistence is encrypted through Electron safeStorage and the operating system's secure storage; when disabled, sign-in stays in memory and stored credentials are removed. The default remains off. If secure storage is unavailable, the browser falls back to memory-only sign-in.
 
-The download page now includes the exact macOS “Galamtor is damaged and can’t be opened” screenshot and a safe recovery guide. It directs users to cancel, verify the official release's SHA-256, and use the web app if the warning remains. It does not advise disabling Gatekeeper or running an automatic bypass. The release is clearly marked as an unsigned preview without Developer ID or Apple notarization.
+The download page now includes the exact macOS “Galamtor is damaged and can’t be opened” screenshot and a safe recovery guide. It directs users to cancel, verify the official release's SHA-256, and use the web app if the warning remains. It does not advise disabling Gatekeeper or running an automatic bypass. The release is clearly marked as an unsigned preview without Developer ID or Apple notarization. If GitHub's release API is unavailable, the page keeps the verified 1.5.3 Mac downloads and SHA-256 values available from its local fallback.
 
 Fixed the Firebase compat persistence bootstrap so the secure adapter is registered through the same SDK instance as Firebase Compat. Also fixed an early-load date widget initialization error.
 

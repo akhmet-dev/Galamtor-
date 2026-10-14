@@ -14,6 +14,7 @@ The release gates below were run on 14 October 2026 in disposable profiles. All 
 | Website/auth in WebKit | 14 checks passed; no unexpected page errors |
 | Actual CDN Firebase SDK helper | 9 scenarios passed using synthetic Google credentials and desktop acknowledgments |
 | Gatekeeper guide | User screenshot loads; instructions and no-bypass copy verified at 390, 768 and 1360 px; no horizontal overflow |
+| GitHub release API fallback | Direct ARM64/Intel DMG and ZIP links plus verified SHA-256 remain available with blocked storage and API failure/older metadata |
 | macOS ARM64/Intel builds | DMG and ZIP built; app runtime verified on ARM64 and x64 via Rosetta |
 | Packaged app QA | Each architecture passed 17 core UI and 10 backend checks; DMGs and ZIPs passed archive integrity checks |
 

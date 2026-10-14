@@ -69,9 +69,9 @@ const fakeFirebase = `
     page.on('pageerror',error=>errors.push(error.message));
     await page.route('https://fonts.googleapis.com/**',route=>route.abort());
     await page.route('https://fonts.gstatic.com/**',route=>route.abort());
-    const release = {tag_name:'v1.5.1',html_url:'https://github.com/akhmet-dev/Galamtor-/releases/tag/v1.5.1',published_at:'2026-10-13T15:00:00Z',body:'Preview',assets:[
-      {name:'Galamtor-1.5.1-arm64.dmg',size:100,browser_download_url:'https://github.com/akhmet-dev/Galamtor-/releases/download/v1.5.1/Galamtor-1.5.1-arm64.dmg'},
-      {name:'Galamtor-1.5.1.dmg',size:100,browser_download_url:'https://github.com/akhmet-dev/Galamtor-/releases/download/v1.5.1/Galamtor-1.5.1.dmg'}
+    const release = {tag_name:'v1.5.3',html_url:'https://github.com/akhmet-dev/Galamtor-/releases/tag/v1.5.3',published_at:'2026-10-14T04:49:49Z',body:'SHA256 Checksums',assets:[
+      {name:'Galamtor-1.5.3-arm64.dmg',size:145219778,browser_download_url:'https://github.com/akhmet-dev/Galamtor-/releases/download/v1.5.3/Galamtor-1.5.3-arm64.dmg'},
+      {name:'Galamtor-1.5.3.dmg',size:149074854,browser_download_url:'https://github.com/akhmet-dev/Galamtor-/releases/download/v1.5.3/Galamtor-1.5.3.dmg'}
     ]};
     await page.route('https://api.github.com/repos/akhmet-dev/Galamtor-/releases/latest',route=>route.fulfill({json:release}));
     await check('website corrupt cache still fetches release and both Mac downloads',async()=>{
@@ -113,7 +113,14 @@ const fakeFirebase = `
       await page.unroute('https://api.github.com/repos/akhmet-dev/Galamtor-/releases/latest');
       await page.route('https://api.github.com/repos/akhmet-dev/Galamtor-/releases/latest',route=>route.fulfill({status:503,body:'unavailable'}));
       await page.reload();
-      assert.equal(await page.locator('#dl-main-btn').getAttribute('href'),'https://github.com/akhmet-dev/Galamtor-/releases/latest');
+      assert.equal(await page.locator('#dl-main-btn').getAttribute('href'),'https://github.com/akhmet-dev/Galamtor-/releases/tag/v1.5.3');
+      const fallbackLinks = page.locator('#dl-platform-dropdown a');
+      await page.waitForFunction(()=>document.getElementById('dl-platform-dropdown').querySelectorAll('a').length===5);
+      assert.equal(await fallbackLinks.count(),5);
+      await page.locator('#dl-platform-dropdown summary').click();
+      assert.ok((await page.locator('#dl-platform-dropdown').innerText()).includes('7569316382dc36c889043b7f117ef9759e677d839efa41c160b74e68dd6152c8'));
+      assert.equal(await fallbackLinks.filter({hasText:'Galamtor-1.5.3-arm64.dmg'}).getAttribute('href'),'https://github.com/akhmet-dev/Galamtor-/releases/download/v1.5.3/Galamtor-1.5.3-arm64.dmg');
+      assert.ok((await fallbackLinks.evaluateAll(nodes=>nodes.map(node=>node.href))).every(url=>url.includes('/v1.5.3/')));
     });
     let authPage;
     if (browser) authPage = await browser.newPage({viewport:{width:800,height:700}});

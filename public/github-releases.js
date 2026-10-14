@@ -4,6 +4,30 @@
   const CACHE_KEY = 'galamtor_github_release_cache_v4';
   const CACHE_TIME_MS = 15 * 60 * 1000; // 15 minutes
   const FALLBACK_VERSION = 'v1.5.3';
+  const FALLBACK_ASSETS = [
+    ['Galamtor-1.5.3-arm64.dmg', 145219778],
+    ['Galamtor-1.5.3.dmg', 149074854],
+    ['Galamtor-1.5.3-arm64-mac.zip', 139760857],
+    ['Galamtor-1.5.3-mac.zip', 143559501],
+    ['SHA256SUMS-1.5.3.txt', 360]
+  ];
+  const FALLBACK_CHECKSUMS = `## SHA256 Checksums
+
+7569316382dc36c889043b7f117ef9759e677d839efa41c160b74e68dd6152c8  Galamtor-1.5.3-arm64.dmg
+800c0ff6ee106014cf7b8c353c4e22d86ddb1ef54d94ff88ba6e9cb47fb85c3b  Galamtor-1.5.3.dmg
+7666c2d5ac188f13318cc9e5678d3c6a041be901632c25f8db33db62ea732f60  Galamtor-1.5.3-arm64-mac.zip
+40df9f91c06377561d997c5451c8e9fb9b4544fa23684f347ad178dd6103bf79  Galamtor-1.5.3-mac.zip`;
+
+  function fallbackRelease() {
+    const prefix = `${window.GalamtorReleaseUtils.REPOSITORY}/releases/download/${FALLBACK_VERSION}/`;
+    return window.GalamtorReleaseUtils.normalizeRelease({
+      tag_name: FALLBACK_VERSION,
+      html_url: `${window.GalamtorReleaseUtils.REPOSITORY}/releases/tag/${FALLBACK_VERSION}`,
+      published_at: '',
+      body: FALLBACK_CHECKSUMS,
+      assets: FALLBACK_ASSETS.map(([name, size]) => ({ name, size, browser_download_url: prefix + name }))
+    });
+  }
 
   const KAZAKH_MONTHS = [
     'Қаңтар', 'Ақпан', 'Наурыз', 'Сәуір', 'Мамыр', 'Маусым',
@@ -53,9 +77,10 @@
     } catch { /* Blocked or corrupt browser storage must not disable downloads. */ }
     try {
       const release = await window.GalamtorReleaseUtils.fetchRelease();
+      if (window.GalamtorReleaseUtils.isNewerVersion(FALLBACK_VERSION, release.tag_name)) return fallbackRelease();
       try { localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data: release })); } catch {}
       return release;
-    } catch { return null; }
+    } catch { return fallbackRelease(); }
   }
 
   function escapeHtml(value) {
